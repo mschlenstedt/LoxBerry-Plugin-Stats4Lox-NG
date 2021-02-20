@@ -23,10 +23,15 @@ PBIN=$LBPBIN/$PDIR
 INFLUXDBIN=`which influxd`
 INFLUXBIN=`which influx`
 OPENSSLBIN=`which openssl`
+OPENSSLBIN=`which telegraf`
 
-# Checking for InfluxDB
+# Checking for InfluxDB and Telegraf
 if [ ! -x $INFLUXDBIN ]; then
 	echo "<FAIL> Seems that InfluxDB was not installed correctly. Giving up."
+	exit 2
+fi
+if [ ! -x $TELEGRAFBIN ]; then
+	echo "<FAIL> Seems that Telegraf was not installed correctly. Giving up."
 	exit 2
 fi
 
@@ -61,7 +66,6 @@ else
 	USEREXISTS=1
 fi
 
-
 if [ $USEREXISTS -eq 0 ]; then
 	echo "<INFO> Creating default InfluxDB database loxberry."
 	$INFLUXBIN -username loxberry -password loxberry -execute "CREATE DATABASE loxberry"
@@ -82,7 +86,18 @@ if [ -d /etc/influxdb ] && [ ! -L /etc/influxdb ]; then
 	mv /etc/influxdb /etc/influxdb.orig
 fi
 rm -rf /etc/influxdb
-ln -s $PCONFIG /etc/influxdb
+ln -s $PCONFIG/influxdb /etc/influxdb
 systemctl restart influxdb
+
+echo "<INFO> Activating new Telegraf configuration."
+if [ -d /etc/telegraf ] && [ ! -L /etc/telegraf ]; then
+	mv /etc/telegraf /etc/telegraf.orig
+	mv /etc/default/telegraf /etc/default/telegraf.orig
+fi
+rm -rf /etc/telegraf
+rm -f /etc/default/telegraf
+ln -s $PCONFIG/telegraf /etc/telegraf
+ln -s $PCONFIG/telegraf/telegraf.env /etc/default/telegraf
+systemctl restart telegraf
 
 exit 0
