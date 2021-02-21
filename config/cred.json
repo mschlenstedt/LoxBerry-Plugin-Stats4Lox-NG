@@ -1,0 +1,7 @@
+{
+   "Credentials" : {
+      "influxdbuser" : "stat4lox",
+      "influxdbpass" : "loxberry"
+   }
+}
+
