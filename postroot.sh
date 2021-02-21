@@ -36,6 +36,12 @@ if [ ! -x $TELEGRAFBIN ]; then
 	exit 2
 fi
 
+# Stop all services
+
+echo "<INFO> Stopping InfluxDB and Telegraf."
+systemctl stop influxdb
+systemctl stop telegraf
+
 # Get InfluxDB credentials
 INFLUXDBUSER=`jq -r '.Credentials.influxdbuser' $PCONFIG/cred.json`
 INFLUXDBPASS=`jq -r '.Credentials.influxdbpass' $PCONFIG/cred.json`
@@ -54,10 +60,10 @@ fi
 rm -rf /etc/influxdb > /dev/null 2>&1
 ln -s $PCONFIG/influxdb /etc/influxdb
 
-if [ ! -x "$PCONFIG/influxdb-selfsigned.key" ]; then
+if [ ! -x "$PCONFIG/influxdb/influxdb-selfsigned.key" ]; then
 	echo "<INFO> No SSL certificates for InfluxDB found."
 	echo "<INFO> Creating (new) self-signed SSL certificates."
-	$OPENSSLBIN req -x509 -nodes -newkey rsa:2048 -keyout $PCONFIG/influxdb-selfsigned.key -out $PCONFIG/influxdb-selfsigned.crt -days 3650 -subj "/C=DE/ST=Austria/L=Kollerschlag/O=LoxBerry"
+	$OPENSSLBIN req -x509 -nodes -newkey rsa:2048 -keyout $PCONFIG/influxdb/influxdb-selfsigned.key -out $PCONFIG/influxdb/influxdb-selfsigned.crt -days 3650 -subj "/C=DE/ST=Austria/L=Kollerschlag/O=LoxBerry"
 	chown loxberry:loxberry $PCONFIG/influxdb/influxdb-selfsigned.*
 else
 	echo "<INFO> Found SSL certificates for InfluxDB. I will not create new ones."
@@ -67,11 +73,11 @@ fi
 echo "<INFO> Starting InfluxDB..."
 systemctl unmask influxdb.service
 systemctl enable --now influxdb
-systemctl restart influxdb # Also restart to make sure new config is used
+#systemctl restart influxdb # Also restart to make sure new config is used
 
 # Check status
 service influxdb status
-if [ $? -ne 0 ]; then
+if [ $? -gt 0 ]; then
 	echo "<FAIL> Seems that InfluxDB could not be started. Giving up."
 	exit 2
 else
@@ -79,8 +85,8 @@ else
 fi
 
 # Show current config to log
-echo "<INFO> Current configuration of InfluxDB is as follows:"
-$INFLUXDBIN config
+#echo "<INFO> Current configuration of InfluxDB is as follows:"
+#$INFLUXDBIN config
 
 # Check InfluxDB user. Create it if not exists
 RESP=`$INFLUXBIN -username $INFLUXDBUSER -password $INFLUXDBPASS -execute "SHOW USERS" | grep -e "^$INFLUXDBUSER\W*true$" | wc -l`
@@ -148,11 +154,11 @@ usermod -a -G loxberry telegraf
 echo "<INFO> Starting Telegraf..."
 systemctl unmask telegraf.service
 systemctl enable --now telegraf
-systemctl restart telegraf # Also restart to make sure new config is used
+#systemctl restart telegraf # Also restart to make sure new config is used
 
 # Check status
 service telegraf status
-if [ $? -ne 0 ]; then
+if [ $? -gt 0 ]; then
 	echo "<FAIL> Seems that Telegraf could not be started. Giving up."
 	exit 2
 else
