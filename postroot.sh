@@ -99,11 +99,11 @@ fi
 #$INFLUXDBIN config
 
 # Check InfluxDB user. Create it if not exists
-RESP=`$INFLUXBIN -username $INFLUXDBUSER -password $INFLUXDBPASS -execute "SHOW USERS" | grep -e "^$INFLUXDBUSER\W*true$" | wc -l`
+RESP=`$INFLUXBIN -ssl -unsafeSsl -username $INFLUXDBUSER -password $INFLUXDBPASS -execute "SHOW USERS" | grep -e "^$INFLUXDBUSER\W*true$" | wc -l`
 if [ $RESP -eq 0 ]; then
 	echo "<INFO> Creating default InfluxDB user 'stat4lox'."
-	INFLUXDBNEWPASS=`cat /dev/urandom|tr -dc "a-zA-Z0-9-_\$\?" | fold -w16 | head -n 1`
-	$INFLUXBIN -execute "CREATE USER stat4lox WITH PASSWORD $INFLUXDBNEWPASS WITH ALL PRIVILEGES"
+	INFLUXDBNEWPASS=`head /dev/urandom | tr -dc A-Za-z0-9 | head -c16`
+	$INFLUXBIN -ssl -unsafeSsl -execute "CREATE USER stat4lox WITH PASSWORD $INFLUXDBNEWPASS WITH ALL PRIVILEGES"
 	if [ $? -ne 0 ]; then
 		echo "<ERROR> Could not create default InfluxDB user. Nevertheless, I will try to continue. You have to make sure that you configure user/password for InfluxDB correctly by your own later on!"
 		ERROR = 1
@@ -122,10 +122,10 @@ else
 fi
 
 # Check for stat4lox database. Create it if not exists
-RESP=`$INFLUXBIN -username $INFLUXDBUSER -password $INFLUXDBPASS -execute "SHOW DATABASES" | grep -e "^stats4lox$" | wc -l`
+RESP=`$INFLUXBIN -ssl -unsafeSsl -username $INFLUXDBUSER -password $INFLUXDBPASS -execute "SHOW DATABASES" | grep -e "^stats4lox$" | wc -l`
 if [ $RESP -eq 0 ]; then
 	echo "<INFO> Creating default InfluxDB database 'stats4lox'."
-	$INFLUXBIN -username $INFLUXDBUSER -password $INFLUXDBPASS -execute "CREATE DATABASE stats4lox"
+	$INFLUXBIN -ssl -unsafeSsl -username $INFLUXDBUSER -password $INFLUXDBPASS -execute "CREATE DATABASE stats4lox"
 	if [ $? -gt 0 ]; then
 		echo "<ERROR> Could not create default InfluxDB database. Nevertheless, I will try to continue. You have to make sure that a database 'stats4lox' exists later on!"
 		ERROR=1
