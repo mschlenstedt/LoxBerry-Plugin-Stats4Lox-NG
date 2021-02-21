@@ -37,22 +37,26 @@ if [ ! -x $TELEGRAFBIN ]; then
 fi
 
 # Stop all services
-
 echo "<INFO> Stopping InfluxDB and Telegraf."
 systemctl stop influxdb
 systemctl stop telegraf
 
+# Set permissions
+echo "<INFO> Adding user influxdb and telegraf to loxberry group."
+usermod -a -G loxberry telegraf
+usermod -a -G loxberry influxdb
+
 # Get InfluxDB credentials
 INFLUXDBUSER=`jq -r '.Credentials.influxdbuser' $PCONFIG/cred.json`
 INFLUXDBPASS=`jq -r '.Credentials.influxdbpass' $PCONFIG/cred.json`
-if [ $INFLUXDBUSER -eq "" ]; then
+if [ "$INFLUXDBUSER" = "" ]; then
 	echo "<WARNING> Could not find credentials for InfluxDB. This may be an error, but I will try to continue. Using default ones: stat4lox/loxberry"
-	INFLUXDBUSER = "stat4lox"
-	INFLUXDBPASS = "loxberry"
+	INFLUXDBUSER="stat4lox"
+	INFLUXDBPASS="loxberry"
 	ERROR = 1
 fi
 
-# ctivate own config delivered with plugin
+# Activate own config delivered with plugin
 echo "<INFO> Activating my own InfluxDB configuration."
 if [ -d /etc/influxdb ] && [ ! -L /etc/influxdb ]; then
 	mv /etc/influxdb /etc/influxdb.orig
@@ -60,23 +64,29 @@ fi
 rm -rf /etc/influxdb > /dev/null 2>&1
 ln -s $PCONFIG/influxdb /etc/influxdb
 
-if [ ! -x "$PCONFIG/influxdb/influxdb-selfsigned.key" ]; then
+if [ ! -e $PCONFIG/influxdb/influxdb-selfsigned.key ]; then
 	echo "<INFO> No SSL certificates for InfluxDB found."
 	echo "<INFO> Creating (new) self-signed SSL certificates."
 	$OPENSSLBIN req -x509 -nodes -newkey rsa:2048 -keyout $PCONFIG/influxdb/influxdb-selfsigned.key -out $PCONFIG/influxdb/influxdb-selfsigned.crt -days 3650 -subj "/C=DE/ST=Austria/L=Kollerschlag/O=LoxBerry"
 	chown loxberry:loxberry $PCONFIG/influxdb/influxdb-selfsigned.*
+	chmod 640 $PCONFIG/influxdb/influxdb-selfsigned.*
 else
 	echo "<INFO> Found SSL certificates for InfluxDB. I will not create new ones."
 fi
+
+# Correct permissions - influxdb must have write permissions to database folders
+echo "<INFO> Set permissions for user influxdb for database folders..."
+chown -R influxdb:influxdb $PDATA/influxdb
 
 # Activate InfluxDB service and start
 echo "<INFO> Starting InfluxDB..."
 systemctl unmask influxdb.service
 systemctl enable --now influxdb
-#systemctl restart influxdb # Also restart to make sure new config is used
+systemctl start influxdb
+sleep 5
 
 # Check status
-service influxdb status
+systemctl status influxdb > /dev/null 2>&1
 if [ $? -gt 0 ]; then
 	echo "<FAIL> Seems that InfluxDB could not be started. Giving up."
 	exit 2
@@ -100,7 +110,6 @@ if [ $RESP -eq 0 ]; then
 	else
 		echo "<OK> Default InfluxDB user 'stat4lox' created sucessfully. Fine."
 		echo "<INFO> Saving credentials in cred.json."
-		INFLUXDBUSER = `jq -r '.Credentials.influxdbuser' $PCONFIG/cred.json`
 		jq ".Credentials.influxdbuser = \"$INFLUXDBUSER\"" $PCONFIG/cred.json > $PCONFIG/cred.json.new
 		mv $PCONFIG/cred.json.new $PCONFIG/cred.json
 		jq ".Credentials.influxdbpass = \"$INFLUXDBPASS\"" $PCONFIG/cred.json > $PCONFIG/cred.json.new
@@ -117,15 +126,15 @@ RESP=`$INFLUXBIN -username $INFLUXDBUSER -password $INFLUXDBPASS -execute "SHOW 
 if [ $RESP -eq 0 ]; then
 	echo "<INFO> Creating default InfluxDB database 'stats4lox'."
 	$INFLUXBIN -username $INFLUXDBUSER -password $INFLUXDBPASS -execute "CREATE DATABASE stats4lox"
-	if [ $? -ne 0 ]; then
+	if [ $? -gt 0 ]; then
 		echo "<ERROR> Could not create default InfluxDB database. Nevertheless, I will try to continue. You have to make sure that a database 'stats4lox' exists later on!"
 		ERROR=1
 	else
 		echo "<OK> InfluxDB database 'stat4lox' created sucessfully. Fine."
 	fi
 
-	echo "<INFO> Current available InfluxDB databases are as follows:"
-	$INFLUXBIN -username loxberry -password loxberry -execute "SHOW DATABASES"
+	#echo "<INFO> Current available InfluxDB databases are as follows:"
+	#$INFLUXBIN -username loxberry -password loxberry -execute "SHOW DATABASES"
 fi
 
 # Activating own telegraf config which is delivered with the plugin
@@ -148,16 +157,16 @@ awk -v s="USER_INFLUXDB=\"$INFLUXDBUSER\"" '/^USER_INFLUXDB=/{$0=s;f=1} {a[++n]=
 awk -v s="PASS_INFLUXDB=\"$INFLUXDBPASS\"" '/^PASS_INFLUXDB=/{$0=s;f=1} {a[++n]=$0} END{if(!f)a[++n]=s;for(i=1;i<=n;i++)print a[i]>ARGV[1]}' $PCONFIG/telegraf/telegraf.env
 chown loxberry:loxberry $PCONFIG/telegraf/telegraf.env
 chmod 640 $PCONFIG/telegraf/telegraf.env
-usermod -a -G loxberry telegraf
 
 # Telegraf mit neuer Config starten
 echo "<INFO> Starting Telegraf..."
 systemctl unmask telegraf.service
 systemctl enable --now telegraf
-#systemctl restart telegraf # Also restart to make sure new config is used
+systemctl start telegraf
+sleep 5
 
 # Check status
-service telegraf status
+systemctl status telegraf > /dev/null 2>&1
 if [ $? -gt 0 ]; then
 	echo "<FAIL> Seems that Telegraf could not be started. Giving up."
 	exit 2
@@ -165,7 +174,7 @@ else
 	echo "<OK> Telegraf service is running. Fine."
 fi
 
-if [ $ERROR -eq "1" ]; then
+if [ $ERROR -eq 1 ]; then
 	exit 1
 else
 	exit 0
