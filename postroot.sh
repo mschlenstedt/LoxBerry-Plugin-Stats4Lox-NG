@@ -109,7 +109,7 @@ if [ $RESP -eq 0 ] || [ $? -eq 127 ]; then
 		echo "<ERROR> Could not create default InfluxDB user. Nevertheless, I will try to continue. You have to make sure that you configure user/password for InfluxDB correctly by your own later on!"
 		ERROR=1
 	else
-		echo "<OK> Default InfluxDB user 'stat4lox' created sucessfully. Fine."
+		echo "<OK> Default InfluxDB user 'stat4lox' created successfully. Fine."
 		echo "<INFO> Saving credentials in cred.json."
 		jq ".Credentials.influxdbuser = \"$INFLUXDBUSER\"" $PCONFIG/cred.json > $PCONFIG/cred.json.new
 		mv $PCONFIG/cred.json.new $PCONFIG/cred.json
@@ -131,7 +131,7 @@ if [ $RESP -eq 0 ]; then
 		echo "<ERROR> Could not create default InfluxDB database. Nevertheless, I will try to continue. You have to make sure that a database 'stats4lox' exists later on!"
 		ERROR=1
 	else
-		echo "<OK> InfluxDB database 'stat4lox' created sucessfully. Fine."
+		echo "<OK> InfluxDB database 'stat4lox' created successfully. Fine."
 	fi
 
 	#echo "<INFO> Current available InfluxDB databases are as follows:"

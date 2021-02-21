@@ -19,5 +19,9 @@ cp -p -v -r /tmp/$ARGV1\_upgrade/data/$ARGV3/* $ARGV5/data/plugins/$ARGV3/
 #echo "<INFO> Remove temporary folders"
 #rm -r /tmp/$ARGV1\_upgrade
 
+echo "<INFO> Starting services influxdb and telegraf after upgrade."
+systemctl start influxdb
+systemctl start telegraf
+
 # Exit with Status 0
 exit 0
