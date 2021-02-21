@@ -23,7 +23,7 @@ PBIN=$LBPBIN/$PDIR
 INFLUXDBIN=`which influxd`
 INFLUXBIN=`which influx`
 OPENSSLBIN=`which openssl`
-OPENSSLBIN=`which telegraf`
+TELEGRAFBIN=`which telegraf`
 ERROR=0
 
 # Checking for InfluxDB and Telegraf
