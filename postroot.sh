@@ -37,8 +37,8 @@ if [ ! -x $TELEGRAFBIN ]; then
 fi
 
 # Get InfluxDB credentials
-INFLUXDBUSER = `jq -r '.Credentials.influxdbuser' $PCONFIG/cred.json`
-INFLUXDBPASS = `jq -r '.Credentials.influxdbpass' $PCONFIG/cred.json`
+INFLUXDBUSER=`jq -r '.Credentials.influxdbuser' $PCONFIG/cred.json`
+INFLUXDBPASS=`jq -r '.Credentials.influxdbpass' $PCONFIG/cred.json`
 if [ $INFLUXDBUSER -eq "" ]; then
 	echo "<WARNING> Could not find credentials for InfluxDB. This may be an error, but I will try to continue. Using default ones: stat4lox/loxberry"
 	INFLUXDBUSER = "stat4lox"
