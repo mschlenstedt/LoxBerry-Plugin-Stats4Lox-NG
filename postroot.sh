@@ -77,7 +77,7 @@ fi
 
 # Correct permissions - influxdb must have write permissions to database folders
 echo "<INFO> Set permissions for user influxdb for database folders..."
-chmod -R g+rw $PDATA/influxdb
+chmod -R 775 $PDATA/influxdb
 
 # Activate InfluxDB service and start
 echo "<INFO> Starting InfluxDB..."
