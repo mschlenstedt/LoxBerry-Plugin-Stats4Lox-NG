@@ -53,7 +53,7 @@ if [ "$INFLUXDBUSER" = "" ]; then
 	echo "<WARNING> Could not find credentials for InfluxDB. This may be an error, but I will try to continue. Using default ones: stat4lox/loxberry"
 	INFLUXDBUSER="stat4lox"
 	INFLUXDBPASS="loxberry"
-	ERROR = 1
+	ERROR=1
 fi
 
 # Activate own config delivered with plugin
@@ -100,13 +100,13 @@ fi
 
 # Check InfluxDB user. Create it if not exists
 RESP=`$INFLUXBIN -ssl -unsafeSsl -username $INFLUXDBUSER -password $INFLUXDBPASS -execute "SHOW USERS" | grep -e "^$INFLUXDBUSER\W*true$" | wc -l`
-if [ $RESP -eq 0 ]; then
-	echo "<INFO> Creating default InfluxDB user 'stat4lox'."
+if [ $RESP -eq 0 ] || [ $? -eq 127 ]; then
+	echo "<INFO> Creating default InfluxDB user 'stat4lox' as dadmin."
 	INFLUXDBNEWPASS=`head /dev/urandom | tr -dc A-Za-z0-9 | head -c16`
-	$INFLUXBIN -ssl -unsafeSsl -execute "CREATE USER stat4lox WITH PASSWORD $INFLUXDBNEWPASS WITH ALL PRIVILEGES"
+	$INFLUXBIN -ssl -unsafeSsl -username $INFLUXDBUSER -password $INFLUXDBPASS -execute "CREATE USER stat4lox WITH PASSWORD '$INFLUXDBNEWPASS' WITH ALL PRIVILEGES"
 	if [ $? -ne 0 ]; then
 		echo "<ERROR> Could not create default InfluxDB user. Nevertheless, I will try to continue. You have to make sure that you configure user/password for InfluxDB correctly by your own later on!"
-		ERROR = 1
+		ERROR=1
 	else
 		echo "<OK> Default InfluxDB user 'stat4lox' created sucessfully. Fine."
 		echo "<INFO> Saving credentials in cred.json."
