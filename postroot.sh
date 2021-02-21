@@ -59,6 +59,7 @@ fi
 # Activate own config delivered with plugin
 echo "<INFO> Activating my own InfluxDB configuration."
 if [ -d /etc/influxdb ] && [ ! -L /etc/influxdb ]; then
+	rm -rf /etc/influxdb.orig
 	mv /etc/influxdb /etc/influxdb.orig
 fi
 rm -rf /etc/influxdb > /dev/null 2>&1
@@ -76,7 +77,7 @@ fi
 
 # Correct permissions - influxdb must have write permissions to database folders
 echo "<INFO> Set permissions for user influxdb for database folders..."
-chown -R influxdb:influxdb $PDATA/influxdb
+chmod -R g+rw $PDATA/influxdb
 
 # Activate InfluxDB service and start
 echo "<INFO> Starting InfluxDB..."
