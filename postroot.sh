@@ -102,8 +102,9 @@ fi
 RESP=`$INFLUXBIN -ssl -unsafeSsl -username $INFLUXDBUSER -password $INFLUXDBPASS -execute "SHOW USERS" | grep -e "^$INFLUXDBUSER\W*true$" | wc -l`
 if [ $RESP -eq 0 ] || [ $? -eq 127 ]; then
 	echo "<INFO> Creating default InfluxDB user 'stat4lox' as dadmin."
-	INFLUXDBNEWPASS=`head /dev/urandom | tr -dc A-Za-z0-9 | head -c16`
-	$INFLUXBIN -ssl -unsafeSsl -username $INFLUXDBUSER -password $INFLUXDBPASS -execute "CREATE USER stat4lox WITH PASSWORD '$INFLUXDBNEWPASS' WITH ALL PRIVILEGES"
+	INFLUXDBUSER="stat4lox"
+	INFLUXDBPASS=`head /dev/urandom | tr -dc A-Za-z0-9 | head -c16`
+	$INFLUXBIN -ssl -unsafeSsl -execute "CREATE USER $INFLUXDBUSER WITH PASSWORD '$INFLUXDBPASS' WITH ALL PRIVILEGES"
 	if [ $? -ne 0 ]; then
 		echo "<ERROR> Could not create default InfluxDB user. Nevertheless, I will try to continue. You have to make sure that you configure user/password for InfluxDB correctly by your own later on!"
 		ERROR=1
