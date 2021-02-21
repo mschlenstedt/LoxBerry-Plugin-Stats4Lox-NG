@@ -1,0 +1,47 @@
+#!/bin/bash
+
+# To use important variables from command line use the following code:
+COMMAND=$0    # Zero argument is shell command
+PTEMPDIR=$1   # First argument is temp folder during install
+PSHNAME=$2    # Second argument is Plugin-Name for scipts etc.
+PDIR=$3       # Third argument is Plugin installation folder
+PVERSION=$4   # Forth argument is Plugin version
+#LBHOMEDIR=$5 # Comes from /etc/environment now. Fifth argument is
+              # Base folder of LoxBerry
+PTEMPPATH=$6  # Sixth argument is full temp path during install (see also $1)
+
+# Combine them with /etc/environment
+PCGI=$LBPCGI/$PDIR
+PHTML=$LBPHTML/$PDIR
+PTEMPL=$LBPTEMPL/$PDIR
+PDATA=$LBPDATA/$PDIR
+PLOG=$LBPLOG/$PDIR # Note! This is stored on a Ramdisk now!
+PCONFIG=$LBPCONFIG/$PDIR
+PSBIN=$LBPSBIN/$PDIR
+PBIN=$LBPBIN/$PDIR
+
+systemctl stop influxdb
+systemctl stop telegraf
+
+echo "<INFO> Deactivating my own InfluxDB configuration."
+if [ -L /etc/influxdb ]; then
+	rm /etc/influxdb
+	mv /etc/influxdb.orig /etc/influxdb
+fi
+
+echo "<INFO> Deactivating my own Telegraf configuration."
+if [ -L /etc/telegraf ]; then
+	rm /etc/telegraf
+	rm /etc/default/telegraf
+	mv /etc/telegraf.orig /etc/telegraf
+	mv /etc/default/telegraf.orig /etc/default/telegraf
+fi
+
+echo "<INFO> Backing up Stat4Lox databases - just in case you forgot to make a backup..."
+rm -r $PDATA\.backup
+mv $PDATA $PDATA\.backup
+
+systemctl start influxdb
+systemctl start telegraf
+
+exit 0
