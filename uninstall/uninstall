@@ -37,7 +37,7 @@ if [ -L /etc/telegraf ]; then
 	mv /etc/default/telegraf.orig /etc/default/telegraf
 fi
 
-echo "<INFO> Backing up Stat4Lox databases - just in case you forgot to make a backup..."
+echo "<INFO> Backing up Stats4Lox databases - just in case you forgot to make a backup..."
 rm -r $PDATA\.backup
 mv $PDATA $PDATA\.backup
 
