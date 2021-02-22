@@ -8,8 +8,8 @@ ARGV4=$4 # Forth argument is Plugin version
 ARGV5=$5 # Fifth argument is Base folder of LoxBerry
 
 echo "<INFO> Stopping services influxdb and telegraf for uupgrade."
-systemctl stop influxdb
-systemctl stop telegraf
+sudo /bin/systemctl stop influxdb
+sudo /bin/systemctl stop telegraf
 
 echo "<INFO> Creating temporary folders for upgrading"
 mkdir -p /tmp/$ARGV1\_upgrade
