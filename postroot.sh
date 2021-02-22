@@ -51,7 +51,7 @@ INFLUXDBUSER=`jq -r '.Credentials.influxdbuser' $PCONFIG/cred.json`
 INFLUXDBPASS=`jq -r '.Credentials.influxdbpass' $PCONFIG/cred.json`
 if [ "$INFLUXDBUSER" = "" ]; then
 	echo "<WARNING> Could not find credentials for InfluxDB. This may be an error, but I will try to continue. Using default ones: stat4lox/loxberry"
-	INFLUXDBUSER="stat4lox"
+	INFLUXDBUSER="stats4lox"
 	INFLUXDBPASS="loxberry"
 	ERROR=1
 fi
@@ -101,14 +101,14 @@ fi
 
 # Check InfluxDB user. Create it if not exists
 RESP=`$INFLUXBIN -ssl -unsafeSsl -username $INFLUXDBUSER -password $INFLUXDBPASS -execute "SHOW USERS" | grep -e "^$INFLUXDBUSER\W*true$" | wc -l`
-if [ $RESP -eq 0 ] || [ $? -eq 127 ]; then
+if [ $RESP -eq 0 ] || [ $? -eq 127 ]; then # If user does not exist or if no admin user at all ecists in a fresh installation
 	echo "<INFO> Creating default InfluxDB user 'stat4lox' as dadmin."
-	INFLUXDBUSER="stat4lox"
+	INFLUXDBUSER="stats4lox"
 	INFLUXDBPASS=`head /dev/urandom | tr -dc A-Za-z0-9 | head -c16`
 	$INFLUXBIN -ssl -unsafeSsl -execute "CREATE USER $INFLUXDBUSER WITH PASSWORD '$INFLUXDBPASS' WITH ALL PRIVILEGES"
 	if [ $? -ne 0 ]; then
-		echo "<ERROR> Could not create default InfluxDB user. Nevertheless, I will try to continue. You have to make sure that you configure user/password for InfluxDB correctly by your own later on!"
-		ERROR=1
+		echo "<ERROR> Could not create default InfluxDB user. Giving up."
+		exit 2
 	else
 		echo "<OK> Default InfluxDB user 'stat4lox' created successfully. Fine."
 		echo "<INFO> Saving credentials in cred.json."
@@ -129,8 +129,8 @@ if [ $RESP -eq 0 ]; then
 	echo "<INFO> Creating default InfluxDB database 'stats4lox'."
 	$INFLUXBIN -ssl -unsafeSsl -username $INFLUXDBUSER -password $INFLUXDBPASS -execute "CREATE DATABASE stats4lox"
 	if [ $? -gt 0 ]; then
-		echo "<ERROR> Could not create default InfluxDB database. Nevertheless, I will try to continue. You have to make sure that a database 'stats4lox' exists later on!"
-		ERROR=1
+		echo "<ERROR> Could not create default InfluxDB database. Giving up."
+		exit 2
 	else
 		echo "<OK> InfluxDB database 'stat4lox' created successfully. Fine."
 	fi
@@ -165,7 +165,7 @@ echo "<INFO> Starting Telegraf..."
 systemctl unmask telegraf.service
 systemctl enable --now telegraf
 systemctl start telegraf
-sleep 5
+sleep 3
 
 # Check status
 systemctl status telegraf > /dev/null 2>&1

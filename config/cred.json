@@ -1,6 +1,6 @@
 {
    "Credentials" : {
-      "influxdbuser" : "stat4lox",
+      "influxdbuser" : "stats4lox",
       "influxdbpass" : "loxberry"
    }
 }
