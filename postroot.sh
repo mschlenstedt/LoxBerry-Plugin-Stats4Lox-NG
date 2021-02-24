@@ -160,6 +160,10 @@ awk -v s="PASS_INFLUXDB=\"$INFLUXDBPASS\"" '/^PASS_INFLUXDB=/{$0=s;f=1} {a[++n]=
 chown loxberry:loxberry $PCONFIG/telegraf/telegraf.env
 chmod 640 $PCONFIG/telegraf/telegraf.env
 
+# MS Credentials to Telegras Config
+echo "<INFO> Integrate Miniserver Credentials to Telegraf configuration..."
+$PBIN/mscred2telegraf.pl
+
 # Telegraf mit neuer Config starten
 echo "<INFO> Starting Telegraf..."
 systemctl unmask telegraf.service
