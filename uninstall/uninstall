@@ -20,6 +20,9 @@ PCONFIG=$LBPCONFIG/$PDIR
 PSBIN=$LBPSBIN/$PDIR
 PBIN=$LBPBIN/$PDIR
 
+echo "This is the stats4lox uninstall script."
+
+echo "<INFO> Stopping influxdb and telegraf services."
 systemctl stop influxdb
 systemctl stop telegraf
 
@@ -40,7 +43,9 @@ fi
 echo "<INFO> Backing up Stats4Lox databases - just in case you forgot to make a backup..."
 rm -r $PDATA\.backup
 mv $PDATA $PDATA\.backup
+mv $PCONFIG/cred.json $PDATA\.backup
 
+echo "<INFO> Starting influxdb and telegraf services."
 systemctl start influxdb
 systemctl start telegraf
 
