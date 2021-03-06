@@ -1,5 +1,5 @@
 {
-  "stats": [
+  "loxone": [
     {
       "name": "Temp Lüf Außenluft",
       "description": "Temperatur Außenluft",
@@ -39,5 +39,12 @@
       "active": "true",
       "msno": "1"
     },
+  ],
+  "loxberry": [
+    {
+      "host": "localhost",
+      "url": "/plugins/loxberrystats/stats.php",
+      "active": "true"
+    }
   ]
 }
