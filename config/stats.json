@@ -1,0 +1,28 @@
+{
+  "stats": [
+    {
+      "name": "Temp Lüf Außenluft",
+      "description": "Temperatur Außenluft",
+      "uuid": "",
+      "block": "input reference",
+      "category": "Lüftung",
+      "room": "UG Hauswirtschaft",
+      "interval": "60",
+      "url": "/jdev/sps/io/Temp%20Lüf%20Außenluft",
+      "active": "true",
+      "msno": "1"
+    },
+    {
+      "name": "Temp Lüf Zuluft",
+      "description": "Temperatur Zuluft",
+      "uuid": "",
+      "block": "input reference",
+      "category": "Lüftung",
+      "room": "UG Hauswirtschaft",
+      "interval": "60",
+      "url": "/jdev/sps/io/Temp%20Lüf%20Zuluft",
+      "active": "true",
+      "msno": "1"
+    }
+  ]
+}
