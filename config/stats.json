@@ -3,26 +3,41 @@
     {
       "name": "Temp Lüf Außenluft",
       "description": "Temperatur Außenluft",
-      "uuid": "0ad01f30-000d-2cb1-ffffe3220fbb8056",
-      "type": "Lox1wireDevice",
+      "uuid": "0ad01f30-0049-2cb5-ffffe3220fbb8056",
+      "type": "Lox1wireAsensor",
       "category": "Lüftung",
       "room": "UG Hauswirtschaft",
       "interval": "60",
-      "url": "/jdev/sps/io/Temp%20Lüf%20Außenluft/all",
+      "url": "/jdev/sps/io/0ad01f30-0049-2cb5-ffffe3220fbb8056/all",
+      "outputs": "0",
       "active": "true",
       "msno": "1"
     },
     {
       "name": "Temp Lüf Zuluft",
       "description": "Temperatur Zuluft",
-      "uuid": "0ad02593-0374-d17a-ffffe3220fbb8056",
-      "type": "Lox1wireDevice",
+      "uuid": "0ad02593-03aa-d17e-ffffe3220fbb8056",
+      "type": "Lox1wireAsensor",
       "category": "Lüftung",
       "room": "UG Hauswirtschaft",
       "interval": "60",
-      "url": "/jdev/sps/io/Temp%20Lüf%20Zuluft/all",
+      "url": "/jdev/sps/io/0ad02593-03aa-d17e-ffffe3220fbb8056/all",
+      "outputs": "0",
       "active": "true",
       "msno": "1"
-    }
+    },
+    {
+      "name": "Strom Allgemein",
+      "description": "",
+      "uuid": "11ecc1a2-0311-cafa-ffff9e3ef57b9729",
+      "type": "Energy",
+      "category": "Zähler",
+      "room": "UG Hauswirtschaft",
+      "interval": "300",
+      "url": "/jdev/sps/io/11ecc1a2-0311-cafa-ffff9e3ef57b9729/all",
+      "outputs": "0,1,9,10,11",
+      "active": "true",
+      "msno": "1"
+    },
   ]
 }
