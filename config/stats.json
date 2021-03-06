@@ -3,8 +3,8 @@
     {
       "name": "Temp Lüf Außenluft",
       "description": "Temperatur Außenluft",
-      "uuid": "",
-      "block": "input reference",
+      "uuid": "0ad01f30-000d-2cb1-ffffe3220fbb8056",
+      "type": "Lox1wireDevice",
       "category": "Lüftung",
       "room": "UG Hauswirtschaft",
       "interval": "60",
@@ -15,8 +15,8 @@
     {
       "name": "Temp Lüf Zuluft",
       "description": "Temperatur Zuluft",
-      "uuid": "",
-      "block": "input reference",
+      "uuid": "0ad02593-0374-d17a-ffffe3220fbb8056",
+      "type": "Lox1wireDevice",
       "category": "Lüftung",
       "room": "UG Hauswirtschaft",
       "interval": "60",
