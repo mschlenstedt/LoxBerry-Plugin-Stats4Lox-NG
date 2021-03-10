@@ -2,12 +2,13 @@ use warnings;
 use strict;
 use LoxBerry::System;
 use LoxBerry::IO;
+use LoxBerry::Log;
 
 use Data::Dumper;
 
 package Loxone::GetLoxplan;
 
-my $s4ltmp = '/dev/shm/s4ltmp';
+our $s4ltmp = '/dev/shm/s4ltmp';
 
 sub getLoxplan
 {
@@ -48,15 +49,26 @@ sub getLoxplan
 	}
 	print STDERR "Local file: $localfile\n";
 	
-	# Unzip file
-	`rm -f -r "$s4ltmp/s4l_loxplan_ms$msno/"`;
-	`unzip $localfile -d "$s4ltmp/s4l_loxplan_ms$msno/"`;
-	
-	# Check if we already have a .Loxone file, or need to unpack LoxCC
 	my $LoxCCsource = "$s4ltmp/s4l_loxplan_ms$msno/sps0.LoxCC";
 	my $Loxplansource = "$s4ltmp/s4l_loxplan_ms$msno/sps0.Loxone";
 	my $Loxplandest = "$s4ltmp/s4l_loxplan_ms$msno.Loxone";
-
+	
+	# Unzip file
+	$log->INF("Cleaning up old files");
+	`rm -f -r "$s4ltmp/s4l_loxplan_ms$msno/"`;
+	
+	my ($name, $ext) = split(/.([^.]+)$/, $localfile);
+	if( lc($ext) eq "zip" ) {
+		$log->INF("Unzipping zip");
+		`unzip $localfile -d "$s4ltmp/s4l_loxplan_ms$msno/"`;
+	} 
+	elsif ( lc($ext) eq "loxcc" ) {
+		$log->INF("File already is a LoxCC file");
+		$LoxCCsource = $localfile;
+	}
+	
+	# Check if we already have a .Loxone file, or need to unpack LoxCC
+	
 	if( -e $Loxplansource ) {
 		# If exists, copy to $s4ltmp
 		print STDERR "Copying Loxplan from zip\n";
@@ -69,7 +81,7 @@ sub getLoxplan
 		`${LoxBerry::System::lbpbindir}/libs/Loxone/unpack_loxcc.py "$LoxCCsource" "$Loxplandest"`;
 	} 
 	else {
-		print STDERR "Could not find project file.";
+		print STDERR "Could not find project file.\n";
 	}
 	
 }
@@ -81,11 +93,15 @@ sub getFilelist
 	my $query = "/dev/fslist/$dir";
 	
 	my (undef, undef, $fileresp) = LoxBerry::IO::mshttp_call( $msno, $query );
+	if( !$fileresp ) {
+		print STDERR "getFilelist: Could not get file list from MS$msno\n";
+		return;
+	}
 	
 	my @files_raw = split( "\n", $fileresp);
 	my @files;
 	foreach my $file_raw ( @files_raw ) {
-		print STDERR $file_raw."\n";
+		# print STDERR $file_raw."\n";
 		my @parts = split( " ", $file_raw );
 		my $filesize = $parts[1];
 		my $filename = $parts[5];
