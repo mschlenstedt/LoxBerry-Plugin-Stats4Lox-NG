@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 # Source: Sarnau https://github.com/sarnau/Inside-The-Loxone-Miniserver
@@ -17,7 +17,7 @@ except:
 	print ('Second argument is destination file')
 	sys.exit(1)
 
-with open(sourcefile, 'r') as f:
+with open(sourcefile, "rb") as f:
 	header, = struct.unpack('<L', f.read(4))
 	if header == 0xaabbccee:	# magic word to detect a compressed file
 		compressedSize,header3,header4, = struct.unpack('<LLL', f.read(12))
@@ -37,10 +37,11 @@ with open(sourcefile, 'r') as f:
 			copyBytes = byte >> 4
 			byte &= 0xf
 			if copyBytes == 15:
-				copyBytes += ord(data[index])
+				# copyBytes += ord(data[index])
+				copyBytes += data[index]
 				index += 1
 			if copyBytes > 0:
-				resultStr += data[index:index+copyBytes]
+				resultStr += str(data[index:index+copyBytes])
 				index += copyBytes
 			if index >= len(data):
 				break
