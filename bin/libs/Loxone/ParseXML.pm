@@ -83,6 +83,26 @@ sub readloxplan
 		return;
 	}
 
+	# Get time and version of XML
+	my %documentInfo;
+	my ($docInfo) = $lox_xml->findnodes('//C[@Type="Document"]');
+	my ($controlList) = $lox_xml->findnodes('//ControlList');
+	$documentInfo{CLversion} = $controlList->{Version};
+	$documentInfo{version} = $docInfo->{V};
+	$documentInfo{Title} = $docInfo->{Title};
+	$documentInfo{ConfigVersion} = $docInfo->{ConfigVersion};
+	$documentInfo{Date} = $docInfo->{Date};
+	$documentInfo{DateS} = $docInfo->{DateS};
+	$documentInfo{DateEpoch} = LoxBerry::System::lox2epoch($docInfo->{DateS});
+	$documentInfo{Town} = $docInfo->{Town};
+	$documentInfo{Ctry} = $docInfo->{Ctry};
+	$documentInfo{Latitude} = $docInfo->{Latitude};
+	$documentInfo{Longitude} = $docInfo->{Longitude};
+	$documentInfo{Currency} = $docInfo->{Currency};
+	undef $docInfo;
+	undef $controlList;
+	$log->DEB( Data::Dumper::Dumper(\%documentInfo) );
+	
 	# Read Loxone Miniservers
 	foreach my $miniserver ($lox_xml->findnodes('//C[@Type="LoxLIVE"]')) {
 		# Use an multidimensional associative hash to save a table of necessary MS data
@@ -198,7 +218,11 @@ sub readloxplan
 	my $end_run = time();
 	my $run_time = $end_run - $start_run;
 	# print "Job took $run_time seconds\n";
-	return \%lox_statsobject;
+	my %combined_data;
+	$combined_data{controls} = \%lox_statsobject;
+	$combined_data{documentInfo} = \%documentInfo;
+	
+	return \%combined_data;
 }
 
 #############################################################################
@@ -216,6 +240,7 @@ sub loxplan2json
 {
 	my %args = @_;
 	my $log = $args{log};
+	my $remoteTimestamp = $args{remoteTimestamp};
 	
 	$log->INF("loxplan2json started") if ($log);
 	
@@ -227,11 +252,12 @@ sub loxplan2json
 			return undef;
 		}
 		
+		$result->{documentInfo}->{LoxAPPversion3timestamp} = $remoteTimestamp if ($remoteTimestamp);
+		
 		unlink $args{output};
-		my $jsonparser = LoxBerry::JSON->new();
-		my $loxplanjson = $jsonparser->open(filename => $args{output});
-		$loxplanjson->{loxplan} = $result;
-		$jsonparser->write();
+		open(my $fh, '>', $args{output});
+		print $fh JSON->new->pretty(1)->encode( $result );
+		close $fh;
 	
 	};
 	if ($@) {

@@ -9,6 +9,7 @@ use Data::Dumper;
 package Loxone::GetLoxplan;
 
 our $s4ltmp = '/dev/shm/s4ltmp';
+# our $s4ltmp = "$LoxBerry::System::lbpdatadir/loxplan";
 
 sub getLoxplan
 {
@@ -146,7 +147,58 @@ sub getFile
 	return( $localfile );
 }
 
+# Checks is the local json is up-to-date against the Miniserver
+# Returns 
+#	undef if current file is up-to-date
+#	Raises an exception in case of any error
 
+sub checkLoxplanUpdate
+{
+	my ($msno, $loxplanjson) = @_;
+	
+	if (! -e $loxplanjson) {
+		die "checkLoxplanUpdate: Json does not exist ($loxplanjson)\n";
+	}
+	
+	my $localTimestamp = 0;
+	my $remoteTimestamp = 0;
+	
+	# Read local timestamp
+	my $loxplanobj;
+	my $loxplan;
+	
+	eval {
+	
+		$loxplanobj = LoxBerry::JSON->new();
+		$loxplan = $loxplanobj->open( filename => $loxplanjson );
+		$localTimestamp = defined $loxplan->{documentInfo}->{LoxAPPversion3timestamp} ? $loxplan->{documentInfo}->{LoxAPPversion3timestamp} : "0";
+		print STDERR "checkLoxplanUpdate: localTimestamp : $localTimestamp\n";
+	};
+	if( $@ ) {
+		die "checkLoxplanUpdate: Could not fetch local version info\n";
+	}
+	
+	# Read remote timestamp
+	my $respraw;
+	my $respobj;
+	eval {
+		(undef, undef, $respraw) = LoxBerry::IO::mshttp_call( $msno, "/jdev/sps/LoxAPPversion3" );
+		$respobj = JSON::decode_json( $respraw );
+		$remoteTimestamp = defined $respobj->{LL}->{value} ? $respobj->{LL}->{value} : "1";
+		print STDERR "checkLoxplanUpdate: remoteTimestamp: $remoteTimestamp\n";
+	};
+	if( $@ ) {
+		die "checkLoxplanUpdate: Could not fetch remote version info\n";
+	}
+	
+	if( defined $localTimestamp and defined $remoteTimestamp and $localTimestamp eq $remoteTimestamp ) {
+		print STDERR "checkLoxplanUpdate: Timestamps are equal, no need to update\n";
+		return;
+	}
+	
+	return $remoteTimestamp;
+	
+}
 
 
 
