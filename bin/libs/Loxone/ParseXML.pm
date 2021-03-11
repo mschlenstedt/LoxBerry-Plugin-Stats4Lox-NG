@@ -12,6 +12,33 @@ use Data::Dumper;
 
 package Loxone::ParseXML;
 
+# Blacklist of controls not to add to controls section in json
+our @CONTROL_BLACKLIST = qw/
+	Add Add4 AnalogComparator AnalogDiffTrigger AnalogInputCaption AnalogMultiplexer2 AnalogOutputCaption AnalogScaler AnalogThresholdTrigger And Avg 
+	Calendar CalendarCaption CalendarEntry Category CategoryCaption Central Constant ConstantCaption
+	Day Day2009 DayOfWeek DayTimer Daylight Daylight2 Document 
+	EIBactorCaption EIBline EIBsensorCaption Equal 
+	FlipFlop 
+	Gateway Greater GreaterEqual
+	Hour HourCounter 
+	IconCaptionCat IconCaptionPlace IconCaptionState IconCat IconPlace IconState ImpulseDay ImpulseEveningtwilight ImpulseHour ImpulseMinute ImpulseMonth ImpulseMorningtwilight ImpulseSecond ImpulseSunrise ImpulseSunset ImpulseYear InputCaption 
+	Less Logger LoggerOutCaption LoxDMXdevice LoxLIVE LoxMORE
+	Mailer MemoryCaption Minute ModeCaption Month Morningtwilight 
+	Not NotEqual Notification
+	OffDelay OnDelay OnOffDelay OnPulseDelay Or OutputCaption 
+	Page Place PlaceCaption PlaceGroupCaption PulseAt 
+	Rand RefUser 
+	Second StartPulse
+	TaskCaption Text Time TimeCaption Tracker 
+	User UserCaption UserGroup UserGroupCaption 
+	VirtualInCaption VirtualOutCaption VirtualOutCmd 
+	WeatherCaption WeatherServer Webpage 
+	Xor 
+	Year
+/;
+
+
+
 
 #####################################################
 # Read LoxPLAN XML
@@ -50,13 +77,20 @@ sub readloxplan
 	my @loxconfig_xml;
 	my %lox_miniserver;
 	my %lox_category;
+	my %lox_category_used;
 	my %lox_room;
+	my %lox_room_used;
+	my %lox_elementType;
 	my $start_run = time();
 	my %lox_statsobject; 
 	#my %cfg_mslist;
 
 	$loxconfig_path = $args{filename};
 	$log = $args{log};
+
+	# Uniquify CONTROL_BLACKLIST and convert to hash for faster search
+	my %CBLACKLIST = map { $_ => 1 } @CONTROL_BLACKLIST;
+
 
 	
 	# For performance, it would be possibly better to switch from XML::LibXML to XML::Twig
@@ -131,7 +165,10 @@ sub readloxplan
 				$lox_miniserver{$miniserver->{U}}{IP} = $msxmlip;
 			}
 		}
-		# In a later stage, we have to query the LoxBerry MS Database by IP to get LoxBerrys MS-ID.
+		
+		if( defined $lox_miniserver{$miniserver->{U}}{IP} ) {
+			$lox_miniserver{$miniserver->{U}}{msno} = LoxBerry::System::get_miniserver_by_ip( $lox_miniserver{$miniserver->{U}} );
+		}
 	}
 
 	# Read Loxone categories
@@ -150,33 +187,41 @@ sub readloxplan
 	# Get all objects that have statistics enabled
 	#my $hr = HTML::Restrict->new();
 			
-	foreach my $object ($lox_xml->findnodes('//C[@StatsType]')) {
+	foreach my $object ($lox_xml->findnodes('//C[@Type]')) {
+		
+		# Process CBLACKLIST
+		if( exists $CBLACKLIST{ $object->{Type} } ) {
+			next;
+		}
+		
 		# Get Miniserver of this object
-		# Nodes with statistics may be a child or sub-child of LoxLive type, or alternatively Ref-er to the LoxLive node. 
+		# Nodes may be a child or sub-child of LoxLive type, or alternatively Ref-er to the LoxLive node. 
 		# Therefore, we have to distinguish between connected in some parent, or referred by in some parent.	
 		my $ms_ref;
 		my $parent = $object;
 		do {
 			$parent = $parent->parentNode;
-		} while ((!$parent->{Ref}) && ($parent->{Type} ne "LoxLIVE"));
+		} while ((!$parent->{Ref}) && defined $parent->{Type} && ($parent->{Type} ne "LoxLIVE"));
 		if ($parent->{Type} eq "LoxLIVE") {
 			$ms_ref = $parent->{U};
 		} else {
 			$ms_ref = $parent->{Ref};
 		}
-		$log->DEB("Objekt: " . $object->{Title} . " (StatsType = " . $object->{StatsType} . ") | Miniserver: " . $lox_miniserver{$ms_ref}{Title});
+		my $logmessage = "Object: ".$object->{Title}." (".$object->{Type}.") --> MS ".$lox_miniserver{$ms_ref}{Title};
+		$logmessage .= " StatsType = ".$object->{StatsType} if ($object->{StatsType});
+		$log->DEB($logmessage);
+		$lox_elementType{$object->{Type}} = 1;
+		
 		$lox_statsobject{$object->{U}}{Title} = $object->{Title};
-		if (defined $object->{Desc}) {
-			$lox_statsobject{$object->{U}}{Desc} = $object->{Desc}; }
-		else {
-			$lox_statsobject{$object->{U}}{Desc} = $object->{Title} . " (*)"; 
-		}
-		$lox_statsobject{$object->{U}}{StatsType} = $object->{StatsType};
+		$lox_statsobject{$object->{U}}{Desc} = defined $object->{Desc} ? $object->{Desc} : "";
+		$lox_statsobject{$object->{U}}{VisuName} = defined $object->{Desc} ? $object->{Desc} : $object->{Title};
+		$lox_statsobject{$object->{U}}{StatsType} = defined $object->{StatsType} ? $object->{StatsType} : 0;
+		$lox_statsobject{$object->{U}}{Analog} = LoxBerry::System::is_enabled( $object->{Analog} ) ? 1 : 0;
 		$lox_statsobject{$object->{U}}{Type} = $object->{Type};
-		$lox_statsobject{$object->{U}}{MSName} = $lox_miniserver{$ms_ref}{Title};
-		$lox_statsobject{$object->{U}}{MSIP} = $lox_miniserver{$ms_ref}{IP};
+		# $lox_statsobject{$object->{U}}{MSName} = $lox_miniserver{$ms_ref}{Title};
+		# $lox_statsobject{$object->{U}}{MSIP} = $lox_miniserver{$ms_ref}{IP};
 		# $lox_statsobject{$object->{U}}{MSNr} = $cfg_mslist{$lox_miniserver{$ms_ref}{IP}};
-		$lox_statsobject{$object->{U}}{MSNr} = LoxBerry::System::get_miniserver_by_ip( $lox_miniserver{$ms_ref}{IP} );
+		$lox_statsobject{$object->{U}}{msno} = $lox_miniserver{$ms_ref}{msno};
 		
 		# Unit
 		my @display = $object->getElementsByTagName("Display");
@@ -191,9 +236,17 @@ sub readloxplan
 		
 		# Place and Category
 		my @iodata = $object->getElementsByTagName("IoData");
-		$log->DEB( "Cat: " . $lox_category{$iodata[0]->{Cr}});
-		$lox_statsobject{$object->{U}}{Category} = $lox_category{$iodata[0]->{Cr}} if ($iodata[0]->{Cr});
-		$lox_statsobject{$object->{U}}{Place} = $lox_room{$iodata[0]->{Pr}} if ($iodata[0]->{Pr});
+		if( defined $iodata[0]->{Cr} ) {
+			$log->DEB( "Cat: " . $lox_category{$iodata[0]->{Cr}});
+			$lox_statsobject{$object->{U}}{Category} = $lox_category{$iodata[0]->{Cr}} if ($iodata[0]->{Cr});
+			$lox_category_used{$iodata[0]->{Cr}} = 1;
+		}
+		if( defined $iodata[0]->{Pr} ) {
+			$lox_statsobject{$object->{U}}{Place} = $lox_room{$iodata[0]->{Pr}} if ($iodata[0]->{Pr});
+			$lox_room_used{$iodata[0]->{Pr}} = 1;
+		}
+		
+		
 		
 		# Min/Max values
 		if ($object->{Analog} and $object->{Analog} ne "true") {
@@ -218,8 +271,23 @@ sub readloxplan
 	my $end_run = time();
 	my $run_time = $end_run - $start_run;
 	# print "Job took $run_time seconds\n";
+	
+	# Create sorted array from %lox_elementType, rooms_used and categories_used 
+	my @lox_elementTypes = sort keys %lox_elementType;
+	my @lox_roomsUsed = sort keys %lox_room_used;
+	my @lox_categoriesUsed = sort keys %lox_category_used;
+	
+	
+	
 	my %combined_data;
+	$combined_data{miniservers} = \%lox_miniserver;
+	$combined_data{rooms} = \%lox_room;
+	$combined_data{categories} = \%lox_category;
 	$combined_data{controls} = \%lox_statsobject;
+	$combined_data{elementTypes} = \@lox_elementTypes;
+	$combined_data{rooms_used} = \@lox_roomsUsed;
+	$combined_data{categories_used} = \@lox_categoriesUsed;
+	
 	$combined_data{documentInfo} = \%documentInfo;
 	
 	return \%combined_data;
