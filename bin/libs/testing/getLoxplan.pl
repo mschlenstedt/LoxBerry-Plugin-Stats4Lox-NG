@@ -17,7 +17,7 @@ my %miniservers = LoxBerry::System::get_miniservers();
 foreach my $msno ( sort keys %miniservers ) {
 	print STDERR "=== MS $msno =================\n";
 	
-	$Loxplanfile = "${Loxone::GetLoxplan::s4ltmp}/s4l_loxplan_ms$msno.Loxone";
+	$Loxplanfile = "$s4ltmp/s4l_loxplan_ms$msno.Loxone";
 	# $Loxplanjson = "${Loxone::GetLoxplan::s4ltmp}/s4l_loxplan_ms$msno.json";
 	$Loxplanjson = "$lbpdatadir/ms$msno.json";
 	

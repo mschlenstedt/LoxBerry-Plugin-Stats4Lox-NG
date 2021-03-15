@@ -3,13 +3,12 @@ use strict;
 use LoxBerry::System;
 use LoxBerry::IO;
 use LoxBerry::Log;
-
+use FindBin qw($Bin);
+use lib "$Bin/..";
+use Globals;
 use Data::Dumper;
 
 package Loxone::GetLoxplan;
-
-our $s4ltmp = '/dev/shm/s4ltmp';
-# our $s4ltmp = "$LoxBerry::System::lbpdatadir/loxplan";
 
 sub getLoxplan
 {
@@ -23,14 +22,14 @@ sub getLoxplan
 	}
 	
 	# Create temporary storage
-	if(!$s4ltmp) {
+	if(!$main::s4ltmp) {
 		print STDERR "Missing variable s4ltmp.\n";
 		return;
 	}
-	if( ! -e $s4ltmp ) {
-		my $mkrc = mkdir ($s4ltmp, 0770);
+	if( ! -e $main::s4ltmp ) {
+		my $mkrc = mkdir ($main::s4ltmp, 0770);
 		if( !$mkrc ) {
-			print STDERR "Could not create temporary folder $s4ltmp.\n";
+			print STDERR "Could not create temporary folder $main::s4ltmp.\n";
 			return;
 		}
 	}
@@ -50,18 +49,18 @@ sub getLoxplan
 	}
 	print STDERR "Local file: $localfile\n";
 	
-	my $LoxCCsource = "$s4ltmp/s4l_loxplan_ms$msno/sps0.LoxCC";
-	my $Loxplansource = "$s4ltmp/s4l_loxplan_ms$msno/sps0.Loxone";
-	my $Loxplandest = "$s4ltmp/s4l_loxplan_ms$msno.Loxone";
+	my $LoxCCsource = "$main::s4ltmp/s4l_loxplan_ms$msno/sps0.LoxCC";
+	my $Loxplansource = "$main::s4ltmp/s4l_loxplan_ms$msno/sps0.Loxone";
+	my $Loxplandest = "$main::s4ltmp/s4l_loxplan_ms$msno.Loxone";
 	
 	# Unzip file
 	$log->INF("Cleaning up old files");
-	`rm -f -r "$s4ltmp/s4l_loxplan_ms$msno/"`;
+	`rm -f -r "$main::s4ltmp/s4l_loxplan_ms$msno/"`;
 	
 	my ($name, $ext) = split(/.([^.]+)$/, $localfile);
 	if( lc($ext) eq "zip" ) {
 		$log->INF("Unzipping zip");
-		`unzip $localfile -d "$s4ltmp/s4l_loxplan_ms$msno/"`;
+		`unzip $localfile -d "$main::s4ltmp/s4l_loxplan_ms$msno/"`;
 	} 
 	elsif ( lc($ext) eq "loxcc" ) {
 		$log->INF("File already is a LoxCC file");
@@ -71,7 +70,7 @@ sub getLoxplan
 	# Check if we already have a .Loxone file, or need to unpack LoxCC
 	
 	if( -e $Loxplansource ) {
-		# If exists, copy to $s4ltmp
+		# If exists, copy to $main::s4ltmp
 		print STDERR "Copying Loxplan from zip\n";
 		require File::Copy;
 		File::Copy::copy( $Loxplansource, $Loxplandest );
@@ -136,7 +135,7 @@ sub getFile
 	my ($name, $ext) = split(/.([^.]+)$/, $filename);
 	
 	my $fulluri = "$msuri/dev/fsget/$filename";
-	my $localfile = "$s4ltmp/s4l_loxplan_ms$msno.$ext";
+	my $localfile = "$main::s4ltmp/s4l_loxplan_ms$msno.$ext";
 	print STDERR "Fulluri: $fulluri Localfile: $localfile\n";
 	
 	my $rc = LWP::Simple::getstore( $fulluri, $localfile);

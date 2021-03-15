@@ -5,37 +5,17 @@ use XML::LibXML::Common;
 use warnings;
 use strict;
 use Encode;
+use FindBin qw($Bin);
+use lib "$Bin/..";
+use Globals;
+# require "$LoxBerry::System::lbpbindir/libs/Globals.pm";
+
 # use open ':std', ':encoding(UTF-8)';
 
 # Debugging
 use Data::Dumper;
 
 package Loxone::ParseXML;
-
-# Blacklist of controls not to add to controls section in json
-our @CONTROL_BLACKLIST = qw/
-	Add Add4 AnalogComparator AnalogDiffTrigger AnalogInputCaption AnalogMultiplexer2 AnalogOutputCaption AnalogScaler AnalogThresholdTrigger And Avg 
-	Calendar CalendarCaption CalendarEntry Category CategoryCaption Central Constant ConstantCaption
-	Day Day2009 DayOfWeek DayTimer Daylight Daylight2 Document 
-	EIBactorCaption EIBline EIBsensorCaption Equal 
-	FlipFlop 
-	Gateway Greater GreaterEqual
-	Hour HourCounter 
-	IconCaptionCat IconCaptionPlace IconCaptionState IconCat IconPlace IconState ImpulseDay ImpulseEveningtwilight ImpulseHour ImpulseMinute ImpulseMonth ImpulseMorningtwilight ImpulseSecond ImpulseSunrise ImpulseSunset ImpulseYear InputCaption 
-	Less Logger LoggerOutCaption LoxDMXdevice LoxLIVE LoxMORE
-	Mailer MemoryCaption Minute ModeCaption Month Morningtwilight 
-	Not NotEqual Notification
-	OffDelay OnDelay OnOffDelay OnPulseDelay Or OutputCaption 
-	Page Place PlaceCaption PlaceGroupCaption PulseAt 
-	Rand RefUser 
-	Second StartPulse
-	TaskCaption Text Time TimeCaption Tracker 
-	User UserCaption UserGroup UserGroupCaption 
-	VirtualInCaption VirtualOutCaption VirtualOutCmd 
-	WeatherCaption WeatherServer Webpage 
-	Xor 
-	Year
-/;
 
 
 
@@ -89,7 +69,7 @@ sub readloxplan
 	$log = $args{log};
 
 	# Uniquify CONTROL_BLACKLIST and convert to hash for faster search
-	my %CBLACKLIST = map { $_ => 1 } @CONTROL_BLACKLIST;
+	my %CBLACKLIST = map { uc($_) => 1 } @main::CONTROL_BLACKLIST;
 
 
 	
@@ -190,7 +170,7 @@ sub readloxplan
 	foreach my $object ($lox_xml->findnodes('//C[@Type]')) {
 		
 		# Process CBLACKLIST
-		if( exists $CBLACKLIST{ $object->{Type} } ) {
+		if( exists $CBLACKLIST{ uc($object->{Type}) } ) {
 			next;
 		}
 		
