@@ -1,4 +1,5 @@
 let miniservers;
+let miniservers_used = [];
 let rooms;
 let rooms_used;
 let categories;
@@ -54,6 +55,8 @@ function consolidateLoxPlan( data ) {
 	  rooms_used = $.extend( rooms_used, data[key].rooms_used );
 	  categories = $.extend( categories, data[key].categories );
 	  categories_used = $.extend( categories_used, data[key].categories_used );
+	  miniservers_used = $.extend ( miniservers_used, data[key].miniservers );
+	  
 	  if( typeof controls == "undefined" ) 
 		controls = data[key].controls;
 	  else
@@ -62,6 +65,7 @@ function consolidateLoxPlan( data ) {
 	
 	// Create array from controls object
 	controls = Object.values(controls);
+	// miniservers_used = Object.values(miniservers_used);
 	// console.log("controls array", controls);
 	
 // console.log("Controls", controls);
@@ -88,17 +92,21 @@ function generateFilter() {
 
 	// Add Miniservers to options
 	
-	for( const [key, msobj] of Object.entries(miniservers) ) {
+	for( const [key, msobj] of Object.entries(miniservers_used) ) {
 		$('#filter_miniserver').append(
-		`<option value="${key}">(${key}) ${msobj.Name}</option>`); 
+		`<option value="${msobj.msno}">(${msobj.msno}) ${msobj.Title}</option>`); 
 	}
-
+	
+	// Add used rooms to options
+	
 	for( obj of rooms ) {
 		// console.log(obj);
 		$('#filter_room').append(
 		`<option value="${obj[1]}">${obj[0]}</option>`); 
 	}
 
+	// Add used categories to options
+	
 	for( obj of categories ) {
 		// console.log(obj);
 		$('#filter_category').append(
