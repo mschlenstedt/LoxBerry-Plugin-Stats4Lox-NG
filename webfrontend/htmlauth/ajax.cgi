@@ -69,6 +69,15 @@ if( $q->{action} eq "getloxplan" ) {
 	
 }
 
+if( $q->{action} eq "getstatsconfig" ) {
+	if ( -e $statsconfig ) {
+		$response = LoxBerry::System::read_file($statsconfig);
+	}
+	else {
+		$response = "{ }";
+	}
+}
+
 
 
 

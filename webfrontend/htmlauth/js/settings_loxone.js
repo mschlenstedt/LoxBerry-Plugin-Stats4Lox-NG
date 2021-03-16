@@ -4,6 +4,9 @@ let rooms_used;
 let categories;
 let categories_used = [];
 let controls;
+let statsconfig;
+let statsconfigLoxone;
+let controlstable = "";
 
 $(function() {
 	miniservers = JSON.parse( $("#miniservers").text() );
@@ -14,7 +17,8 @@ $(function() {
 
 function getLoxplan() {
 	$("#popupProgress").popup("open");
-	$("#progressState").html("Fetching Loxone Config from Miniservers");
+	var msupdateTextPre = "Fetching Loxone Config from Miniservers...";
+	$("#progressState").html(msupdateTextPre);
 	
 	// Get elements of all Miniservers
 	var async_request=[];
@@ -22,17 +26,23 @@ function getLoxplan() {
 	for (msno in miniservers) {
 		async_request.push(
 			$.post( "ajax.cgi", { action : "getloxplan", msno : msno }, function(data){
-				console.log("Updated ", msno);
 				responses.push(data);
 			})
 		);
 	}
+	async_request.push(
+		$.post( "ajax.cgi", { action : "getstatsconfig" }, function(data){
+			statsconfig = data;
+			statsconfigLoxone = Object.values( statsconfig.loxone );
+		})
+	)
+				
 	
 	$.when.apply( null, async_request).done( function(){
-		$("#progressState").html("Prepare for displaying");
+		$("#progressState").html("Preparing controls...");
 		consolidateLoxPlan( responses );
 		$("#popupProgress").popup("close");
-		// $("#progressState").html("");
+		$("#progressState").html("");
 		
 	});
 }
@@ -49,6 +59,10 @@ function consolidateLoxPlan( data ) {
 	  else
 		controls = Object.assign( controls, data[key].controls );
 	}
+	
+	// Create array from controls object
+	controls = Object.values(controls);
+	// console.log("controls array", controls);
 	
 // console.log("Controls", controls);
 	
@@ -67,6 +81,7 @@ function consolidateLoxPlan( data ) {
 	categories = cat_tmp.sort();
 	
 	generateFilter();
+	updateTable();
 }
 
 function generateFilter() {
@@ -89,7 +104,95 @@ function generateFilter() {
 		$('#filter_category').append(
 		`<option value="${obj[1]}">${obj[0]}</option>`); 
 	}
+}
+	
+function updateTable() {
+	console.log("updateTable called");
+	controlstable = "";
+	createTableHead();
+	createTableBody();
+	createTableEnd();
+	
+	$("#loxonecontrolstablediv").html( controlstable );
+	$("#loxonecontrolstablediv").removeClass("datahidden");
 	
 	
+	
+}
+	
+function createTableHead() {
+	
+	controlstable += `
+	<table class="controlstable">
+	<tr>
+		<th>MS</th>
+		<th>Name (Type)</th>
+		<th>Location</th>
+		<th>Infos</th>
+		<th>Statistics</th>
+	</tr>
+	`;
+	
+}
+
+function createTableEnd() {
+	controlstable += `</table>`;
+}
+
+function createTableBody() {
+
+	for( elementno in controls ) {
+		element = controls[elementno];
+		console.log(element);
+		
+		// Filter section
+		
+		// To do: Skip to next if any of the filters apply 
+		
+		//
+		// Create row section
+		//
+		
+		controlstable += `<tr class="controlstable_tr">`;
+		
+		// Miniserver
+		controlstable += `<td>${element.msno}</td>`;
+		
+		// Name (Type)
+		controlstable += `<td>${element.Title}`;
+		if(typeof element.Desc != "undefined" && element.Desc != "" ) 
+			controlstable += `<br>${element.Desc}`;
+		var TypeLocal = loxone_elements[ element.Type.toUpperCase() ];
+		controlstable += `<br><span class="small">${TypeLocal}</span>`;
+		
+		
+		// Location
+		controlstable += `<td>${element.Place}
+			<br>${element.Category}
+			</td>`;
+		
+		// Info statistics
+		controlstable += `<td>`;
+		var statmatch = statsconfigLoxone.find(obj => {
+			return obj.uuid === element.UID
+		})
+		
+		if (statmatch != undefined) {
+			controlstable += "Statistics enabled";
+		}
+		else {
+			controlstable += "Statistics not enabled";
+		}
+		controlstable += `</td>`;
+		
+		// End of row
+		
+		controlstable += `</tr>`;
+		
+		
+		
+		
+		
+	}
 	
 }

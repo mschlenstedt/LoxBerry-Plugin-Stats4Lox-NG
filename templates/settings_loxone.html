@@ -3,6 +3,12 @@
 	display:none;
 }
 
+.small {
+	font-size:70%;
+}
+tr:nth-child(even).controlstable_tr {background: #CCC}
+tr:nth-child(odd).controlstable_tr {background: #FFF}
+
 
 </style>
 
@@ -19,9 +25,12 @@
 
 <div class="datahidden" id="miniservers"><TMPL_VAR LOXONE_MINISERVERS></div>
 
+
+
+
 <div data-role="popup" id="popupProgress" data-dismissible="false" style="max-width:400px;">
 	<div style="padding: 20px 20px;">
-		<h4 class="ui-title">Progress...</h4>
+		<h4 class="ui-title">Progress</h4>
 		<div id="progressState"></div>
 	</div>
 </div>
@@ -47,3 +56,5 @@
 </fieldset>
 
 <!-- Table -->
+<div class="datahidden" id="loxonecontrolstablediv">
+</div>

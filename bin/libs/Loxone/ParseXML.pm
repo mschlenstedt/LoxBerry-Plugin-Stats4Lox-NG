@@ -194,7 +194,7 @@ sub readloxplan
 		
 		$lox_statsobject{$object->{U}}{Title} = $object->{Title};
 		$lox_statsobject{$object->{U}}{Desc} = defined $object->{Desc} ? $object->{Desc} : "";
-		$lox_statsobject{$object->{U}}{VisuName} = defined $object->{Desc} ? $object->{Desc} : $object->{Title};
+		$lox_statsobject{$object->{U}}{UID} = $object->{U};
 		$lox_statsobject{$object->{U}}{StatsType} = defined $object->{StatsType} ? $object->{StatsType} : 0;
 		$lox_statsobject{$object->{U}}{Analog} = LoxBerry::System::is_enabled( $object->{Analog} ) ? 1 : 0;
 		$lox_statsobject{$object->{U}}{Type} = $object->{Type};

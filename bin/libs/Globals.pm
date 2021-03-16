@@ -7,12 +7,13 @@ our @EXPORT = qw (
 	$s4ltmp
 	@CONTROL_BLACKLIST
 	$loxplanjsondir
+	$statsconfig
 );
 
 # RAMDISK temporary directory
 our $s4ltmp = '/dev/shm/s4ltmp';
 our $loxplanjsondir = $LoxBerry::System::lbpdatadir;
-
+our $statsconfig = "$LoxBerry::System::lbpconfigdir/stats.json";
 
 
 
