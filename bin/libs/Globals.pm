@@ -1,8 +1,17 @@
 #!/usr/bin/perl
 
+package Globals;
+
+use base 'Exporter';
+our @EXPORT = qw (
+	$s4ltmp
+	@CONTROL_BLACKLIST
+	$loxplanjsondir
+);
+
 # RAMDISK temporary directory
 our $s4ltmp = '/dev/shm/s4ltmp';
-
+our $loxplanjsondir = $LoxBerry::System::lbpdatadir;
 
 
 

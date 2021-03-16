@@ -147,7 +147,7 @@ sub readloxplan
 		}
 		
 		if( defined $lox_miniserver{$miniserver->{U}}{IP} ) {
-			$lox_miniserver{$miniserver->{U}}{msno} = LoxBerry::System::get_miniserver_by_ip( $lox_miniserver{$miniserver->{U}} );
+			$lox_miniserver{$miniserver->{U}}{msno} = LoxBerry::System::get_miniserver_by_ip( $lox_miniserver{$miniserver->{U}}{IP} );
 		}
 	}
 
@@ -189,7 +189,7 @@ sub readloxplan
 		}
 		my $logmessage = "Object: ".$object->{Title}." (".$object->{Type}.") --> MS ".$lox_miniserver{$ms_ref}{Title};
 		$logmessage .= " StatsType = ".$object->{StatsType} if ($object->{StatsType});
-		$log->DEB($logmessage);
+		# $log->DEB($logmessage);
 		$lox_elementType{$object->{Type}} = 1;
 		
 		$lox_statsobject{$object->{U}}{Title} = $object->{Title};
@@ -209,15 +209,15 @@ sub readloxplan
 			$lox_statsobject{$object->{U}}{Unit} = $display[0]->{Unit};
 			$lox_statsobject{$object->{U}}{Unit} =~ s|<.+?>||g;
 			$lox_statsobject{$object->{U}}{Unit} = LoxBerry::System::trim($lox_statsobject{$object->{U}}{Unit});
-			$log->DEB( "Unit: " . $lox_statsobject{$object->{U}}{Unit});
+			# $log->DEB( "Unit: " . $lox_statsobject{$object->{U}}{Unit});
 		} else { 
-			$log->DEB( "Unit: (none detected)");
+			# $log->DEB( "Unit: (none detected)");
 		}
 		
 		# Place and Category
 		my @iodata = $object->getElementsByTagName("IoData");
 		if( defined $iodata[0]->{Cr} ) {
-			$log->DEB( "Cat: " . $lox_category{$iodata[0]->{Cr}});
+			# $log->DEB( "Cat: " . $lox_category{$iodata[0]->{Cr}});
 			$lox_statsobject{$object->{U}}{Category} = $lox_category{$iodata[0]->{Cr}} if ($iodata[0]->{Cr});
 			$lox_category_used{$iodata[0]->{Cr}} = 1;
 		}
@@ -244,7 +244,7 @@ sub readloxplan
 				$lox_statsobject{$object->{U}}{MaxVal} = "U";
 			}
 		}
-		$log->DEB( "Object Name: " . $lox_statsobject{$object->{U}}{Title});
+		# $log->DEB( "Object Name: " . $lox_statsobject{$object->{U}}{Title});
 	}
 	
 	

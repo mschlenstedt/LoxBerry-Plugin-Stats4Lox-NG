@@ -190,7 +190,7 @@ sub checkLoxplanUpdate
 		die "checkLoxplanUpdate: Could not fetch remote version info\n";
 	}
 	
-	if( defined $localTimestamp and defined $remoteTimestamp and $localTimestamp eq $remoteTimestamp ) {
+	if( $localTimestamp ne "0" and $localTimestamp eq $remoteTimestamp ) {
 		print STDERR "checkLoxplanUpdate: Timestamps are equal, no need to update\n";
 		return;
 	}
