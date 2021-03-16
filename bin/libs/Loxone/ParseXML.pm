@@ -150,7 +150,7 @@ sub readloxplan
 			$lox_miniserver{$miniserver->{U}}{msno} = LoxBerry::System::get_miniserver_by_ip( $lox_miniserver{$miniserver->{U}}{IP} );
 		}
 	}
-
+	
 	# Read Loxone categories
 	foreach my $category ($lox_xml->findnodes('//C[@Type="Category"]')) {
 		# Key is the Uid
@@ -166,7 +166,7 @@ sub readloxplan
 
 	# Get all objects that have statistics enabled
 	#my $hr = HTML::Restrict->new();
-			
+	
 	foreach my $object ($lox_xml->findnodes('//C[@Type]')) {
 		
 		# Process CBLACKLIST
@@ -247,6 +247,9 @@ sub readloxplan
 		# $log->DEB( "Object Name: " . $lox_statsobject{$object->{U}}{Title});
 	}
 	
+	# Delete empty Miniserver entries (unknown where they are from)
+	delete $lox_miniserver{''};
+
 	
 	my $end_run = time();
 	my $run_time = $end_run - $start_run;
