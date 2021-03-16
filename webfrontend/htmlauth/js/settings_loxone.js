@@ -141,6 +141,13 @@ function consolidateLoxPlan( data ) {
 		return elementTypes_used.indexOf(item) == pos;
 	})
 	elementTypes_used.sort();
+	
+	// Uniquify categories_used
+	// categories_used = categories_used.filter( function(item, pos) {
+		// return categories_used.indexOf(item) == pos;
+	// })
+
+	
 	miniservers_used.sort();
 	
 	// console.log("controls array", controls);
@@ -156,8 +163,9 @@ function consolidateLoxPlan( data ) {
 	
 	var cat_tmp = [];
 	for (var catid in categories) {
-		if(! catid in categories_used ) continue; 
-		cat_tmp.push([categories[catid], catid]);
+		if(categories_used.includes(catid)) {
+			cat_tmp.push([categories[catid], catid]);
+		}
 	}
 	categories = cat_tmp.sort();
 	
