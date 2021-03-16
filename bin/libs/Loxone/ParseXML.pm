@@ -225,8 +225,9 @@ sub readloxplan
 			$lox_statsobject{$object->{U}}{Place} = $lox_room{$iodata[0]->{Pr}} if ($iodata[0]->{Pr});
 			$lox_room_used{$iodata[0]->{Pr}} = 1;
 		}
-		
-		
+		if( defined $iodata[0]->{Visu} ) {
+			$lox_statsobject{$object->{U}}{Visu} = $iodata[0]->{Visu};
+		}
 		
 		# Min/Max values
 		if ($object->{Analog} and $object->{Analog} ne "true") {

@@ -8,10 +8,34 @@ let controls;
 let statsconfig;
 let statsconfigLoxone;
 let controlstable = "";
+let elementTypes_used = [];
+
+let filters = [];
 
 $(function() {
 	miniservers = JSON.parse( $("#miniservers").text() );
 	getLoxplan();
+	
+	// Create filter radio bindings
+	$('.filter_radio, .filter_select').bind( "change", function(event, ui){
+		var filter_parent = event.currentTarget.name;
+		console.log( "filter_select", event, ui );
+		
+		if( event.currentTarget.nodeName == "INPUT" ) {
+			var filterval = $("input[name='"+filter_parent+"']:checked").val();
+		}
+		if( event.currentTarget.nodeName == "SELECT" ) {
+			var filterval = $("#"+filter_parent+" option:selected").val();
+		}
+		
+		console.log("Filter parent", filter_parent, filterval);
+		filters[filter_parent] = filterval;
+		
+		// After changing the filter, recreate the table
+		updateTable();
+	});
+	
+	
 	
 	
 });
@@ -56,7 +80,7 @@ function consolidateLoxPlan( data ) {
 	  categories = $.extend( categories, data[key].categories );
 	  categories_used = $.extend( categories_used, data[key].categories_used );
 	  miniservers_used = $.extend ( miniservers_used, data[key].miniservers );
-	  
+	  elementTypes_used = elementTypes_used.concat( data[key].elementTypes );
 	  if( typeof controls == "undefined" ) 
 		controls = data[key].controls;
 	  else
@@ -65,7 +89,13 @@ function consolidateLoxPlan( data ) {
 	
 	// Create array from controls object
 	controls = Object.values(controls);
-	// miniservers_used = Object.values(miniservers_used);
+	
+	// Uniquify elementTypes_used
+	elementTypes_used = elementTypes_used.filter( function(item, pos) {
+		return elementTypes_used.indexOf(item) == pos;
+	})
+	elementTypes_used.sort();
+	
 	// console.log("controls array", controls);
 	
 // console.log("Controls", controls);
@@ -102,7 +132,7 @@ function generateFilter() {
 	for( obj of rooms ) {
 		// console.log(obj);
 		$('#filter_room').append(
-		`<option value="${obj[1]}">${obj[0]}</option>`); 
+		`<option value="${obj[0]}">${obj[0]}</option>`); 
 	}
 
 	// Add used categories to options
@@ -110,8 +140,28 @@ function generateFilter() {
 	for( obj of categories ) {
 		// console.log(obj);
 		$('#filter_category').append(
-		`<option value="${obj[1]}">${obj[0]}</option>`); 
+		`<option value="${obj[0]}">${obj[0]}</option>`); 
 	}
+	
+	// Add used elements to options in native language
+	var elementsArr = [];
+	for( var key in elementTypes_used ) {
+		var ucKey =  typeof elementTypes_used[key] !== "undefined" ? elementTypes_used[key].toUpperCase() : "undefined";
+		elementsArr.push( [ ucKey, typeof loxone_elements[ucKey] !== "undefined" ? loxone_elements[ucKey] : ucKey ] );
+	}
+	
+	elementsArr.sort(function(a, b) {
+		a=a[1];
+		b=b[1];
+		return a<b ? -1 : (a > b ? 1 : 0);
+	});
+	
+	for( obj of elementsArr ) {
+		// console.log(obj);
+		$('#filter_element').append(
+		`<option value="${obj[0]}">${obj[1]}</option>`); 
+	}
+	
 }
 	
 function updateTable() {
@@ -151,11 +201,58 @@ function createTableBody() {
 
 	for( elementno in controls ) {
 		element = controls[elementno];
-		console.log(element);
+		// console.log(element);
+		
+		// Prepare data for filter
+		// To filter data, we already need to query some details before showing
+		
+		
+		
 		
 		// Filter section
+		// 
 		
-		// To do: Skip to next if any of the filters apply 
+		// Miniserver filter
+		if( typeof filters["filter_miniserver"] !== "undefined" && filters["filter_miniserver"] != "all" && filters["filter_miniserver"] != element.msno )
+			continue;
+		
+		// Room filter
+		if( typeof filters["filter_room"] !== "undefined" && filters["filter_room"] != "all" && filters["filter_room"] != element.Place )
+			continue;
+		
+		// Category filter
+		if( typeof filters["filter_category"] !== "undefined" && filters["filter_category"] != "all" && filters["filter_category"] != element.Category )
+			continue;
+		
+		// Element filter
+		if( typeof filters["filter_element"] !== "undefined" && filters["filter_element"] != "all" && filters["filter_element"] != element.Type.toUpperCase() )
+			continue;
+		
+		// Loxone Visu filter
+		if( typeof filters["filter_loxvisu"] !== "undefined" && filters["filter_loxvisu"] != "all") {
+			if( filters["filter_loxvisu"] == "on" && element.Visu != "true" ) continue;
+			if( filters["filter_loxvisu"] == "off" && element.Visu == "true" ) continue;
+		}
+		
+		// Loxone Stat filter
+		if( typeof filters["filter_loxstat"] !== "undefined" && filters["filter_loxstat"] != "all") {
+			if( filters["filter_loxstat"] == "on" && element.StatsType == 0 ) continue;
+			if( filters["filter_loxstat"] == "off" && element.Visu > 0 ) continue;
+		}
+		
+		// S4L Stat filter
+		var statmatch = statsconfigLoxone.find(obj => {
+			return obj.uuid === element.UID
+		})
+		if( typeof filters["filter_s4lstat"] !== "undefined" && filters["filter_s4lstat"] != "all") {
+			if( filters["filter_s4lstat"] == "on" && typeof statmatch === "undefined" ) continue;
+			if( filters["filter_s4lstat"] == "off" && typeof statmatch !== "undefined" ) continue;
+		}
+		
+		
+		
+		
+		
 		
 		//
 		// Create row section
@@ -181,9 +278,6 @@ function createTableBody() {
 		
 		// Info statistics
 		controlstable += `<td>`;
-		var statmatch = statsconfigLoxone.find(obj => {
-			return obj.uuid === element.UID
-		})
 		
 		if (statmatch != undefined) {
 			controlstable += "Statistics enabled";
@@ -196,10 +290,6 @@ function createTableBody() {
 		// End of row
 		
 		controlstable += `</tr>`;
-		
-		
-		
-		
 		
 	}
 	

@@ -39,21 +39,73 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 
 
 <!-- Filter -->
-<fieldset data-role="controlgroup" data-type="horizontal">
+
+<!-- Filter Miniserver / Room / Category / Type -->
+<fieldset data-role="controlgroup" data-type="horizontal" data-mini="true">
     <legend>Filter</legend>
     <label for="filter_miniserver">Miniserver</label>
-    <select name="filter_miniserver" id="filter_miniserver">
-        <option value="0">All Miniservers</option>
+    <select name="filter_miniserver" id="filter_miniserver" class="filter_select">
+        <option value="all">All Miniservers</option>
     </select>
     <label for="filter_room">Room</label>
-    <select name="filter_room" id="filter_room">
+    <select name="filter_room" id="filter_room" class="filter_select">
         <option value="all">All rooms</option>
     </select>
     <label for="filter_category">Category</label>
-    <select name="filter_category" id="filter_category">
+    <select name="filter_category" id="filter_category" class="filter_select">
         <option value="all">All categories</option>
     </select>
+    <label for="filter_element">Element</label>
+    <select name="filter_element" id="filter_element" class="filter_select">
+        <option value="all">All elements</option>
+    </select>
+
+
+
 </fieldset>
+
+<!-- Filter Loxone Visu enabled -->
+
+<div style="display:flex;">
+<div style="padding:5px;">
+<fieldset data-role="controlgroup" data-type="horizontal" data-mini="true">
+	<legend>Loxone Visu</legend>
+	<input type="radio" name="filter_loxvisu" id="filter_loxvisu_all" value="all" checked="checked" class="filter_radio">
+	<label for="filter_loxvisu_all">All</label>
+	<input type="radio" name="filter_loxvisu" id="filter_loxvisu_on" value="on" class="filter_radio">
+	<label for="filter_loxvisu_on">On</label>
+	<input type="radio" name="filter_loxvisu" id="filter_loxvisu_off" value="off" class="filter_radio">
+	<label for="filter_loxvisu_off">Off</label>
+</fieldset>
+</div>
+
+<!-- Filter Loxone Stat enabled -->
+<div style="padding:5px;">
+<fieldset data-role="controlgroup" data-type="horizontal" data-mini="true">
+	<legend>Loxone Statistic</legend>
+	<input type="radio" name="filter_loxstat" id="filter_loxstat_all" value="all" checked="checked" class="filter_radio">
+	<label for="filter_loxstat_all">All</label>
+	<input type="radio" name="filter_loxstat" id="filter_loxstat_on" value="on" class="filter_radio">
+	<label for="filter_loxstat_on">On</label>
+	<input type="radio" name="filter_loxstat" id="filter_loxstat_off" value="off" class="filter_radio">
+	<label for="filter_loxstat_off">Off</label>
+</fieldset>
+</div>
+
+<!-- Filter S4L Stat enabled -->
+<div style="padding:5px;">
+<fieldset data-role="controlgroup" data-type="horizontal" data-mini="true">
+	<legend>Stats4Lox Statistic</legend>
+	<input type="radio" name="filter_s4lstat" id="filter_s4lstat_all" value="all" checked="checked" class="filter_radio">
+	<label for="filter_s4lstat_all">All</label>
+	<input type="radio" name="filter_s4lstat" id="filter_s4lstat_on" value="on" class="filter_radio">
+	<label for="filter_s4lstat_on">On</label>
+	<input type="radio" name="filter_s4lstat" id="filter_s4lstat_off" value="off" class="filter_radio">
+	<label for="filter_s4lstat_off">Off</label>
+</fieldset>
+</div>
+
+</div>
 
 <!-- Table -->
 <div class="datahidden" id="loxonecontrolstablediv">
