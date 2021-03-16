@@ -78,7 +78,20 @@ if( $q->{action} eq "getstatsconfig" ) {
 	}
 }
 
-
+if( $q->{action} eq "updatestat" ) {
+	require LoxBerry::JSON;
+	my $jsonobjcfg = LoxBerry::JSON->new();
+	my $cfg = $jsonobjcfg->open(filename => $statsconfig);
+	my @searchresult = $jsonobjcfg->find( $cfg->{loxone}, "\$_->{uuid} eq \"".$q->{uuid}."\"" );
+	my $elemKey = $searchresult[0];
+	my $element = $cfg->{loxone}[$elemKey];
+	print STDERR "Name: " . $element->{name} . "\n";
+	use Data::Dumper;
+	#print STDERR "Dump:\n" . Dumper(\@elements) . "\n";
+	$response = "{ }";
+}
+	
+	
 
 
 if( defined $response ) {

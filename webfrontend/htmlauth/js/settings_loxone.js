@@ -34,8 +34,50 @@ $(function() {
 		// After changing the filter, recreate the table
 		updateTable();
 	});
-	
-	
+	// Bind rows
+	// Create S4L Stat change bindings
+	jQuery(document).on('focusout','.s4lchange',function (event, ui) {
+		target = event.target;
+		uid = $(target).closest('tr').data("uid");
+		var control = controls.find( obj => { return obj.UID === uid })
+		
+		var is_active; 
+		var interval = parseInt($(target).val());
+		if( interval == "" || interval <= 0 ) {
+			$(target).val("");
+			interval = 0;
+			is_active = "false";
+		} else {
+			is_active = "true";
+		}
+		console.log( "s4lchange", event, ui, uid, control, interval, is_active );
+		
+		
+		
+		$.post( "ajax.cgi", { 
+			action : "updatestat",  
+			name : control.Title,
+			description :control.Desc,
+			uuid : uid,
+			type : control.Type,
+			category : control.Category,
+			room: control.Place,
+			interval: interval,
+			active: is_active,
+			msno : control.msno
+		})
+			.done(function(data){
+				if( is_active == "true" ) 
+					$(target).closest('div').addClass("s4l_interval_highlight");
+				else
+					$(target).closest('div').removeClass("s4l_interval_highlight");
+			});
+			
+		
+		
+		
+		
+	});
 	
 	
 });
@@ -205,14 +247,8 @@ function createTableBody() {
 
 	for( elementno in controls ) {
 		element = controls[elementno];
-		// console.log(element);
 		
-		// Prepare data for filter
-		// To filter data, we already need to query some details before showing
-		
-		
-		
-		
+		// 
 		// Filter section
 		// 
 		
@@ -254,15 +290,11 @@ function createTableBody() {
 		}
 		
 		
-		
-		
-		
-		
 		//
 		// Create row section
 		//
 		
-		controlstable += `<tr class="controlstable_tr">`;
+		controlstable += `<tr class="controlstable_tr" data-uid="${element.UID}">`;
 		
 		// Miniserver
 		controlstable += `<td>${element.msno}</td>`;
@@ -280,15 +312,34 @@ function createTableBody() {
 			<br>${element.Category}
 			</td>`;
 		
-		// Info statistics
+		// Info section
+		controlstable += `<td></td>`;
+		
+		// Statistics
 		controlstable += `<td>`;
 		
+		
+		let highlightclass = "";
 		if (statmatch != undefined) {
-			controlstable += "Statistics enabled";
+			// controlstable += "Statistics enabled";
+			s4l_interval = statmatch.interval/60;
+			highlightclass = "s4l_interval_highlight";
 		}
 		else {
-			controlstable += "Statistics not enabled";
+			s4l_interval = "";
+			// controlstable += "Not enabled";
 		}
+		
+		controlstable += `
+			 
+			<label for="s4l_interval" data-mini="true">Interval (minutes)</label>
+			<div class="ui-input-text ui-body-inherit ui-corner-all ui-shadow-inset ui-input-has-clear ${highlightclass}">
+				<input type="number" data-clear-btn="true" name="s4l_interval" pattern="[0-9]*" value="${s4l_interval}" class="s4lchange" min="0" max="9999">
+				<a href="#" tabindex="-1" aria-hidden="true" class="ui-input-clear ui-btn ui-icon-delete ui-btn-icon-notext ui-corner-all ui-input-clear-hidden" title="Clear text">Clear text</a>
+			</div>`;
+		
+		
+		
 		controlstable += `</td>`;
 		
 		// End of row
