@@ -51,6 +51,7 @@ function getLoxplan() {
 	for (msno in miniservers) {
 		async_request.push(
 			$.post( "ajax.cgi", { action : "getloxplan", msno : msno }, function(data){
+				console.log(data);
 				responses.push(data);
 			})
 		);
@@ -66,6 +67,8 @@ function getLoxplan() {
 	$.when.apply( null, async_request).done( function(){
 		$("#progressState").html("Preparing controls...");
 		consolidateLoxPlan( responses );
+		$("#progressState").html("Generating display...");
+		updateTable();
 		$("#popupProgress").popup("close");
 		$("#progressState").html("");
 		
@@ -95,6 +98,7 @@ function consolidateLoxPlan( data ) {
 		return elementTypes_used.indexOf(item) == pos;
 	})
 	elementTypes_used.sort();
+	miniservers_used.sort();
 	
 	// console.log("controls array", controls);
 	
@@ -115,7 +119,7 @@ function consolidateLoxPlan( data ) {
 	categories = cat_tmp.sort();
 	
 	generateFilter();
-	updateTable();
+	
 }
 
 function generateFilter() {
