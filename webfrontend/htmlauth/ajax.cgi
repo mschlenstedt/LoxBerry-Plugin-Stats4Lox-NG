@@ -84,17 +84,58 @@ if( $q->{action} eq "updatestat" ) {
 	my $cfg = $jsonobjcfg->open(filename => $statsconfig);
 	my @searchresult = $jsonobjcfg->find( $cfg->{loxone}, "\$_->{uuid} eq \"".$q->{uuid}."\"" );
 	my $elemKey = $searchresult[0];
-	my $element = $cfg->{loxone}[$elemKey];
-	print STDERR "Name: " . $element->{name} . "\n";
-	use Data::Dumper;
-	#print STDERR "Dump:\n" . Dumper(\@elements) . "\n";
-	$response = "{ }";
+	my $element = $cfg->{loxone}[$elemKey] if( defined $elemKey );
+	
+	my %updatedelement = (
+		name => $q->{name},
+		description => $q->{description},
+		uuid => $q->{uuid},
+		type => $q->{type},
+		category => $q->{category},
+		room => $q->{room},
+		interval => defined $q->{interval} ? $q->{interval}*60 : 0,
+		active => defined $q->{active} ? $q->{active} : "false",
+		msno => $q->{msno},
+		outputs => $q->{outputs},
+		url => '/jdev/sps/io/'.$q->{uuid}.'/all'
+	);
+	
+	# Validation
+	my @errors;
+	push @errors, "name must be defined" if( ! $updatedelement{name} );
+	push @errors, "uuid must be defined" if( ! $updatedelement{uuid} );
+	push @errors, "msno must be defined" if( ! $updatedelement{msno} );
+	push @errors, "url must be defined" if( ! $updatedelement{url} );
+	push @errors, "active must be defined" if( ! $updatedelement{active} );
+
+	
+	# Insert/Update element in stats array
+	if( defined $element ) {
+		# This is an update of an existing element
+		$cfg->{loxone}[$elemKey] = \%updatedelement;
+	} 
+	else {
+		# Add a new entry to stats.json
+		push @{$cfg->{loxone}}, \%updatedelement;
+	}
+	
+	if( ! @errors ) {
+		# The changes are valid
+		$jsonobjcfg->write();
+		undef $jsonobjcfg;
+		$response = "{ }";
+	}
+	else {
+		# The element is invalid
+		$error = "Invalid input data: " . join(". ", @errors);
+	}
+	
 }
 	
 	
 
 
-if( defined $response ) {
+if( defined $response and $error eq "" ) {
 	print "Status: 200 OK\r\n";
 	print "Content-type: application/json\r\n\r\n";
 	print $response;
