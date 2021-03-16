@@ -64,7 +64,8 @@ $(function() {
 			room: control.Place,
 			interval: interval,
 			active: is_active,
-			msno : control.msno
+			msno : control.msno,
+			outputs : "0"
 		})
 			.done(function(data){
 				if( is_active == "true" ) 
