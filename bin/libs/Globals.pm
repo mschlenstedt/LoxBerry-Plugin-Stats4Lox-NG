@@ -23,7 +23,6 @@ our $statsconfig = "$LoxBerry::System::lbpconfigdir/stats.json";
 # ACTOR="Aktor (Relais)"
 # AUTOJALOUSIE="Automatikjalousie"
 # BRIGHTNESS="Helligkeitsregler (BETA)"
-# CALENDAR="Aktive Betriebszeit"
 # CALLERVIRTUALIN="Virtueller Eingang (Caller)"
 # CURRENTOUT="Stromausgang (20mA)"
 # DAYLIGHTCTRL="Tageslicht Steuerung (BETA)"
@@ -109,7 +108,6 @@ our $statsconfig = "$LoxBerry::System::lbpconfigdir/stats.json";
 # VIRTUALIN="Virtueller Eingang"
 # VIRTUALINTEXT="Virtueller Texteingang"
 # VIRTUALOUT="Virtueller Ausgang"
-# VIRTUALOUTCMD="Virtueller Ausgang Befehl"
 # VIRTUALUDPINCMD="Virtueller UDP Eingang Befehl"
 # VOLTAGEIN="Spannungseingang"
 # VOLTAGEOUT="Spannungsausgang"
@@ -141,11 +139,14 @@ ANALOGSTEPPER
 ANALOGWATCHDOG
 AND
 APP
+APPLICATION
 AUTOPILOT
 AUTOPILOTRULE
 AVERAGE
 AVERAGE4
+AVG
 BINDECODER
+CALENDAR
 CALENDARCAPTION
 CALENDARENTRY
 CALLER
@@ -365,6 +366,7 @@ VALVEDEVICE
 VIRTUALHTTPIN
 VIRTUALINCAPTION
 VIRTUALOUTCAPTION
+VIRTUALOUTCMD
 VIRTUALUDPIN
 WALLMOUNTDEVICE
 WEATHERDATA

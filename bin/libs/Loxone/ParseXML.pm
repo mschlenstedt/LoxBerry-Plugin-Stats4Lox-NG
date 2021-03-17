@@ -190,6 +190,7 @@ sub readloxplan
 		my $logmessage = "Object: ".$object->{Title}." (".$object->{Type}.") --> MS ".$lox_miniserver{$ms_ref}{Title};
 		$logmessage .= " StatsType = ".$object->{StatsType} if ($object->{StatsType});
 		# $log->DEB($logmessage);
+		
 		$lox_elementType{$object->{Type}} = 1;
 		
 		$lox_statsobject{$object->{U}}{Title} = $object->{Title};
@@ -245,6 +246,14 @@ sub readloxplan
 				$lox_statsobject{$object->{U}}{MaxVal} = "U";
 			}
 		}
+		
+		# Page in the document
+		# Not sure if the xpath query recursively goes up until type Page, but should
+		my @page = $object->findnodes('ancestor::C[@Type="Page"]');
+		$lox_statsobject{$object->{U}}{Page} = defined $page[0]->{Title} ? $page[0]->{Title} : "";
+		# print STDERR "Pages: " . scalar @page . " Object $object->{Title} Page: " . $page[0]->{Title} . "\n";
+		
+		
 		# $log->DEB( "Object Name: " . $lox_statsobject{$object->{U}}{Title});
 	}
 	

@@ -322,7 +322,14 @@ function createTableBody() {
 			</td>`;
 		
 		// Info section
-		controlstable += `<td></td>`;
+		controlstable += `<td>
+		<span class="small">
+		DEBUGGING:<br>
+		Type ${element.Type}<br>
+		${element.UID}<br>
+		Page ${element.Page}
+		</span>
+		</td>`;
 		
 		// Statistics
 		controlstable += `<td>`;
