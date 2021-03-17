@@ -12,11 +12,14 @@ let elementTypes_used = [];
 
 let filters = [];
 
+let filterSearchDelay;
+var filterSearchString = "";
+
 $(function() {
 	miniservers = JSON.parse( $("#miniservers").text() );
 	getLoxplan();
 	
-	// Create filter radio bindings
+	// Create filter radio and select bindings
 	$('.filter_radio, .filter_select').bind( "change", function(event, ui){
 		var filter_parent = event.currentTarget.name;
 		console.log( "filter_select", event, ui );
@@ -52,8 +55,6 @@ $(function() {
 		}
 		console.log( "s4lchange", event, ui, uid, control, interval, is_active );
 		
-		
-		
 		$.post( "ajax.cgi", { 
 			action : "updatestat",  
 			name : control.Title,
@@ -67,18 +68,28 @@ $(function() {
 			msno : control.msno,
 			outputs : "0"
 		})
-			.done(function(data){
-				if( is_active == "true" ) 
-					$(target).closest('div').addClass("s4l_interval_highlight");
-				else
-					$(target).closest('div').removeClass("s4l_interval_highlight");
-			});
-			
-		
-		
-		
-		
+		.done(function(data){
+			if( is_active == "true" ) 
+				$(target).closest('div').addClass("s4l_interval_highlight");
+			else
+				$(target).closest('div').removeClass("s4l_interval_highlight");
+		});
 	});
+
+// Bind on Search text box
+$("#filter_search").on( "input", function(event, ui){
+	window.clearTimeout(filterSearchDelay); 
+	filterSearchString = $(event.target).val();
+	// console.log("Text filter", filterSearchString);
+	filterSearchDelay = window.setTimeout(function() { updateTable(); }, 500);
+});
+$("#filter_search").on( "change", function(event, ui){
+	window.clearTimeout(filterSearchDelay); 
+	filterSearchString = $(event.target).val();
+	updateTable();
+});
+
+	
 	
 	
 });
@@ -135,6 +146,7 @@ function consolidateLoxPlan( data ) {
 	
 	// Create array from controls object
 	controls = Object.values(controls);
+	controls.sort( dynamicSortMultiple( "Title" ) );
 	
 	// Uniquify elementTypes_used
 	elementTypes_used = elementTypes_used.filter( function(item, pos) {
@@ -218,7 +230,7 @@ function generateFilter() {
 	}
 	
 }
-	
+
 function updateTable() {
 	console.log("updateTable called");
 	controlstable = "";
@@ -253,6 +265,8 @@ function createTableEnd() {
 }
 
 function createTableBody() {
+
+	var filterSearchStr_lc = filterSearchString.toLowerCase();
 
 	for( elementno in controls ) {
 		element = controls[elementno];
@@ -298,6 +312,14 @@ function createTableBody() {
 			if( filters["filter_s4lstat"] == "off" && typeof statmatch !== "undefined" ) continue;
 		}
 		
+		// Text filter (filterSearchString)
+		if( filterSearchStr_lc != "" ) {
+			if ( 
+				element.Title.toLowerCase().indexOf(filterSearchStr_lc) == -1 &&
+				element.Desc.toLowerCase().indexOf(filterSearchStr_lc) == -1 &&
+				element.UID.toLowerCase().indexOf(filterSearchStr_lc) == -1 
+				) continue;
+		}
 		
 		//
 		// Create row section
@@ -364,4 +386,43 @@ function createTableBody() {
 		
 	}
 	
+}
+
+// Sort function for arrays of objects
+// https://stackoverflow.com/a/4760279/3466839
+// Usage: arrayOfObjects.sort(dynamicSortMultiple("Name", "-Surname"));
+
+function dynamicSort(property) {
+    var sortOrder = 1;
+    if(property[0] === "-") {
+        sortOrder = -1;
+        property = property.substr(1);
+    }
+    return function (a,b) {
+        /* next line works with strings and numbers, 
+         * and you may want to customize it to your needs
+         */
+        var result = (a[property] < b[property]) ? -1 : (a[property] > b[property]) ? 1 : 0;
+        return result * sortOrder;
+    }
+}
+
+function dynamicSortMultiple() {
+    /*
+     * save the arguments object as it will be overwritten
+     * note that arguments object is an array-like object
+     * consisting of the names of the properties to sort by
+     */
+    var props = arguments;
+    return function (obj1, obj2) {
+        var i = 0, result = 0, numberOfProperties = props.length;
+        /* try getting a different result from 0 (equal)
+         * as long as we have extra properties to compare
+         */
+        while(result === 0 && i < numberOfProperties) {
+            result = dynamicSort(props[i])(obj1, obj2);
+            i++;
+        }
+        return result;
+    }
 }
