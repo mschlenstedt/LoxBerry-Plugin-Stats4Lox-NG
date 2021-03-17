@@ -20,7 +20,7 @@ $(function() {
 	getLoxplan();
 	
 	// Create filter radio and select bindings
-	$('.filter_radio, .filter_select').bind( "change", function(event, ui){
+	$('.filter_radio, .filter_select').on( "change", function(event, ui){
 		var filter_parent = event.currentTarget.name;
 		console.log( "filter_select", event, ui );
 		
@@ -76,21 +76,25 @@ $(function() {
 		});
 	});
 
-// Bind on Search text box
-$("#filter_search").on( "input", function(event, ui){
-	window.clearTimeout(filterSearchDelay); 
-	filterSearchString = $(event.target).val();
-	// console.log("Text filter", filterSearchString);
-	filterSearchDelay = window.setTimeout(function() { updateTable(); }, 500);
-});
-$("#filter_search").on( "change", function(event, ui){
-	window.clearTimeout(filterSearchDelay); 
-	filterSearchString = $(event.target).val();
-	updateTable();
-});
+	// Bind on Search text box
+	$("#filter_search").on( "input", function(event, ui){
+		window.clearTimeout(filterSearchDelay); 
+		filterSearchString = $(event.target).val();
+		// console.log("Text filter", filterSearchString);
+		filterSearchDelay = window.setTimeout(function() { updateTable(); }, 500);
+	});
+	$("#filter_search").on( "change", function(event, ui){
+		window.clearTimeout(filterSearchDelay); 
+		filterSearchString = $(event.target).val();
+		updateTable();
+	});
 
-	
-	
+	// Bind Loxone Details button
+	jQuery(document).on('click', '.btnLoxoneDetails', function(event, ui){
+		target = event.target;
+		uid = $(target).closest('tr').data("uid");
+		popupLoxoneDetails(uid);
+	});
 	
 });
 
@@ -345,6 +349,8 @@ function createTableBody() {
 		
 		// Info section
 		controlstable += `<td>
+		<a href="#" class="ui-btn ui-icon-eye ui-btn-icon-notext ui-corner-all btnLoxoneDetails"></a>
+		
 		<span class="small">
 		DEBUGGING:<br>
 		Type ${element.Type}<br>
@@ -387,6 +393,103 @@ function createTableBody() {
 	}
 	
 }
+
+function popupLoxoneDetails( uid ) {
+	$("#popupLoxoneDetails").popup("open");
+	$("#contentLoxoneDetails #valuesLoxoneDetails").empty();
+	var control = controls.find( obj => { return obj.UID === uid })
+	$("#titleLoxoneDetails").html(`Details ${control.Title}`);
+	
+	var str = "";
+	str += `
+	<table>
+		<tr>
+			<td>Title</td>
+			<td>${control.Title}</td>
+		</tr>
+		<tr>
+			<td>Description</td>
+			<td>${control.Desc}</td>
+		</tr>
+		<tr>
+			<td>Room</td>
+			<td>${control.Place}</td>
+		</tr>
+		<tr>
+			<td>Category</td>
+			<td>${control.Category}</td>
+		</tr>
+		<tr>
+			<td>Type</td>
+			<td>${control.Type}</td>
+		</tr>
+		<tr>
+			<td>Miniserver</td>
+			<td>${control.msno}</td>
+		</tr>
+		<tr>
+			<td>Page</td>
+			<td>${control.Page}</td>
+		</tr>
+		<tr>
+			<td>UID</td>
+			<td class="small">${control.UID}</td>
+		</tr>
+		<tr>
+			<td>Visualisation</td>
+			<td>${control.Visu}</td>
+		</tr>
+		<tr>
+			<td>Loxone Statistics</td>
+			<td>${control.StatsType}</td>
+		</tr>
+	</table>
+	`;
+	
+	$("#contentLoxoneDetails").html(str);
+	
+	$("#valuesLoxoneDetails").html("<span style='color:green;'><b>Updating...</b></span>");
+	var dataStr = "";
+	dataStr += 
+	`<table>
+	`;
+	$.post( "ajax.cgi", { 
+			action : "lxlquery",  
+			uuid : uid,
+			msno : control.msno,
+		})
+		.done(function(data){
+			console.log(data);
+			if( data.error == "" && typeof data.response === "object" && typeof data.response.LL !== "undefined" ) {
+				for( var key in data.response.LL ) {
+					if( key == "value" )
+						dataStr += `
+							<tr>
+								<td>value</td>
+								<td>${data.response.LL[key]}</td>
+							</tr>`;
+					if ( key.startsWith('output' ))
+						dataStr += `
+							<tr>
+								<td>${data.response.LL[key].name}</td>
+								<td>${data.response.LL[key].value}</td>
+							</tr>`;
+				}
+				dataStr += `</table>`;
+			
+			}
+			else {
+				dataStr += `<span style="color:red"><b>Error getting data</b></span><br>`;
+				if( typeof data.error !== "undefined" ) 
+					dataStr += `Error: ${data.error}<br>`;
+				if( typeof data.response == "string" ) 
+					dataStr += `Original response:<br><span class="small">${data.response}</span>`;
+			}	
+			$("#valuesLoxoneDetails").html(dataStr);
+		});
+	
+}
+
 
 // Sort function for arrays of objects
 // https://stackoverflow.com/a/4760279/3466839

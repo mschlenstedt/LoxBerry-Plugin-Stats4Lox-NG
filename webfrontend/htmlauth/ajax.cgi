@@ -132,7 +132,33 @@ if( $q->{action} eq "updatestat" ) {
 	
 }
 	
+if( $q->{action} eq "lxlquery" ) {
+	require LoxBerry::IO;
+	require JSON;
+	my $url = '/jdev/sps/io/'.$q->{uuid}.'/all';
+	my (undef, $code, $resp) = LoxBerry::IO::mshttp_call($q->{msno}, $url);
 	
+	my $respobj;
+	my $jsonerror;
+	eval {
+		$respobj = decode_json($resp);
+	};
+	if( $@ ) {
+		$jsonerror = $@;
+		$respobj = $resp;
+	}
+	
+	my %response = (
+		msno => $q->{msno},
+		uuid => $q->{uuid},
+		code => $code,
+		response => $respobj,
+		error => $jsonerror
+	);
+	$response = encode_json( \%response );
+}
+
+
 
 
 if( defined $response and $error eq "" ) {
