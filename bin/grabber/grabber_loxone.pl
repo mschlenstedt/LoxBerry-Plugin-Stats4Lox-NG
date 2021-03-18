@@ -102,7 +102,7 @@ for my $results( @{$cfg->{loxone}} ){
 		push @results, \%result;
 	
 	}
-	$values->{results} = \@results;
+	$values->{value} = \@results;
 	push (@data, $values);
 
 	# Slow down
@@ -113,8 +113,6 @@ for my $results( @{$cfg->{loxone}} ){
 
 # Output
 my $jsonout = to_json( \@data, {ascii => 1, pretty => 1 });
-
-print "Content-type: application/json\n\n";
 print $jsonout;
 
 exit(0);

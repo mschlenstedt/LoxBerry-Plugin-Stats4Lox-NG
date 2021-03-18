@@ -50,10 +50,9 @@ usermod -a -G loxberry influxdb
 INFLUXDBUSER=`jq -r '.Credentials.influxdbuser' $PCONFIG/cred.json`
 INFLUXDBPASS=`jq -r '.Credentials.influxdbpass' $PCONFIG/cred.json`
 if [ "$INFLUXDBUSER" = "" ]; then
-	echo "<WARNING> Could not find credentials for InfluxDB. This may be an error, but I will try to continue. Using default ones: stat4lox/loxberry"
+	echo "<WARNING> Could not find credentials for InfluxDB. This may be an error, but I will try to continue. Using default ones: stats4lox/loxberry"
 	INFLUXDBUSER="stats4lox"
 	INFLUXDBPASS="loxberry"
-	ERROR=1
 fi
 
 # Activate own config delivered with plugin
@@ -101,8 +100,8 @@ fi
 
 # Check InfluxDB user. Create it if not exists
 RESP=`$INFLUXBIN -ssl -unsafeSsl -username $INFLUXDBUSER -password $INFLUXDBPASS -execute "SHOW USERS" | grep -e "^$INFLUXDBUSER\W*true$" | wc -l`
-if [ $RESP -eq 0 ] || [ $? -eq 127 ]; then # If user does not exist or if no admin user at all ecists in a fresh installation
-	echo "<INFO> Creating default InfluxDB user 'stat4lox' as dadmin."
+if [ $RESP -eq 0 ] || [ $? -eq 127 ]; then # If user does not exist or if no admin user at all exists in a fresh installation:
+	echo "<INFO> Creating default InfluxDB user 'stats4lox' as dadmin."
 	INFLUXDBUSER="stats4lox"
 	INFLUXDBPASS=`head /dev/urandom | tr -dc A-Za-z0-9 | head -c16`
 	$INFLUXBIN -ssl -unsafeSsl -execute "CREATE USER $INFLUXDBUSER WITH PASSWORD '$INFLUXDBPASS' WITH ALL PRIVILEGES"
@@ -110,7 +109,7 @@ if [ $RESP -eq 0 ] || [ $? -eq 127 ]; then # If user does not exist or if no adm
 		echo "<ERROR> Could not create default InfluxDB user. Giving up."
 		exit 2
 	else
-		echo "<OK> Default InfluxDB user 'stat4lox' created successfully. Fine."
+		echo "<OK> Default InfluxDB user 'stats4lox' created successfully. Fine."
 		echo "<INFO> Saving credentials in cred.json."
 		jq ".Credentials.influxdbuser = \"$INFLUXDBUSER\"" $PCONFIG/cred.json > $PCONFIG/cred.json.new
 		mv $PCONFIG/cred.json.new $PCONFIG/cred.json
@@ -120,10 +119,10 @@ if [ $RESP -eq 0 ] || [ $? -eq 127 ]; then # If user does not exist or if no adm
 		chmod 640 $PCONFIG/cred.json
 	fi
 else
-	echo "<OK> InfluxDB user $INFLUXDBUSER already exists. Fine, I will use this one."
+	echo "<OK> InfluxDB user $INFLUXDBUSER already exists. Fine, I will use this account and leave it untouched."
 fi
 
-# Check for stat4lox database. Create it if not exists
+# Check for stats4lox database. Create it if not exists
 RESP=`$INFLUXBIN -ssl -unsafeSsl -username $INFLUXDBUSER -password $INFLUXDBPASS -execute "SHOW DATABASES" | grep -e "^stats4lox$" | wc -l`
 if [ $RESP -eq 0 ]; then
 	echo "<INFO> Creating default InfluxDB database 'stats4lox'."
@@ -142,10 +141,11 @@ fi
 # Activating own telegraf config which is delivered with the plugin
 echo "<INFO> Activating my own Telegraf configuration."
 if [ -d /etc/telegraf ] && [ ! -L /etc/telegraf ]; then
+	rm -rf /etc/telegraf.orig
 	mv /etc/telegraf /etc/telegraf.orig
-	mv /etc/default/telegraf /etc/default/telegraf.orig
 fi
 if [ ! -L /etc/default/telegraf ]; then
+	rm -f /etc/default/telegraf.orig
 	mv /etc/default/telegraf /etc/default/telegraf.orig
 fi
 rm -rf /etc/telegraf > /dev/null 2>&1
@@ -160,9 +160,9 @@ awk -v s="PASS_INFLUXDB=\"$INFLUXDBPASS\"" '/^PASS_INFLUXDB=/{$0=s;f=1} {a[++n]=
 chown loxberry:loxberry $PCONFIG/telegraf/telegraf.env
 chmod 640 $PCONFIG/telegraf/telegraf.env
 
-# MS Credentials to Telegras Config
-echo "<INFO> Integrate Miniserver Credentials to Telegraf configuration..."
-$PBIN/mscred2telegraf.pl
+# MS Credentials to Telegraf Config
+#echo "<INFO> Integrate Miniserver Credentials to Telegraf configuration..."
+#$PBIN/mscred2telegraf.pl
 
 # Telegraf mit neuer Config starten
 echo "<INFO> Starting Telegraf..."
@@ -178,12 +178,6 @@ if [ $? -gt 0 ]; then
 	exit 2
 else
 	echo "<OK> Telegraf service is running. Fine."
-fi
-
-if [ $ERROR -eq 1 ]; then
-	exit 1
-else
-	exit 0
 fi
 
 exit 0
