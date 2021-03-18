@@ -150,7 +150,7 @@ function consolidateLoxPlan( data ) {
 	
 	// Create array from controls object
 	controls = Object.values(controls);
-	controls.sort( dynamicSortMultiple( "Title" ) );
+	// controls.sort( dynamicSortMultiple( "Title" ) );
 	
 	// Uniquify elementTypes_used
 	elementTypes_used = elementTypes_used.filter( function(item, pos) {
@@ -452,6 +452,9 @@ function popupLoxoneDetails( uid ) {
 	var dataStr = "";
 	dataStr += 
 	`<table>
+		<tr>
+			<th colspan="2">Live Data from Miniserver ${control.msno}</th>
+		</tr>
 	`;
 	$.post( "ajax.cgi", { 
 			action : "lxlquery",  
@@ -460,14 +463,15 @@ function popupLoxoneDetails( uid ) {
 		})
 		.done(function(data){
 			console.log(data);
-			if( data.error == "" && typeof data.response === "object" && typeof data.response.LL !== "undefined" ) {
-				for( var key in data.response.LL ) {
-					if( key == "value" )
+			if( data.error == null && typeof data.response === "object" && typeof data.response.LL !== "undefined" ) {
+				if( typeof data.response.LL.value !== "undefined" )
 						dataStr += `
 							<tr>
 								<td>value</td>
-								<td>${data.response.LL[key]}</td>
+								<td>${data.response.LL.value}</td>
 							</tr>`;
+					
+				for( var key in data.response.LL ) {
 					if ( key.startsWith('output' ))
 						dataStr += `
 							<tr>
