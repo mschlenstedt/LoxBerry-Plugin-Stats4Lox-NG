@@ -68,7 +68,7 @@ for my $results( @{$cfg->{loxone}} ){
 	my @results;
 	my $value = $respjson->{LL}->{value};
 	$value =~ s/^([-\d\.]+).*/$1/g;
-	# $values->{value} = $value;
+	$value = $value + 0; # Workaround to convert from string to float
 	my %defaultresult = ( "default" => $value );
 	push @results, \%defaultresult;
 	
@@ -89,15 +89,10 @@ for my $results( @{$cfg->{loxone}} ){
 	}
 	
 	foreach ( @outputs ) {
-		# $values->{"value_$_"} = $respjson->{LL}->{"output$_"}->{value};
-		# $values->{"name_$_"} = $respjson->{LL}->{"output$_"}->{name};
-	
-		# Maybe more flexible
 		my $valname = $respjson->{LL}->{"output$_"}->{name};
 		my $valvalue = $respjson->{LL}->{"output$_"}->{value};
 		my %result = ( $valname => $valvalue );
 		push @results, \%result;
-	
 	}
 	$values->{value} = \@results;
 	push (@data, $values);
