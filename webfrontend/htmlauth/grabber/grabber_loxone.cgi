@@ -69,7 +69,7 @@ for my $results( @{$cfg->{loxone}} ){
 	my $value = $respjson->{LL}->{value};
 	$value =~ s/^([-\d\.]+).*/$1/g;
 	$value = $value + 0; # Workaround to convert from string to float
-	my %defaultresult = ( "default" => $value );
+	my %defaultresult = ( "Default" => $value );
 	push @results, \%defaultresult;
 	
 	my @outputs;
