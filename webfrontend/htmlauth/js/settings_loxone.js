@@ -42,7 +42,8 @@ $(function() {
 	jQuery(document).on('focusout','.s4lchange',function (event, ui) {
 		target = event.target;
 		uid = $(target).closest('tr').data("uid");
-		var control = controls.find( obj => { return obj.UID === uid })
+		msno = $(target).closest('tr').data("msno");
+		var control = controls.find( obj => { return obj.UID === uid && obj.msno == msno })
 		
 		var is_active; 
 		var interval = parseInt($(target).val());
@@ -84,16 +85,19 @@ $(function() {
 		filterSearchDelay = window.setTimeout(function() { updateTable(); }, 500);
 	});
 	$("#filter_search").on( "change", function(event, ui){
-		window.clearTimeout(filterSearchDelay); 
-		filterSearchString = $(event.target).val();
-		updateTable();
+		if( $(event.target).val() == "" ) {
+			window.clearTimeout(filterSearchDelay); 
+			filterSearchString = $(event.target).val();
+			updateTable();
+		}
 	});
 
 	// Bind Loxone Details button
 	jQuery(document).on('click', '.btnLoxoneDetails', function(event, ui){
 		target = event.target;
 		uid = $(target).closest('tr').data("uid");
-		popupLoxoneDetails(uid);
+		msno = $(target).closest('tr').data("msno");
+		popupLoxoneDetails(uid, msno);
 	});
 	
 });
@@ -331,7 +335,7 @@ function createTableBody() {
 		// Create row section
 		//
 		
-		controlstable += `<tr class="controlstable_tr" data-uid="${element.UID}">`;
+		controlstable += `<tr class="controlstable_tr" data-uid="${element.UID}" data-msno="${element.msno}">`;
 		
 		// Miniserver
 		controlstable += `<td>${element.msno}</td>`;
@@ -396,10 +400,10 @@ function createTableBody() {
 	
 }
 
-function popupLoxoneDetails( uid ) {
+function popupLoxoneDetails( uid, msno ) {
 	$("#popupLoxoneDetails").popup("open");
 	$("#contentLoxoneDetails #valuesLoxoneDetails").empty();
-	var control = controls.find( obj => { return obj.UID === uid })
+	var control = controls.find( obj => { return obj.UID === uid && obj.msno == msno })
 	$("#titleLoxoneDetails").html(`Details ${control.Title}`);
 	
 	var str = "";
