@@ -4,7 +4,7 @@ let rooms;
 let rooms_used;
 let categories;
 let categories_used = [];
-let controls;
+let controls = [];
 let statsconfig;
 let statsconfigLoxone;
 let controlstable = "";
@@ -142,15 +142,17 @@ function consolidateLoxPlan( data ) {
 	  categories_used = $.extend( categories_used, data[key].categories_used );
 	  miniservers_used = $.extend ( miniservers_used, data[key].miniservers );
 	  elementTypes_used = elementTypes_used.concat( data[key].elementTypes );
-	  if( typeof controls == "undefined" ) 
-		controls = data[key].controls;
-	  else
-		controls = Object.assign( controls, data[key].controls );
+	  
+	  if( typeof data[key].controls !== "undefined" ) {
+	     console.log( "controls from key", key, Object.keys(data[key].controls).length );
+		 var objarr = Object.values( data[key].controls );
+		 controls = controls.concat( objarr );
+	  }
+	
 	}
 	
-	// Create array from controls object
-	controls = Object.values(controls);
-	// controls.sort( dynamicSortMultiple( "Title" ) );
+	// Sort controls by Title
+	controls.sort( dynamicSortMultiple( "Title" ) );
 	
 	// Uniquify elementTypes_used
 	elementTypes_used = elementTypes_used.filter( function(item, pos) {
