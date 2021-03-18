@@ -4,7 +4,7 @@ let rooms;
 let rooms_used;
 let categories;
 let categories_used = [];
-let controls;
+let controls = [];
 let statsconfig;
 let statsconfigLoxone;
 let controlstable = "";
@@ -39,14 +39,18 @@ $(function() {
 	});
 	// Bind rows
 	// Create S4L Stat change bindings
-	jQuery(document).on('focusout','.s4lchange',function (event, ui) {
+	jQuery(document).on('focusout keyup','.s4lchange',function (event, ui) {
+		if( typeof event.keyCode !== "undefined" && event.keyCode != 13)
+			return;
 		target = event.target;
 		uid = $(target).closest('tr').data("uid");
-		var control = controls.find( obj => { return obj.UID === uid })
+		msno = $(target).closest('tr').data("msno");
+		var control = controls.find( obj => { return obj.UID === uid && obj.msno == msno })
 		
 		var is_active; 
 		var interval = parseInt($(target).val());
-		if( interval == "" || interval <= 0 ) {
+		console.log("interval typeof", typeof interval, "value", interval); 
+		if( isNaN(interval) || interval <= 0 ) {
 			$(target).val("");
 			interval = 0;
 			is_active = "false";
@@ -69,6 +73,11 @@ $(function() {
 			outputs : "0"
 		})
 		.done(function(data){
+			var statkey = statsconfigLoxone.findIndex(obj => {
+			return obj.uuid === control.UID && obj.msno == control.msno })
+			statsconfigLoxone[statkey].active = is_active;
+			statsconfigLoxone[statkey].interval = interval*60;
+			
 			if( is_active == "true" ) 
 				$(target).closest('div').addClass("s4l_interval_highlight");
 			else
@@ -84,16 +93,19 @@ $(function() {
 		filterSearchDelay = window.setTimeout(function() { updateTable(); }, 500);
 	});
 	$("#filter_search").on( "change", function(event, ui){
-		window.clearTimeout(filterSearchDelay); 
-		filterSearchString = $(event.target).val();
-		updateTable();
+		if( $(event.target).val() == "" ) {
+			window.clearTimeout(filterSearchDelay); 
+			filterSearchString = $(event.target).val();
+			updateTable();
+		}
 	});
 
 	// Bind Loxone Details button
 	jQuery(document).on('click', '.btnLoxoneDetails', function(event, ui){
 		target = event.target;
 		uid = $(target).closest('tr').data("uid");
-		popupLoxoneDetails(uid);
+		msno = $(target).closest('tr').data("msno");
+		popupLoxoneDetails(uid, msno);
 	});
 	
 });
@@ -116,6 +128,7 @@ function getLoxplan() {
 	}
 	async_request.push(
 		$.post( "ajax.cgi", { action : "getstatsconfig" }, function(data){
+			
 			statsconfig = data;
 			statsconfigLoxone = Object.values( statsconfig.loxone );
 		})
@@ -142,14 +155,16 @@ function consolidateLoxPlan( data ) {
 	  categories_used = $.extend( categories_used, data[key].categories_used );
 	  miniservers_used = $.extend ( miniservers_used, data[key].miniservers );
 	  elementTypes_used = elementTypes_used.concat( data[key].elementTypes );
-	  if( typeof controls == "undefined" ) 
-		controls = data[key].controls;
-	  else
-		controls = Object.assign( controls, data[key].controls );
+	  
+	  if( typeof data[key].controls !== "undefined" ) {
+	     console.log( "controls from key", key, Object.keys(data[key].controls).length );
+		 var objarr = Object.values( data[key].controls );
+		 controls = controls.concat( objarr );
+	  }
+	
 	}
 	
-	// Create array from controls object
-	controls = Object.values(controls);
+	// Sort controls by Title
 	controls.sort( dynamicSortMultiple( "Title" ) );
 	
 	// Uniquify elementTypes_used
@@ -309,11 +324,11 @@ function createTableBody() {
 		
 		// S4L Stat filter
 		var statmatch = statsconfigLoxone.find(obj => {
-			return obj.uuid === element.UID
+			return obj.uuid === element.UID && obj.msno == element.msno
 		})
 		if( typeof filters["filter_s4lstat"] !== "undefined" && filters["filter_s4lstat"] != "all") {
-			if( filters["filter_s4lstat"] == "on" && typeof statmatch === "undefined" ) continue;
-			if( filters["filter_s4lstat"] == "off" && typeof statmatch !== "undefined" ) continue;
+			if( filters["filter_s4lstat"] == "on" && ( typeof statmatch === "undefined" || statmatch.active !== "true" ) ) continue;
+			if( filters["filter_s4lstat"] == "off" && typeof statmatch !== "undefined" &&  statmatch.active === "true" ) continue;
 		}
 		
 		// Text filter (filterSearchString)
@@ -329,7 +344,7 @@ function createTableBody() {
 		// Create row section
 		//
 		
-		controlstable += `<tr class="controlstable_tr" data-uid="${element.UID}">`;
+		controlstable += `<tr class="controlstable_tr" data-uid="${element.UID}" data-msno="${element.msno}">`;
 		
 		// Miniserver
 		controlstable += `<td>${element.msno}</td>`;
@@ -364,7 +379,7 @@ function createTableBody() {
 		
 		
 		let highlightclass = "";
-		if (statmatch != undefined) {
+		if (statmatch != undefined && statmatch.interval > 0) {
 			// controlstable += "Statistics enabled";
 			s4l_interval = statmatch.interval/60;
 			highlightclass = "s4l_interval_highlight";
@@ -394,10 +409,10 @@ function createTableBody() {
 	
 }
 
-function popupLoxoneDetails( uid ) {
+function popupLoxoneDetails( uid, msno ) {
 	$("#popupLoxoneDetails").popup("open");
 	$("#contentLoxoneDetails #valuesLoxoneDetails").empty();
-	var control = controls.find( obj => { return obj.UID === uid })
+	var control = controls.find( obj => { return obj.UID === uid && obj.msno == msno })
 	$("#titleLoxoneDetails").html(`Details ${control.Title}`);
 	
 	var str = "";
@@ -452,6 +467,9 @@ function popupLoxoneDetails( uid ) {
 	var dataStr = "";
 	dataStr += 
 	`<table>
+		<tr>
+			<th colspan="2">Live Data from Miniserver ${control.msno}</th>
+		</tr>
 	`;
 	$.post( "ajax.cgi", { 
 			action : "lxlquery",  
@@ -460,14 +478,15 @@ function popupLoxoneDetails( uid ) {
 		})
 		.done(function(data){
 			console.log(data);
-			if( data.error == "" && typeof data.response === "object" && typeof data.response.LL !== "undefined" ) {
-				for( var key in data.response.LL ) {
-					if( key == "value" )
+			if( data.error == null && typeof data.response === "object" && typeof data.response.LL !== "undefined" ) {
+				if( typeof data.response.LL.value !== "undefined" )
 						dataStr += `
 							<tr>
 								<td>value</td>
-								<td>${data.response.LL[key]}</td>
+								<td>${data.response.LL.value}</td>
 							</tr>`;
+					
+				for( var key in data.response.LL ) {
 					if ( key.startsWith('output' ))
 						dataStr += `
 							<tr>

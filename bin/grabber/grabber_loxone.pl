@@ -76,9 +76,6 @@ for my $results( @{$cfg->{loxone}} ){
 	if( ref($results->{outputs}) eq "ARRAY" ) {
 		@outputs = @{$results->{outputs}};
 	}
-	else {
-		@outputs = split(",", $results->{outputs});
-	}
 	if( scalar(@outputs) == 0) {
 		# use all putputs
 		@outputs = ();
