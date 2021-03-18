@@ -39,7 +39,9 @@ $(function() {
 	});
 	// Bind rows
 	// Create S4L Stat change bindings
-	jQuery(document).on('focusout','.s4lchange',function (event, ui) {
+	jQuery(document).on('focusout keyup','.s4lchange',function (event, ui) {
+		if( typeof event.keyCode !== "undefined" && event.keyCode != 13)
+			return;
 		target = event.target;
 		uid = $(target).closest('tr').data("uid");
 		msno = $(target).closest('tr').data("msno");
@@ -47,7 +49,8 @@ $(function() {
 		
 		var is_active; 
 		var interval = parseInt($(target).val());
-		if( interval == "" || interval <= 0 ) {
+		console.log("interval typeof", typeof interval, "value", interval); 
+		if( isNaN(interval) || interval <= 0 ) {
 			$(target).val("");
 			interval = 0;
 			is_active = "false";
@@ -70,6 +73,11 @@ $(function() {
 			outputs : "0"
 		})
 		.done(function(data){
+			var statkey = statsconfigLoxone.findIndex(obj => {
+			return obj.uuid === control.UID && obj.msno == control.msno })
+			statsconfigLoxone[statkey].active = is_active;
+			statsconfigLoxone[statkey].interval = interval*60;
+			
 			if( is_active == "true" ) 
 				$(target).closest('div').addClass("s4l_interval_highlight");
 			else
@@ -120,6 +128,7 @@ function getLoxplan() {
 	}
 	async_request.push(
 		$.post( "ajax.cgi", { action : "getstatsconfig" }, function(data){
+			
 			statsconfig = data;
 			statsconfigLoxone = Object.values( statsconfig.loxone );
 		})
@@ -315,11 +324,11 @@ function createTableBody() {
 		
 		// S4L Stat filter
 		var statmatch = statsconfigLoxone.find(obj => {
-			return obj.uuid === element.UID
+			return obj.uuid === element.UID && obj.msno == element.msno
 		})
 		if( typeof filters["filter_s4lstat"] !== "undefined" && filters["filter_s4lstat"] != "all") {
-			if( filters["filter_s4lstat"] == "on" && typeof statmatch === "undefined" ) continue;
-			if( filters["filter_s4lstat"] == "off" && typeof statmatch !== "undefined" ) continue;
+			if( filters["filter_s4lstat"] == "on" && ( typeof statmatch === "undefined" || statmatch.active !== "true" ) ) continue;
+			if( filters["filter_s4lstat"] == "off" && typeof statmatch !== "undefined" &&  statmatch.active === "true" ) continue;
 		}
 		
 		// Text filter (filterSearchString)
@@ -370,7 +379,7 @@ function createTableBody() {
 		
 		
 		let highlightclass = "";
-		if (statmatch != undefined) {
+		if (statmatch != undefined && statmatch.interval > 0) {
 			// controlstable += "Statistics enabled";
 			s4l_interval = statmatch.interval/60;
 			highlightclass = "s4l_interval_highlight";

@@ -9,7 +9,7 @@
       "room": "UG Hauswirtschaft",
       "interval": "60",
       "url": "/jdev/sps/io/0ad01f30-0049-2cb5-ffffe3220fbb8056/all",
-      "outputs": "0",
+      "outputs": [0],
       "active": "true",
       "msno": "1"
     },
@@ -22,7 +22,7 @@
       "room": "UG Hauswirtschaft",
       "interval": "60",
       "url": "/jdev/sps/io/0ad02593-03aa-d17e-ffffe3220fbb8056/all",
-      "outputs": "0",
+      "outputs": [0],
       "active": "true",
       "msno": "1"
     },
@@ -35,7 +35,7 @@
       "room": "UG Hauswirtschaft",
       "interval": "300",
       "url": "/jdev/sps/io/11ecc1a2-0311-cafa-ffff9e3ef57b9729/all",
-      "outputs": "0,1,9,10,11",
+      "outputs": [0,1,9,10,11],
       "active": "true",
       "msno": "1"
     }

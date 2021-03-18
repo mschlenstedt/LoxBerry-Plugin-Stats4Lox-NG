@@ -86,6 +86,11 @@ if( $q->{action} eq "updatestat" ) {
 	my $elemKey = $searchresult[0];
 	my $element = $cfg->{loxone}[$elemKey] if( defined $elemKey );
 	
+	my @outputs;
+	if ( defined $q->{outputs} ) {
+		@outputs = split(",", $q->{outputs});
+	}
+	
 	my %updatedelement = (
 		name => $q->{name},
 		description => $q->{description},
@@ -93,10 +98,10 @@ if( $q->{action} eq "updatestat" ) {
 		type => $q->{type},
 		category => $q->{category},
 		room => $q->{room},
-		interval => defined $q->{interval} ? $q->{interval}*60 : 0,
+		interval => int($q->{interval}) ne "NaN" ? $q->{interval}*60 : 0,
 		active => defined $q->{active} ? $q->{active} : "false",
 		msno => $q->{msno},
-		outputs => $q->{outputs},
+		outputs => \@outputs,
 		url => '/jdev/sps/io/'.$q->{uuid}.'/all'
 	);
 	
