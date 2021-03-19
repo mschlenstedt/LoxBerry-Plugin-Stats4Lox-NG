@@ -41,7 +41,7 @@ for my $results( @{$cfg->{loxone}} ){
 	}
 	#print STDERR $resp . "\n";
 	# Convert to valid UTF8
-	$resp = Encode::decode("UTF-8", $resp);
+	#$resp = Encode::decode("UTF-8", $resp);
 	# Convert to JSON
 	my $respjson;
 	eval {
@@ -68,8 +68,9 @@ for my $results( @{$cfg->{loxone}} ){
 	my @results;
 	my $value = $respjson->{LL}->{value};
 	$value =~ s/^([-\d\.]+).*/$1/g;
-	$value = $value + 0; # Workaround to convert from string to float
-	my %defaultresult = ( "Default" => $value );
+	$value = $value + 0;
+	# $values->{value} = $value;
+	my %defaultresult = ( $values->{uuid} . "_default" => $value );
 	push @results, \%defaultresult;
 	
 	my @outputs;
@@ -89,10 +90,15 @@ for my $results( @{$cfg->{loxone}} ){
 	}
 	
 	foreach ( @outputs ) {
+		# $values->{"value_$_"} = $respjson->{LL}->{"output$_"}->{value};
+		# $values->{"name_$_"} = $respjson->{LL}->{"output$_"}->{name};
+	
+		# Maybe more flexible
 		my $valname = $respjson->{LL}->{"output$_"}->{name};
 		my $valvalue = $respjson->{LL}->{"output$_"}->{value};
-		my %result = ( $valname => $valvalue );
+		my %result = ( $values->{uuid} . "_" . $valname => $valvalue );
 		push @results, \%result;
+	
 	}
 	$values->{value} = \@results;
 	push (@data, $values);
