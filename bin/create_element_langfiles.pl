@@ -4,6 +4,7 @@ use strict;
 use LoxBerry::System;
 use File::Basename;
 use XML::LibXML;
+use JSON;
 
 our $src_directory = '/tmp';
 
@@ -26,8 +27,7 @@ sub get_sourcefiles
 		my ($prefix, $lang) = split( "_", $filename );
 		
 		my $langfilename = $lbptemplatedir.'/lang/loxelements_'.lc(substr($lang, 0, 2)).'.ini';
-		
-		
+			
 		print "$file: Lang $lang\n";
 		my $destfile = File::Basename::dirname($fullpath).'/'.$filename.'.xml';
 		unpack_file( $fullpath, $destfile);
@@ -42,10 +42,10 @@ sub get_sourcefiles
 			next;
 		}
 		
-		# Create language file
+		# Create language file (INI style, only element names)
 		my $ini = "[ELEMENTS]\n";
 		foreach( sort keys %$elements ) {
-			$ini .= $_.'="'.$elements->{$_}.'"'."\n";
+			$ini .= $_.'="'.$elements->{$_}{localname}.'"'."\n";
 		}
 		eval {
 			open(my $fh, '>', $langfilename);
@@ -58,6 +58,21 @@ sub get_sourcefiles
 		else {
 			print "File $langfilename written\n";
 		}
+		
+		# Create language json file (json style, including outputs)
+		my $langfilejsonname = $lbptemplatedir.'/lang/loxelements_'.lc(substr($lang, 0, 2)).'.json';
+		eval {
+			open(my $fh, '>', $langfilejsonname);
+			print $fh to_json( $elements );
+			close $fh;
+		};
+		if( $@ ) {
+			print "Error writing file $langfilejsonname: $!\n";
+		}
+		else {
+			print "File $langfilejsonname written\n";
+		}
+		
 	}
 }
 
@@ -100,7 +115,18 @@ sub parse_xml {
 		
 		my (undef, $name, undef) = split( "_", $id );
 		
-		$elements{$name} = $locatename;
+		$elements{$name}{localname} = $locatename;
+	}
+	
+	# Add Output descriptions
+	my @elementnodes = $dom->findnodes('//String[@Type="OL"]');
+	foreach my $ol ( @elementnodes ) {
+		my $id = $ol->{ID};
+		my (undef, $name, undef) = split( "_", $id );
+		my $olname = $ol->{Name};
+		my $oltext = $ol->{Text};
+		print STDERR "  $id, $name, $olname, $oltext\n";
+		$elements{$name}{OL}{$olname} = $oltext;
 	}
 	
 	return \%elements;

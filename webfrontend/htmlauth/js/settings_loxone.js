@@ -75,9 +75,11 @@ $(function() {
 		.done(function(data){
 			var statkey = statsconfigLoxone.findIndex(obj => {
 			return obj.uuid === control.UID && obj.msno == control.msno })
-			statsconfigLoxone[statkey].active = is_active;
-			statsconfigLoxone[statkey].interval = interval*60;
 			
+			if( statkey != -1 ) {
+				statsconfigLoxone[statkey].active = is_active;
+				statsconfigLoxone[statkey].interval = interval*60;
+			}
 			if( is_active == "true" ) 
 				$(target).closest('div').addClass("s4l_interval_highlight");
 			else
