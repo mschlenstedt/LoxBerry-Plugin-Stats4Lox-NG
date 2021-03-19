@@ -18,8 +18,9 @@ my $template = HTML::Template->new(
     die_on_bad_params => 0,
 );
 
-my %loxone_elements = LoxBerry::System::readlanguage("loxelements.ini");
-$template->param( 'LOXONE_ELEMENTS', join(',', map { '"'.substr($_,9).'":"'.$loxone_elements{$_}.'"' } keys %loxone_elements) );
+my $lang = LoxBerry::System::lblanguage();
+$template->param( 'LOXONE_ELEMENTS', LoxBerry::System::read_file( "$lbptemplatedir/lang/loxelements_$lang.json" ) );
+
 my %miniservers = LoxBerry::System::get_miniservers();
 $template->param( 'LOXONE_MINISERVERS', to_json( \%miniservers ) );
 

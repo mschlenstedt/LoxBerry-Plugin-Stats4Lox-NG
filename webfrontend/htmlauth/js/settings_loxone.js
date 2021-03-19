@@ -9,6 +9,7 @@ let statsconfig;
 let statsconfigLoxone;
 let controlstable = "";
 let elementTypes_used = [];
+let loxone_elements;
 
 let filters = [];
 
@@ -16,7 +17,8 @@ let filterSearchDelay;
 var filterSearchString = "";
 
 $(function() {
-	miniservers = JSON.parse( $("#miniservers").text() );
+	miniservers = JSON.parse( $("#miniservers_json").text() );
+	loxone_elements = JSON.parse( $("#loxone_elements_json").text() );
 	getLoxplan();
 	
 	// Create filter radio and select bindings
@@ -234,8 +236,8 @@ function generateFilter() {
 	// Add used elements to options in native language
 	var elementsArr = [];
 	for( var key in elementTypes_used ) {
-		var ucKey =  typeof elementTypes_used[key] !== "undefined" ? elementTypes_used[key].toUpperCase() : "undefined";
-		elementsArr.push( [ ucKey, typeof loxone_elements[ucKey] !== "undefined" ? loxone_elements[ucKey] : ucKey ] );
+		var ucKey = typeof elementTypes_used[key] !== "undefined" ? elementTypes_used[key].toUpperCase() : "undefined";
+		elementsArr.push( [ ucKey, typeof loxone_elements[ucKey]?.localname !== "undefined" ? loxone_elements[ucKey]?.localname : ucKey ] );
 	}
 	
 	elementsArr.sort(function(a, b) {
@@ -355,7 +357,7 @@ function createTableBody() {
 		controlstable += `<td>${element.Title}`;
 		if(typeof element.Desc != "undefined" && element.Desc != "" ) 
 			controlstable += `<br>${element.Desc}`;
-		var TypeLocal = loxone_elements[ element.Type.toUpperCase() ];
+		var TypeLocal = loxone_elements[element.Type.toUpperCase()]?.localname;
 		controlstable += `<br><span class="small">${TypeLocal}</span>`;
 		
 		
