@@ -9,6 +9,7 @@ let statsconfig;
 let statsconfigLoxone;
 let controlstable = "";
 let elementTypes_used = [];
+let loxone_elements;
 
 let filters = [];
 
@@ -16,7 +17,8 @@ let filterSearchDelay;
 var filterSearchString = "";
 
 $(function() {
-	miniservers = JSON.parse( $("#miniservers").text() );
+	miniservers = JSON.parse( $("#miniservers_json").text() );
+	loxone_elements = JSON.parse( $("#loxone_elements_json").text() );
 	getLoxplan();
 	
 	// Create filter radio and select bindings
@@ -234,8 +236,8 @@ function generateFilter() {
 	// Add used elements to options in native language
 	var elementsArr = [];
 	for( var key in elementTypes_used ) {
-		var ucKey =  typeof elementTypes_used[key] !== "undefined" ? elementTypes_used[key].toUpperCase() : "undefined";
-		elementsArr.push( [ ucKey, typeof loxone_elements[ucKey] !== "undefined" ? loxone_elements[ucKey] : ucKey ] );
+		var ucKey = typeof elementTypes_used[key] !== "undefined" ? elementTypes_used[key].toUpperCase() : "undefined";
+		elementsArr.push( [ ucKey, typeof loxone_elements[ucKey]?.localname !== "undefined" ? loxone_elements[ucKey]?.localname : ucKey ] );
 	}
 	
 	elementsArr.sort(function(a, b) {
@@ -355,7 +357,7 @@ function createTableBody() {
 		controlstable += `<td>${element.Title}`;
 		if(typeof element.Desc != "undefined" && element.Desc != "" ) 
 			controlstable += `<br>${element.Desc}`;
-		var TypeLocal = loxone_elements[ element.Type.toUpperCase() ];
+		var TypeLocal = loxone_elements[element.Type.toUpperCase()]?.localname;
 		controlstable += `<br><span class="small">${TypeLocal}</span>`;
 		
 		
@@ -412,53 +414,76 @@ function createTableBody() {
 }
 
 function popupLoxoneDetails( uid, msno ) {
+	$("#popupLoxoneDetails").popup("option","positionTo","window"); 
 	$("#popupLoxoneDetails").popup("open");
 	$("#contentLoxoneDetails #valuesLoxoneDetails").empty();
 	var control = controls.find( obj => { return obj.UID === uid && obj.msno == msno })
-	$("#titleLoxoneDetails").html(`Details ${control.Title}`);
+	
+	// Popup title
+	var title = `${control.Title}`;
+	if( control.Desc )
+		title += `<br><i>${control.Desc}</i>`;
+	// title += `<br><span class="small" style="font-weight:lighter">${control.UID}</span>`;
+	title += `<br><input class="small" type="text" value="${control.UID}" size="36" style="outline: none;"box-shadow: none;>`;
+	$("#titleLoxoneDetails").html(title);
+	
+	// Popup Content
+	var isLoxVisu = control.Visu === "true" ? true : false;
+	var checkedImg = `<img src="images/checkbox_checked_20.png">`;
+	var uncheckedImg = `<img src="images/checkbox_unchecked_20.png">`;
 	
 	var str = "";
 	str += `
-	<table>
-		<tr>
-			<td>Title</td>
-			<td>${control.Title}</td>
+	<table class="LoxoneDetails_table">
+		<tr class="LoxoneDetails_tr">
+			<td class="center LoxoneDetails_td">
+				<span class="grayed small">${loxone_elements['PLACE'].localname}</span><br>
+				${control.Place}
+			</td>
+			<td class="center LoxoneDetails_td">
+				<span class="grayed small">${loxone_elements['CATEGORY'].localname}</span><br>
+				${control.Category}
+			</td>
 		</tr>
-		<tr>
-			<td>Description</td>
-			<td>${control.Desc}</td>
+		<tr class="LoxoneDetails_tr">
+			<td class="center LoxoneDetails_td">
+				<span class="grayed small">Type</span><br>
+				${control.Type}
+			</td>
+			<td class="center LoxoneDetails_td">
+				<span class="grayed small">Miniserver</span><br>
+				(${control.msno}) ${miniservers[control.msno].Name}
+			</td>
 		</tr>
-		<tr>
-			<td>Room</td>
-			<td>${control.Place}</td>
+		<tr class="LoxoneDetails_tr">
+			<td class="center LoxoneDetails_td">
+				<span class="grayed small">Page</span><br>
+				${control.Page}
+			</td>
+			<td class="center LoxoneDetails_td">
+				
+				
+				</td>
 		</tr>
-		<tr>
-			<td>Category</td>
-			<td>${control.Category}</td>
-		</tr>
-		<tr>
-			<td>Type</td>
-			<td>${control.Type}</td>
-		</tr>
-		<tr>
-			<td>Miniserver</td>
-			<td>${control.msno}</td>
-		</tr>
-		<tr>
-			<td>Page</td>
-			<td>${control.Page}</td>
-		</tr>
-		<tr>
-			<td>UID</td>
-			<td class="small">${control.UID}</td>
-		</tr>
-		<tr>
-			<td>Visualisation</td>
-			<td>${control.Visu}</td>
-		</tr>
-		<tr>
-			<td>Loxone Statistics</td>
-			<td>${control.StatsType}</td>
+		<tr class="LoxoneDetails_tr">
+			<td class="center LoxoneDetails_td">
+				<span class="grayed small">Visualisation</span><br>
+			`;
+	if ( isLoxVisu == true )
+		str += checkedImg;
+	else
+		str += uncheckedImg;
+	str += `
+			</td>
+			<td class="center LoxoneDetails_td">
+				<span class="grayed small">Loxone Statistics</span><br>
+			`;
+	if ( control.StatsType > 0 )
+		str += checkedImg;
+	else
+		str += uncheckedImg;
+	str += `			
+			</td>
 		</tr>
 	</table>
 	`;
@@ -549,4 +574,55 @@ function dynamicSortMultiple() {
         }
         return result;
     }
+}
+
+// https://stackoverflow.com/a/22581382/3466839
+function copyToClipboard(elem) {
+	  // create hidden text element, if it doesn't already exist
+    var targetId = "_hiddenCopyText_";
+    var isInput = elem.tagName === "INPUT" || elem.tagName === "TEXTAREA";
+    var origSelectionStart, origSelectionEnd;
+    if (isInput) {
+        // can just use the original source element for the selection and copy
+        target = elem;
+        origSelectionStart = elem.selectionStart;
+        origSelectionEnd = elem.selectionEnd;
+    } else {
+        // must use a temporary form element for the selection and copy
+        target = document.getElementById(targetId);
+        if (!target) {
+            var target = document.createElement("textarea");
+            target.style.position = "absolute";
+            target.style.left = "-9999px";
+            target.style.top = "0";
+            target.id = targetId;
+            document.body.appendChild(target);
+        }
+        target.textContent = elem.textContent;
+    }
+    // select the content
+    var currentFocus = document.activeElement;
+    target.focus();
+    target.setSelectionRange(0, target.value.length);
+    
+    // copy the selection
+    var succeed;
+    try {
+    	  succeed = document.execCommand("copy");
+    } catch(e) {
+        succeed = false;
+    }
+    // restore original focus
+    if (currentFocus && typeof currentFocus.focus === "function") {
+        currentFocus.focus();
+    }
+    
+    if (isInput) {
+        // restore prior selection
+        elem.setSelectionRange(origSelectionStart, origSelectionEnd);
+    } else {
+        // clear temporary content
+        target.textContent = "";
+    }
+    return succeed;
 }

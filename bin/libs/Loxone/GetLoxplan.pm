@@ -169,12 +169,19 @@ sub checkLoxplanUpdate
 	eval {
 	
 		$loxplanobj = LoxBerry::JSON->new();
-		$loxplan = $loxplanobj->open( filename => $loxplanjson );
+		$loxplan = $loxplanobj->open( filename => $loxplanjson, writeonclose => 1 );
 		$localTimestamp = defined $loxplan->{documentInfo}->{LoxAPPversion3timestamp} ? $loxplan->{documentInfo}->{LoxAPPversion3timestamp} : "0";
 		print STDERR "checkLoxplanUpdate: localTimestamp : $localTimestamp\n";
 	};
 	if( $@ ) {
 		die "checkLoxplanUpdate: Could not fetch local version info\n";
+	}
+	
+	my $lastCheck = defined $loxplan->{documentInfo}->{S4L_LastChecked} ? $loxplan->{documentInfo}->{S4L_LastChecked} : 0;
+	
+	if( $localTimestamp > 0 && $lastCheck > time()-90 ) {
+		# Prevent checking for 90 seconds
+		return;
 	}
 	
 	# Read remote timestamp
@@ -189,6 +196,8 @@ sub checkLoxplanUpdate
 	if( $@ ) {
 		die "checkLoxplanUpdate: Could not fetch remote version info\n";
 	}
+	
+	$loxplan->{documentInfo}->{S4L_LastChecked} = time();
 	
 	if( $localTimestamp ne "0" and $localTimestamp eq $remoteTimestamp ) {
 		print STDERR "checkLoxplanUpdate: Timestamps are equal, no need to update\n";
