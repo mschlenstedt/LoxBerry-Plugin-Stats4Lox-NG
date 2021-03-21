@@ -43,7 +43,7 @@
   "loxberry": [
     {
       "host": "localhost",
-      "url": "/plugins/loxberrystats/stats.php",
+      "url": "/admin/system/tools/linfo/index.php?out=json",
       "active": "true"
     }
   ]

@@ -1,5 +1,5 @@
 {
-   "Influx" : {
+   "influx" : {
       "influxdbuser" : "stats4lox",
       "influxdbpass" : "loxberry",
       "influxurl" : "https://localhost:8086",
@@ -7,7 +7,7 @@
       "influxskiptlsverify" : "true",
       "influxdatabase" : "stats4lox"
    },
-   "Loxberry": {
+   "loxberry": {
       "localhost": {
          "user": "",
          "pass": ""
