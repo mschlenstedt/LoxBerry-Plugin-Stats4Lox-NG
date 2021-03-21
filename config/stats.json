@@ -44,7 +44,21 @@
     {
       "host": "localhost",
       "url": "/admin/system/tools/linfo/index.php?out=json",
-      "active": "true"
+      "active": "true",
+      "interval": 300
+    },
+    {
+      "host": "192.168.3.28",
+      "url": "/admin/system/tools/linfo/index.php?out=json",
+      "active": "true",
+      "interval": 300
+    }
+  ],
+  "miniserver": [
+    {
+      "msno": "1",
+      "active": "true",
+      "interval": "300"
     }
   ]
 }
