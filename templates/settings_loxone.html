@@ -16,7 +16,8 @@
 }
 
 .LoxoneDetails_table {
-	width: 100%;
+	min-width: 400px;
+	width: 400px;
 	border-collapse: collapse;
 	border-bottom: 1px solid gray;
 }
@@ -40,6 +41,21 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 	color:white !important;
 }
 
+.popuptitle {
+	background-color: #6dac20;
+	color: white;
+	text-shadow: 1px 1px 2px black;
+	padding: 5px;
+}
+
+#progressState {
+	min-width:200px;
+	min-height:70px;
+
+}
+
+
+
 </style>
 
 <div class="datahidden" id="loxone_elements_json"><TMPL_VAR LOXONE_ELEMENTS></div>
@@ -50,18 +66,99 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 <!-- Progress popup -->
 <div data-role="popup" id="popupProgress" data-dismissible="false" style="max-width:400px">
 	<div style="padding: 20px 20px;">
-		<h4 class="ui-title">Progress</h4>
+		<h4 class="ui-title popuptitle">Progress</h4>
 		<div id="progressState"></div>
 	</div>
 </div>
 
 <!-- Loxone Details popup -->
 <div data-role="popup" id="popupLoxoneDetails" data-dismissible="true" style="max-width:800px;">
-<a href="#" data-rel="back" class="ui-btn ui-corner-all ui-shadow ui-btn-a ui-icon-delete ui-btn-icon-notext ui-btn-right">Close</a>
+	<a href="#" data-rel="back" class="ui-btn ui-corner-all ui-shadow ui-btn-a ui-icon-delete ui-btn-icon-notext ui-btn-right">Close</a>
 	<div style="padding: 20px 20px;">
-		<h4 class="ui-title" id="titleLoxoneDetails">Details</h4>
-		<div id="contentLoxoneDetails"></div>
-		<div id="valuesLoxoneDetails"></div>
+		<h4 class="ui-title popuptitle" id="titleLoxoneDetails">
+			<span id="LoxoneDetails_titletitle">&nbsp;</span><br>
+			<i><span id="LoxoneDetails_titledesc"></span></i>
+		</h4>
+		<div id="contentLoxoneDetails">
+		<input class="small" id="LoxoneDetails_uid" type="text" value="" size="36" style="outline: none;box-shadow:none;margin:5px;width:95%;" data-role="none">
+		<table class="LoxoneDetails_table data-uidmsno" data-uid="" data-msno="">
+			<tr class="LoxoneDetails_tr">
+				<td class="center LoxoneDetails_td">
+					<span class="grayed small" id="LoxoneDetails_placelabel">&nbsp;</span><br>
+					<span id="LoxoneDetails_place">&nbsp;</span>
+				</td>
+				<td class="center LoxoneDetails_td">
+					<span class="grayed small" id="LoxoneDetails_categorylabel">&nbsp;</span><br>
+					<span id="LoxoneDetails_category">&nbsp;</span>
+				</td>
+			</tr>
+			<tr class="LoxoneDetails_tr">
+				<td class="center LoxoneDetails_td">
+					<span class="grayed small" id="LoxoneDetails_typelabel">&nbsp;</span><br>
+					<label id="LoxoneDetails_typehover" href="#" title="">
+						<span id="LoxoneDetails_type">&nbsp;</span>
+					</label>
+				</td>
+				<td class="center LoxoneDetails_td">
+					<span class="grayed small">Miniserver</span><br>
+					<span id="LoxoneDetails_miniserver">&nbsp;
+				</td>
+			</tr>
+			<tr class="LoxoneDetails_tr">
+				<td class="center LoxoneDetails_td">
+					<span class="grayed small" id="LoxoneDetails_pagelabel">&nbsp;</span><br>
+					<span id="LoxoneDetails_page">&nbsp;</span>
+				</td>
+				<td class="center LoxoneDetails_td">
+				<span class="grayed small">&nbsp;</span><br>
+				<span>&nbsp;</span>
+				</td>
+			</tr>
+			<tr class="LoxoneDetails_tr">
+				<td class="center LoxoneDetails_td">
+					<span class="grayed small" id="LoxoneDetails_visulabel">Visualisation</span><br>
+					<span id="LoxoneDetails_visu">&nbsp;</span>
+				</td>
+				<td class="center LoxoneDetails_td">
+					<span class="grayed small" id="LoxoneDetails_loxstatlabel">Loxone Statistics</span><br>
+					<span id="LoxoneDetails_loxstat">&nbsp;</span>
+				</td>
+			</tr>
+			<tr class="LoxoneDetails_tr">
+				<td class="center LoxoneDetails_td">
+					<span class="grayed small" id="LoxoneDetails_s4lstatlabel">Stats4Lox Statistics</span><br>
+					<input type="checkbox" id="LoxoneDetails_s4lstatactive" name="LoxoneDetails_s4lstatactive" data-mini="true" class="s4lchange">
+					<label for="LoxoneDetails_s4lstatactive">activate</label>
+				</td>
+				<td class="center LoxoneDetails_td">
+					<span class="grayed small" id="LoxoneDetails_s4lstatintervallabel">Interval (minutes)</span><br>
+					<input type="number" data-clear-btn="true" name="LoxoneDetails_s4lstatinterval" id="LoxoneDetails_s4lstatinterval"pattern="[0-9]*" value="" class="s4lchange" min="0" max="9999">
+				</td>
+			</tr>
+		</table>
+		</div>
+		
+		<!-- Live Data from Miniserver --> 
+		<h4 id="valuesLoxoneDetailsLive_title" class="popuptitle">&nbsp;</h4>
+		
+			<table class="LoxoneDetails_table data-uidmsno" id="valuesLoxoneDetailsLive_table" data-uid="" data-msno="">
+				<tr>
+					<td>Default</td>
+					<td>${data.response.LL.value}</td>
+					<td>&nbsp;</td>
+				</tr>
+				<tr>
+					<td>&nbsp;</td>
+					<td>&nbsp;</td>
+					<td>&nbsp;</td>
+				</tr>
+				<tr>
+					<td>&nbsp;</td>
+					<td>&nbsp;</td>
+					<td>&nbsp;</td>
+				</tr>
+			</table>
+		</div>
 	</div>
 </div>
 

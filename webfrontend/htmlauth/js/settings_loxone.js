@@ -39,55 +39,118 @@ $(function() {
 		// After changing the filter, recreate the table
 		updateTable();
 	});
-	// Bind rows
-	// Create S4L Stat change bindings
-	jQuery(document).on('focusout keyup','.s4lchange',function (event, ui) {
+	
+	// Create S4L Stat change bindings (Detail View)
+	jQuery(document).on('change focusout keyup','.s4lchange',function (event, ui) {
+		console.log( ".s4lchange binding entered");
 		if( typeof event.keyCode !== "undefined" && event.keyCode != 13)
+			// NOT pressed Enter
 			return;
 		target = event.target;
-		uid = $(target).closest('tr').data("uid");
-		msno = $(target).closest('tr').data("msno");
+		uid = $(target).closest('table').data("uid");
+		msno = $(target).closest('table').data("msno");
 		var control = controls.find( obj => { return obj.UID === uid && obj.msno == msno })
 		
-		var is_active; 
-		var interval = parseInt($(target).val());
-		console.log("interval typeof", typeof interval, "value", interval); 
-		if( isNaN(interval) || interval <= 0 ) {
-			$(target).val("");
-			interval = 0;
-			is_active = "false";
-		} else {
-			is_active = "true";
+		// Validations and changes of dependent inputs 
+		
+		if( target.id == "LoxoneDetails_s4lstatactive" ) {
+			// Stats active checkbox was pressed
+			console.log( "LoxoneDetails_s4lstatactive pressed", $(target).is(":checked") );
+			if( $(target).is(":checked") ) {
+				// Activated
+				if( ( $("#LoxoneDetails_s4lstatinterval").val() ) == "" ) {
+					// Fill a number to the interval
+					$("#LoxoneDetails_s4lstatinterval").val("5").textinput("refresh");
+				}
+				// Activate interval field
+				$("#LoxoneDetails_s4lstatinterval").prop( "disabled", false ).textinput("refresh");
+				$('[name="LoxoneDetails_s4loutput"]').prop( "disabled", false );
+				$('[name="LoxoneDetails_s4loutput"][value="-1"').prop( "checked", true );
+				$('[name="LoxoneDetails_s4loutput"][value="-1"').prop( "disabled", true );
+				
+			} 
+			else {
+				// Disable interval field and outputs
+				$("#LoxoneDetails_s4lstatinterval").prop( "disabled", true ).textinput("refresh");
+				$('[name="LoxoneDetails_s4loutput"]').prop( "disabled", true );
+				// Uncheck default value 
+				$('[name="LoxoneDetails_s4loutput"][value="-1"').prop( "checked", false );
+			}
+			
 		}
-		console.log( "s4lchange", event, ui, uid, control, interval, is_active );
+		else if ( target.id == "LoxoneDetails_s4lstatinterval" ) {
+			// Interval was changed
+			console.log( "LoxoneDetails_s4lstatinterval changed" );
+			var interval = parseInt( $("#LoxoneDetails_s4lstatinterval").val() );
+			if ( isNaN( interval ) || interval <= 0 ) {
+				// Not a number
+				$("#LoxoneDetails_s4lstatinterval").val( "5" ).textinput("refresh");
+			}
+		}
+		else if ( target.name == "LoxoneDetails_s4loutput" ) {
+			// Checkboxes of outputs were changed
+			console.log( "LoxoneDetails_s4loutput changed" );
+		}
+		
+		// Now collect latest data of inputs 
+		
+		var stat_active = $("#LoxoneDetails_s4lstatactive").is(":checked") ? "true" : "false";
+		var stat_interval = parseInt($("#LoxoneDetails_s4lstatinterval").val()) * 60;
+		// Collect checkboxes
+		var stat_outputs = [];
+		$('[name="LoxoneDetails_s4loutput"]:checked').each(function(){
+			stat_outputs.push(parseInt($(this).val()));
+		});
+		
+		console.log("stat details data to send", control, stat_active, stat_interval, stat_outputs);
+
+		// Post data
 		
 		$.post( "ajax.cgi", { 
 			action : "updatestat",  
 			name : control.Title,
 			description :control.Desc,
 			uuid : uid,
+			msno : msno,
 			type : control.Type,
 			category : control.Category,
 			room: control.Place,
-			interval: interval,
-			active: is_active,
-			msno : control.msno,
-			outputs : "0"
+			active: stat_active,
+			interval: stat_interval,
+			outputs : stat_outputs.join(','),
+			minval : control.MinVal,
+			maxval : control.MaxVal,
+			unit : control.Unit
+			
 		})
 		.done(function(data){
 			var statkey = statsconfigLoxone.findIndex(obj => {
 			return obj.uuid === control.UID && obj.msno == control.msno })
 			
+			console.log("after post: ", statkey);
+			
+			
 			if( statkey != -1 ) {
-				statsconfigLoxone[statkey].active = is_active;
-				statsconfigLoxone[statkey].interval = interval*60;
+				statsconfigLoxone[statkey].active = stat_active;
+				statsconfigLoxone[statkey].interval = stat_interval;
+				statsconfigLoxone[statkey].outputs = stat_outputs;
 			}
-			if( is_active == "true" ) 
-				$(target).closest('div').addClass("s4l_interval_highlight");
-			else
-				$(target).closest('div').removeClass("s4l_interval_highlight");
+			if( stat_active === "true" ) {
+				// $("#LoxoneDetails_s4lstatinterval").closest('div')
+					// .addClass("s4l_interval_highlight")
+					// //.textinput( "refresh" )
+				// ;
+			}
+			else {
+				// $("#LoxoneDetails_s4lstatinterval").closest('div')
+					// .removeClass("s4l_interval_highlight")
+				 	
+					// .textinput( "refresh" )
+				// ;
+			}
 		});
 	});
+	
 
 	// Bind on Search text box
 	$("#filter_search").on( "input", function(event, ui){
@@ -379,27 +442,31 @@ function createTableBody() {
 		</td>`;
 		
 		// Statistics
-		controlstable += `<td>`;
+		controlstable += `<td class="center">`;
 		
 		
 		let highlightclass = "";
-		if (statmatch != undefined && statmatch.interval > 0) {
+		var checkedImg = `<img src="images/checkbox_checked_20.png">`;
+		var uncheckedImg = `<img src="images/checkbox_unchecked_20.png">`;
+		if (statmatch?.active === "true" ) {
 			// controlstable += "Statistics enabled";
 			s4l_interval = statmatch.interval/60;
 			highlightclass = "s4l_interval_highlight";
+			controlstable += checkedImg;
+			controlstable += `&nbsp;${s4l_interval} minutes`;
 		}
 		else {
 			s4l_interval = "";
 			// controlstable += "Not enabled";
 		}
 		
-		controlstable += `
+		// controlstable += `
 			 
-			<label for="s4l_interval" data-mini="true">Interval (minutes)</label>
-			<div class="ui-input-text ui-body-inherit ui-corner-all ui-shadow-inset ui-input-has-clear ${highlightclass}">
-				<input type="number" data-clear-btn="true" name="s4l_interval" pattern="[0-9]*" value="${s4l_interval}" class="s4lchange" min="0" max="9999">
-				<a href="#" tabindex="-1" aria-hidden="true" class="ui-input-clear ui-btn ui-icon-delete ui-btn-icon-notext ui-corner-all ui-input-clear-hidden" title="Clear text">Clear text</a>
-			</div>`;
+			// <label for="s4l_interval" data-mini="true">Interval (minutes)</label>
+			// <div class="ui-input-text ui-body-inherit ui-corner-all ui-shadow-inset ui-input-has-clear ${highlightclass}">
+				// <input type="number" data-clear-btn="true" name="s4l_interval" pattern="[0-9]*" value="${s4l_interval}" class="s4lchange" min="0" max="9999">
+				// <a href="#" tabindex="-1" aria-hidden="true" class="ui-input-clear ui-btn ui-icon-delete ui-btn-icon-notext ui-corner-all ui-input-clear-hidden" title="Clear text">Clear text</a>
+			// </div>`;
 		
 		
 		
@@ -416,123 +483,164 @@ function createTableBody() {
 function popupLoxoneDetails( uid, msno ) {
 	$("#popupLoxoneDetails").popup("option","positionTo","window"); 
 	$("#popupLoxoneDetails").popup("open");
-	$("#contentLoxoneDetails #valuesLoxoneDetails").empty();
+	//$("#contentLoxoneDetails #valuesLoxoneDetails").empty();
 	var control = controls.find( obj => { return obj.UID === uid && obj.msno == msno })
 	
-	// Popup title
-	var title = `${control.Title}`;
-	if( control.Desc )
-		title += `<br><i>${control.Desc}</i>`;
-	// title += `<br><span class="small" style="font-weight:lighter">${control.UID}</span>`;
-	title += `<br><input class="small" type="text" value="${control.UID}" size="36" style="outline: none;"box-shadow: none;>`;
-	$("#titleLoxoneDetails").html(title);
+	// Set data properties to tables
+	$(".data-uidmsno").data("uid", control.UID).data("msno", control.msno);
 	
-	// Popup Content
+	// Fill popup title 
+	$("#LoxoneDetails_titletitle").text(control.Title);
+	$("#LoxoneDetails_titledesc").text(control.Desc);
+	
+	// Fill popup properties
+	$("#LoxoneDetails_uid").val(control.UID);
+	
+	$("#LoxoneDetails_placelabel").text(loxone_elements['PLACE'].localname);
+	$("#LoxoneDetails_place").text(control.Place);
+	$("#LoxoneDetails_categorylabel").text(loxone_elements['CATEGORY'].localname);
+	$("#LoxoneDetails_category").text(control.Category);
+	
+	$("#LoxoneDetails_typelabel").text("Type");
+	$("#LoxoneDetails_type").text(loxone_elements[control.Type?.toUpperCase()].localname);
+	$("#LoxoneDetails_typehover").prop("title", control.Type);
+	
+	
+	$("#LoxoneDetails_miniserver").text(miniservers[control.msno].Name+' ('+control.msno+')');
+	
+	$("#LoxoneDetails_pagelabel").text(loxone_elements['PAGE'].localname);
+	$("#LoxoneDetails_page").text(control.page);
+
+	// Icons
 	var isLoxVisu = control.Visu === "true" ? true : false;
 	var checkedImg = `<img src="images/checkbox_checked_20.png">`;
 	var uncheckedImg = `<img src="images/checkbox_unchecked_20.png">`;
 	
-	var str = "";
-	str += `
-	<table class="LoxoneDetails_table">
-		<tr class="LoxoneDetails_tr">
-			<td class="center LoxoneDetails_td">
-				<span class="grayed small">${loxone_elements['PLACE'].localname}</span><br>
-				${control.Place}
-			</td>
-			<td class="center LoxoneDetails_td">
-				<span class="grayed small">${loxone_elements['CATEGORY'].localname}</span><br>
-				${control.Category}
-			</td>
-		</tr>
-		<tr class="LoxoneDetails_tr">
-			<td class="center LoxoneDetails_td">
-				<span class="grayed small">Type</span><br>
-				${control.Type}
-			</td>
-			<td class="center LoxoneDetails_td">
-				<span class="grayed small">Miniserver</span><br>
-				(${control.msno}) ${miniservers[control.msno].Name}
-			</td>
-		</tr>
-		<tr class="LoxoneDetails_tr">
-			<td class="center LoxoneDetails_td">
-				<span class="grayed small">Page</span><br>
-				${control.Page}
-			</td>
-			<td class="center LoxoneDetails_td">
-				
-				
-				</td>
-		</tr>
-		<tr class="LoxoneDetails_tr">
-			<td class="center LoxoneDetails_td">
-				<span class="grayed small">Visualisation</span><br>
-			`;
-	if ( isLoxVisu == true )
-		str += checkedImg;
-	else
-		str += uncheckedImg;
-	str += `
-			</td>
-			<td class="center LoxoneDetails_td">
-				<span class="grayed small">Loxone Statistics</span><br>
-			`;
-	if ( control.StatsType > 0 )
-		str += checkedImg;
-	else
-		str += uncheckedImg;
-	str += `			
-			</td>
-		</tr>
-	</table>
-	`;
+	$("#LoxoneDetails_visu").html(isLoxVisu ? checkedImg : uncheckedImg);
+	$("#LoxoneDetails_loxstat").html(control.StatsType > 0 ? checkedImg : uncheckedImg);
 	
-	$("#contentLoxoneDetails").html(str);
+	// S4L Settings
+	var statmatch = statsconfigLoxone.find(obj => {
+			return obj.uuid === control.UID && obj.msno == control.msno
+		})
+	if( statmatch?.outputs ) {
+		// To be safe - convert output strings numbers to output numbers
+		statmatch.outputs = statmatch?.outputs?.map(Number);
+		console.log("outputs", statmatch.outputs );
+	}
 	
-	$("#valuesLoxoneDetails").html("<span style='color:green;'><b>Updating...</b></span>");
-	var dataStr = "";
-	dataStr += 
-	`<table>
-		<tr>
-			<th colspan="2">Live Data from Miniserver ${control.msno}</th>
-		</tr>
-	`;
+	console.log("s4lstats checkboxes", statmatch);
+	if( statmatch?.active == "true" || statmatch?.active == true ) {
+		console.log("active = true");
+		$("#LoxoneDetails_s4lstatactive")
+			.prop('checked', true)
+			.prop('disabled', false)
+			.checkboxradio('refresh');
+		$("#LoxoneDetails_s4lstatinterval")
+			//.addClass("s4l_interval_highlight")
+			.prop('disabled', false)
+			.textinput( "refresh" );
+	}
+	else {
+		console.log("active = false");
+		$("#LoxoneDetails_s4lstatactive")
+			.prop('checked', false)
+			.checkboxradio('refresh');
+		$("#LoxoneDetails_s4lstatinterval")
+			.prop('disabled', true)
+			//.removeClass("s4l_interval_highlight")
+			.textinput( "refresh" );
+	}
+	if( statmatch?.interval ) {
+		$("#LoxoneDetails_s4lstatinterval").val(statmatch?.interval / 60);
+	}
+	else {
+		$("#LoxoneDetails_s4lstatinterval").val("");
+	}
+	
+	// Live Data from Miniserver
+	
+	$("#valuesLoxoneDetailsLive_title").html("Updating data...");
+	liveTable = $("#valuesLoxoneDetailsLive_table");
+	liveTable.empty();
 	$.post( "ajax.cgi", { 
 			action : "lxlquery",  
 			uuid : uid,
 			msno : control.msno,
-		})
-		.done(function(data){
-			console.log(data);
-			if( data.error == null && typeof data.response === "object" && typeof data.response.LL !== "undefined" ) {
-				if( typeof data.response.LL.value !== "undefined" )
-						dataStr += `
-							<tr>
-								<td>value</td>
-								<td>${data.response.LL.value}</td>
-							</tr>`;
-					
-				for( var key in data.response.LL ) {
-					if ( key.startsWith('output' ))
-						dataStr += `
-							<tr>
-								<td>${data.response.LL[key].name}</td>
-								<td>${data.response.LL[key].value}</td>
-							</tr>`;
-				}
-				dataStr += `</table>`;
+	})
+	.done(function(data){
+		console.log(data);
+		
+		var dataStr;
+		if( data.error == null && typeof data?.response?.LL !== "undefined" ) {
+			$("#valuesLoxoneDetailsLive_title").html(`Live Data from Miniserver ${miniservers[control.msno].Name}`);
 			
+			// Create array from outputs
+			var LoxOutputs = [];
+				// Default output
+			if( typeof data?.response?.LL?.value !== "undefined" ) {
+				console.log("statmatch?.outputs?.includes(0)", statmatch?.outputs?.includes(0));
+				var outputElement = { 
+					nr : -1,
+					name : "Default", 
+					value : data.response.LL.value,
+					localdesc : "",
+					statChecked : statmatch?.active === "true" ? "checked" : "",
+					statDisabled : "disabled"
+				};
+				LoxOutputs.push( outputElement );
 			}
-			else {
-				dataStr += `<span style="color:red"><b>Error getting data</b></span><br>`;
-				if( typeof data.error !== "undefined" ) 
-					dataStr += `Error: ${data.error}<br>`;
-				if( typeof data.response == "string" ) 
-					dataStr += `Original response:<br><span class="small">${data.response}</span>`;
-			}	
-			$("#valuesLoxoneDetails").html(dataStr);
-		});
+				// More outputs
+			for( var key in data.response.LL ) {
+				if ( key.startsWith('output' ) ) {
+					var outputnr = parseInt( key.substring(6) );
+					var outputName = data?.response?.LL[key]?.name;
+					outputDescrLocal = loxone_elements[control.Type?.toUpperCase()]?.OL[outputName];
+					console.log("statmatch?.outputs?.includes(outputnr)", outputnr, statmatch?.outputs?.includes(outputnr));
+					var outputElement = { 
+						nr : outputnr,
+						name : outputName,
+						value : data.response.LL[key].value,
+						localdesc: outputDescrLocal,
+						statChecked : statmatch?.outputs?.includes(outputnr) ? "checked" : "",
+						statDisabled : statmatch?.active === "true" ? "" : "disabled"
+					}; 
+					LoxOutputs.push( outputElement );
+				}
+			}
+			// All elements now are in the array, now we loop the array
+			LoxOutputs.sort(dynamicSort("nr"));
+			
+			for( var key in LoxOutputs ) {
+				var dataStr = `
+					<tr>
+						<td class="LoxoneDetails_td" style="width:120px;">
+							<input type="checkbox" name="LoxoneDetails_s4loutput" data-role="none" class="s4lchange" value="${LoxOutputs[key].nr}" ${LoxOutputs[key].statChecked} ${LoxOutputs[key].statDisabled}>
+							&nbsp;${LoxOutputs[key].name}
+						</td>
+						<td class="LoxoneDetails_td" style="width:50px;">
+							${LoxOutputs[key].value}
+						</td>
+						<td class="LoxoneDetails_td small">
+							${LoxOutputs[key].localdesc}
+						</td>
+					</tr>
+				`;
+				liveTable.append(dataStr);
+			}
+			
+			// Table is finished
+			
+		}
+		else {
+			dataStr += `<span style="color:red"><b>Error getting data</b></span><br>`;
+			if( typeof data.error !== "undefined" ) 
+				dataStr += `Error: ${data.error}<br>`;
+			if( typeof data.response == "string" ) 
+				dataStr += `Original response:<br><span class="small">${data.response}</span>`;
+		}	
+		$("#valuesLoxoneDetails").html(dataStr);
+	});
 	
 }
 
