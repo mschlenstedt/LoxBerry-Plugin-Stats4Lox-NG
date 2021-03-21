@@ -1,8 +1,8 @@
 #!/bin/bash
 PLUGINNAME=REPLACELBPPLUGINDIR
 INFLUXBIN=`which influx`
-INFLUXUERNAME=`jq -r '.Credentials.influxdbuser' $LBPCONFIG/$PLUGINNAME/cred.json`
-INFLUXPASSWORD=`jq -r '.Credentials.influxdbpass' $LBPCONFIG/$PLUGINNAME/cred.json`
+INFLUXUERNAME=`jq -r '.Influx.influxdbuser' $LBPCONFIG/$PLUGINNAME/cred.json`
+INFLUXPASSWORD=`jq -r '.Influx.influxdbpass' $LBPCONFIG/$PLUGINNAME/cred.json`
 
 ${INFLUXBIN} -ssl -unsafeSsl -username $INFLUXUERNAME -password $INFLUXPASSWORD "$@"
 
