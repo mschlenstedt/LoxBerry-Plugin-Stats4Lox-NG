@@ -47,8 +47,8 @@ usermod -a -G loxberry telegraf
 usermod -a -G loxberry influxdb
 
 # Get InfluxDB credentials
-INFLUXDBUSER=`jq -r '.Credentials.influxdbuser' $PCONFIG/cred.json`
-INFLUXDBPASS=`jq -r '.Credentials.influxdbpass' $PCONFIG/cred.json`
+INFLUXDBUSER=`jq -r '.influx.influxdbuser' $PCONFIG/cred.json`
+INFLUXDBPASS=`jq -r '.influx.influxdbpass' $PCONFIG/cred.json`
 if [ "$INFLUXDBUSER" = "" ]; then
 	echo "<WARNING> Could not find credentials for InfluxDB. This may be an error, but I will try to continue. Using default ones: stats4lox/loxberry"
 	INFLUXDBUSER="stats4lox"
@@ -111,9 +111,9 @@ if [ $RESP -eq 0 ] || [ $? -eq 127 ]; then # If user does not exist or if no adm
 	else
 		echo "<OK> Default InfluxDB user 'stats4lox' created successfully. Fine."
 		echo "<INFO> Saving credentials in cred.json."
-		jq ".Credentials.influxdbuser = \"$INFLUXDBUSER\"" $PCONFIG/cred.json > $PCONFIG/cred.json.new
+		jq ".influx.influxdbuser = \"$INFLUXDBUSER\"" $PCONFIG/cred.json > $PCONFIG/cred.json.new
 		mv $PCONFIG/cred.json.new $PCONFIG/cred.json
-		jq ".Credentials.influxdbpass = \"$INFLUXDBPASS\"" $PCONFIG/cred.json > $PCONFIG/cred.json.new
+		jq ".influx.influxdbpass = \"$INFLUXDBPASS\"" $PCONFIG/cred.json > $PCONFIG/cred.json.new
 		mv $PCONFIG/cred.json.new $PCONFIG/cred.json
 		chown loxberry:loxberry $PCONFIG/cred.json
 		chmod 640 $PCONFIG/cred.json
