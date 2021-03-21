@@ -98,7 +98,7 @@ if( $q->{action} eq "updatestat" ) {
 		type => $q->{type},
 		category => $q->{category},
 		room => $q->{room},
-		interval => int($q->{interval}) ne "NaN" ? $q->{interval}*60 : 0,
+		interval => int($q->{interval}) ne "NaN" ? $q->{interval} : 0,
 		active => defined $q->{active} ? $q->{active} : "false",
 		msno => $q->{msno},
 		outputs => \@outputs,
