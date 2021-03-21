@@ -6,6 +6,11 @@
       "influxbasicauth" : "true",
       "influxskiptlsverify" : "true",
       "influxdatabase" : "stats4lox"
+   },
+   "Loxberry": {
+      "localhost": {
+         "user": "",
+         "pass": ""
+      }
    }
 }
-
