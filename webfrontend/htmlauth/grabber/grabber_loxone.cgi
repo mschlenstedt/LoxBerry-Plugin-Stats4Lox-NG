@@ -90,10 +90,9 @@ for my $results( @{$cfg->{loxone}} ){
 	}
 	
 	foreach ( @outputs ) {
-		# $values->{"value_$_"} = $respjson->{LL}->{"output$_"}->{value};
-		# $values->{"name_$_"} = $respjson->{LL}->{"output$_"}->{name};
-	
-		# Maybe more flexible
+		if ($_ < 0) {
+			next; # Skip -1 (default value for future use)
+		}
 		my $valname = $respjson->{LL}->{"output$_"}->{name};
 		my $valvalue = $respjson->{LL}->{"output$_"}->{value};
 		my %result = ( $values->{uuid} . "_" . $valname => $valvalue );
