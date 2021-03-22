@@ -164,14 +164,33 @@ sub readloxplan
 		$lox_room{$room->{U}} = $room->{Title};
 	}
 
-	# Get all objects that have statistics enabled
-	#my $hr = HTML::Restrict->new();
+	# Get all objects
 	
 	foreach my $object ($lox_xml->findnodes('//C[@Type]')) {
 		
 		# Process CBLACKLIST
 		if( exists $CBLACKLIST{ uc($object->{Type}) } ) {
 			next;
+		}
+		
+		# Place and Category
+		my @iodata = $object->getElementsByTagName("IoData");
+		if( $object->{Type} eq "Memory" and !defined $iodata[0]->{Cr} && !defined $iodata[0]->{Pr} ) {
+			# Skip elements that do 
+			next;
+		}
+		
+		if( defined $iodata[0]->{Cr} ) {
+			# $log->DEB( "Cat: " . $lox_category{$iodata[0]->{Cr}});
+			$lox_statsobject{$object->{U}}{Category} = $lox_category{$iodata[0]->{Cr}} if ($iodata[0]->{Cr});
+			$lox_category_used{$iodata[0]->{Cr}} = 1;
+		}
+		if( defined $iodata[0]->{Pr} ) {
+			$lox_statsobject{$object->{U}}{Place} = $lox_room{$iodata[0]->{Pr}} if ($iodata[0]->{Pr});
+			$lox_room_used{$iodata[0]->{Pr}} = 1;
+		}
+		if( defined $iodata[0]->{Visu} ) {
+			$lox_statsobject{$object->{U}}{Visu} = $iodata[0]->{Visu};
 		}
 		
 		# Get Miniserver of this object
@@ -215,20 +234,6 @@ sub readloxplan
 			# $log->DEB( "Unit: (none detected)");
 		}
 		
-		# Place and Category
-		my @iodata = $object->getElementsByTagName("IoData");
-		if( defined $iodata[0]->{Cr} ) {
-			# $log->DEB( "Cat: " . $lox_category{$iodata[0]->{Cr}});
-			$lox_statsobject{$object->{U}}{Category} = $lox_category{$iodata[0]->{Cr}} if ($iodata[0]->{Cr});
-			$lox_category_used{$iodata[0]->{Cr}} = 1;
-		}
-		if( defined $iodata[0]->{Pr} ) {
-			$lox_statsobject{$object->{U}}{Place} = $lox_room{$iodata[0]->{Pr}} if ($iodata[0]->{Pr});
-			$lox_room_used{$iodata[0]->{Pr}} = 1;
-		}
-		if( defined $iodata[0]->{Visu} ) {
-			$lox_statsobject{$object->{U}}{Visu} = $iodata[0]->{Visu};
-		}
 		
 		# Min/Max values
 		if ($object->{Analog} and $object->{Analog} ne "true") {
