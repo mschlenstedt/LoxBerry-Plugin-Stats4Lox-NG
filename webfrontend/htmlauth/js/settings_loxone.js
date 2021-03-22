@@ -124,29 +124,43 @@ $(function() {
 			
 		})
 		.done(function(data){
+			// Find internal key of statistic element
 			var statkey = statsconfigLoxone.findIndex(obj => {
 			return obj.uuid === control.UID && obj.msno == control.msno })
 			
-			console.log("after post: ", statkey);
-			
+			var stattableelement;
 			
 			if( statkey != -1 ) {
-				statsconfigLoxone[statkey].active = stat_active;
-				statsconfigLoxone[statkey].interval = stat_interval;
-				statsconfigLoxone[statkey].outputs = stat_outputs;
-			}
-			if( stat_active === "true" ) {
-				// $("#LoxoneDetails_s4lstatinterval").closest('div')
-					// .addClass("s4l_interval_highlight")
-					// //.textinput( "refresh" )
-				// ;
+				// If element found in internal data
+				// Update internal statsconfigLoxone with ajax result
+				statsconfigLoxone[statkey] = data;
+				
+				// Get stats element in List
+				
+				statTableElement = $("#statskey-"+statkey);
+				console.log("statskey and element", statkey, statTableElement);
 			}
 			else {
-				// $("#LoxoneDetails_s4lstatinterval").closest('div')
-					// .removeClass("s4l_interval_highlight")
-				 	
-					// .textinput( "refresh" )
-				// ;
+				// Not found in internal data - add object to array
+				statsconfigLoxone.push( data );
+				statkey = (statsconfigLoxone.length)-1;
+				statTableElement = $(`tr[data-uid="${uid}"][data-msno="${msno}"`);
+				statTableElement = statTableElement[0];
+				statTableElement = $(statTableElement).find(".statdata");
+				console.log("statTableElement", statTableElement, statkey);
+			}
+			
+			// We should have found the element in the table
+			if( statTableElement ) {
+				$(statTableElement).attr("id", "statskey-"+statkey );
+			
+				if( stat_active === "true" ) {
+					$(statTableElement).children("[name=s4l_interval]").text(stat_interval/60);
+					$(statTableElement).show();
+				}
+				else {
+					$(statTableElement).hide();
+				}
 			}
 		});
 	});
@@ -390,9 +404,10 @@ function createTableBody() {
 		}
 		
 		// S4L Stat filter
-		var statmatch = statsconfigLoxone.find(obj => {
+		var statmatchkey = statsconfigLoxone.findIndex(obj => {
 			return obj.uuid === element.UID && obj.msno == element.msno
 		})
+		var statmatch = statsconfigLoxone[statmatchkey];
 		if( typeof filters["filter_s4lstat"] !== "undefined" && filters["filter_s4lstat"] != "all") {
 			if( filters["filter_s4lstat"] == "on" && ( typeof statmatch === "undefined" || statmatch.active !== "true" ) ) continue;
 			if( filters["filter_s4lstat"] == "off" && typeof statmatch !== "undefined" &&  statmatch.active === "true" ) continue;
@@ -443,22 +458,30 @@ function createTableBody() {
 		
 		// Statistics
 		controlstable += `<td class="center">`;
-		
-		
-		let highlightclass = "";
 		var checkedImg = `<img src="images/checkbox_checked_20.png">`;
 		var uncheckedImg = `<img src="images/checkbox_unchecked_20.png">`;
+		var statDisplay;
 		if (statmatch?.active === "true" ) {
-			// controlstable += "Statistics enabled";
+			statDisplay = "";
 			s4l_interval = statmatch.interval/60;
-			highlightclass = "s4l_interval_highlight";
-			controlstable += checkedImg;
-			controlstable += `&nbsp;${s4l_interval} minutes`;
 		}
 		else {
+			statDisplay = "display:none;";
 			s4l_interval = "";
+			
 			// controlstable += "Not enabled";
 		}
+
+		controlstable += `
+			<div class="statdata" id="statskey-${statmatchkey}" style="${statDisplay}">`;
+			// controlstable += "Statistics enabled";
+			
+			controlstable += checkedImg;
+			controlstable += `&nbsp;<span name="s4l_interval">${s4l_interval}</span> minutes`;
+		
+
+
+		controlstable += `</div>`;
 		
 		// controlstable += `
 			 
@@ -497,9 +520,9 @@ function popupLoxoneDetails( uid, msno ) {
 	$("#LoxoneDetails_uid").val(control.UID);
 	
 	$("#LoxoneDetails_placelabel").text(loxone_elements['PLACE'].localname);
-	$("#LoxoneDetails_place").text(control.Place);
+	$("#LoxoneDetails_place").html(control.Place ? control.Place : "&nbsp;" );
 	$("#LoxoneDetails_categorylabel").text(loxone_elements['CATEGORY'].localname);
-	$("#LoxoneDetails_category").text(control.Category);
+	$("#LoxoneDetails_category").html(control.Category ? control.Category : "&nbsp;");
 	
 	$("#LoxoneDetails_typelabel").text("Type");
 	$("#LoxoneDetails_type").text(loxone_elements[control.Type?.toUpperCase()].localname);
@@ -509,8 +532,8 @@ function popupLoxoneDetails( uid, msno ) {
 	$("#LoxoneDetails_miniserver").text(miniservers[control.msno].Name+' ('+control.msno+')');
 	
 	$("#LoxoneDetails_pagelabel").text(loxone_elements['PAGE'].localname);
-	$("#LoxoneDetails_page").text(control.page);
-
+	$("#LoxoneDetails_page").html( control.Page ? control.Page : "&nbsp;" );
+	
 	// Icons
 	var isLoxVisu = control.Visu === "true" ? true : false;
 	var checkedImg = `<img src="images/checkbox_checked_20.png">`;

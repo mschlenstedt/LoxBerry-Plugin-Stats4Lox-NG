@@ -128,7 +128,7 @@ if( $q->{action} eq "updatestat" ) {
 		# The changes are valid
 		$jsonobjcfg->write();
 		undef $jsonobjcfg;
-		$response = "{ }";
+		$response = encode_json( \%updatedelement );
 	}
 	else {
 		# The element is invalid
