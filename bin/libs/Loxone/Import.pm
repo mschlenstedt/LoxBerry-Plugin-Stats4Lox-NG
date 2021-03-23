@@ -2,7 +2,8 @@ use warnings;
 use strict;
 use LoxBerry::System;
 use LoxBerry::IO;
-use LoxBerry::Log;
+# use LoxBerry::Log;
+# use Carp::Croak;
 use XML::LibXML;
 use Time::Piece;
 use FindBin qw($Bin);
@@ -12,43 +13,79 @@ use Data::Dumper;
 
 package Loxone::Import;
 
+our $DEBUG = 1;
+
+sub new 
+{
+	print STDERR "Loxone::Import->new: Called\n" if ($DEBUG);
+	
+	my $class = shift;
+	
+	if (@_ % 2) {
+		print STDERR "Loxone::Import->new: ERROR Illegal parameter list has odd number of values\n";
+		Carp::croak "Illegal parameter list has odd number of values\n" . join("\n", @_) . "\n";
+	}
+	
+	my %p = @_;
+	
+	my $self = { 
+		msno =>$p{msno}, 
+		uuid =>$p{uuid},
+		log =>$p{log}
+	};
+	
+	if( !defined $self->{msno} ) {
+		die "msno paramter missing";
+	}
+	if( !defined $self->{uuid} ) {
+		die "uuid parameter missing";
+	}
+	my %miniservers = LoxBerry::System::get_miniservers();
+	if( !defined $miniservers{$self->{msno}} ) {
+		die "Miniserver $self->{msno} not defined";
+	}
+	
+	bless $self, $class;
+	
+	$self->getStatlist();
+	
+	return $self;
+}
+
 sub getStatlist
 {
-	my %args = @_;
-	my $log = $args{log};
-	my $msno = $args{ms};
+	my $self = shift;
 	
-	if( ! $msno) {
-		print STDERR "No Miniserver number defined.\n";
-		return;
-	}
+	my $log = $self->{log};
+	my $msno = $self->{msno};
+	my $uuid = $self->{uuid};
 	
 	# Request statlist 
 	my $url = "/stats";
 	my (undef, undef, $resphtml) = LoxBerry::IO::mshttp_call($msno, $url);
-	
-	print STDERR Data::Dumper::Dumper($resphtml);
-	
+		
 	if( !$resphtml) {
 		return undef;
 	}
 	
-	my %results;
+	my %resultsAll;
 	
 	my @resp = split( /\n/, $resphtml );
 	foreach my $line ( @resp ) {
 		if( $line =~ /<a href="(.*)\.(\d{6}).xml">/ ) {
 			my $uid = $1;
 			my $yearmon = $2;
-			print STDERR "UID: $uid  Date: $yearmon\n";
-			if( !$results{$uid} ) {
-				$results{$uid} = ();
+			# print STDERR "UID: $uid  Date: $yearmon\n";
+			if( !$resultsAll{$uid} ) {
+				$resultsAll{$uid} = ();
 			}
-			push( @{$results{$uid}}, $yearmon );
+			push( @{$resultsAll{$uid}}, $yearmon );
+			
 		}
 	}
 	
-	return \%results;
+	$self->{statlistAll} = \%resultsAll;
+	return @{$resultsAll{$uuid}};
 	
 }
 
@@ -100,21 +137,21 @@ sub getStatlist
 
 
 sub getMonthStat {
+	
+	my $self = shift;
+	
+	my $log = $self->{log};
+	my $msno = $self->{msno};
+	my $uuid = $self->{uuid};
+	
 	my %args = @_;
-	my $log = $args{log};
-	my $msno = $args{ms};
-	my $uuid = $args{uuid};
 	my $yearmon = $args{yearmon};
 	
-	if( ! $msno) {
-		print STDERR "No Miniserver number defined.\n";
-		return;
-	}
-	if( ! $uuid) {
+	if(!$uuid) {
 		print STDERR "uuid not defined.\n";
 		return;
 	}
-	if( ! $yearmon) {
+	if(!$yearmon) {
 		print STDERR "yearmon not defined.\n";
 		return;
 	}
@@ -145,7 +182,6 @@ sub getMonthStat {
 		print STDERR "Attribute: " . $_->nodeName . " Value: " . $_->value . "\n";
 		$result{StatMetadata}{$_->nodeName} = $_->value;
 	}
-	
 	
 	my @statsnodes = $statsxml->findnodes('/Statistics/S');
 	my @timedata;
