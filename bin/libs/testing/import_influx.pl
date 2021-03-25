@@ -1,4 +1,6 @@
 #!/usr/bin/perl
+use warnings;
+use strict;
 use LoxBerry::System;
 use LoxBerry::Log;
 use LoxBerry::JSON;
@@ -34,32 +36,18 @@ if( !defined $miniservers{$msno} ) {
 	exit(1);
 }
 
-# my $statsjsonobj = new LoxBerry::JSON;
-# my $statsjson = $statsjsonobj( filename => $Globals::statsconfig, readonly => 1 );
-# if (!$statsjson) {
-	# LOGCRIT "Could not read stats.json";
-	# exit(1);
-# }
-
 my $import = new Loxone::Import(msno => $msno, uuid=> $uuid, log => $log);
 
-
 my @statmonths = $import->getStatlist();
+
+print Data::Dumper::Dumper( $import->{statlistAll} );
+
 foreach my $yearmonth ( @statmonths ) {
-	print STDERR "Fetching $import->{uuid} Month: $_\n";
+	print STDERR "Fetching $import->{uuid} Month: $yearmonth\n";
 	
 	my $monthdata = $import->getMonthStat( yearmon => $yearmonth );
-
-	print STDERR Dumper( $monthdata );
+	# print STDERR Data::Dumper::Dumper( $monthdata ) . "\n";
+	print STDERR "   Datasets " . scalar @{$monthdata->{values}} . "\n";
 	
 	
 }
-
-
-
-
-# my $statlist = Loxone::Import::enrichStatlist ( ms => $msno, statlist => $statlist, log => $log );
-
-# my $statdata = Loxone::Import::getMonthStat( ms => $msno, log => $log, uuid => "154d4bb3-03cd-72ec-ffff4be94a2a77f6", yearmon => "202012" );
-
-print Dumper( \@statmonths );
