@@ -8,7 +8,7 @@ our @EXPORT = qw (
 	msget_value
 );
 
-package LoxBerry::Stats4Lox;
+package Stats4Lox;
 
 our $DEBUG = 0;
 
@@ -105,45 +105,6 @@ sub msget_value
 	return ($resp_code, %response);
 }
 
-#####################################################
-# mshttp_get
-# https://www.loxwiki.eu/x/UwE_Ag
-#####################################################
-sub mshttp_get
-{
-	my $msnr = shift;
-	
-	my @params = @_;
-	my %response;
-	
-	require URI::Escape;
-	
-	for (my $pidx = 0; $pidx < @params; $pidx++) {
-		print STDERR "Querying param: $params[$pidx]\n" if ($DEBUG);
-		my ($respvalue, $respcode, $rawdata) = mshttp_call($msnr, "/dev/sps/io/" . URI::Escape::uri_escape($params[$pidx]) . '/all'); 
-		if($respcode == 200) {
-			# We got a valid response
-			# Workaround for analogue outputs always return 0
-			my $respvalue_filtered = $respvalue =~ /(\d+(?:\.\d+)?)/;
-			$respvalue_filtered = $1;
-			# print STDERR "respvalue         : $respvalue\n"; 
-			# print STDERR "respvalue_filtered: $respvalue_filtered\n"; 
-			no warnings "numeric";
-			if($respvalue_filtered ne "" and $respvalue_filtered == 0) {
-				# Search for outputs - if present, value is ok
-				if( index( $rawdata, '<output name="' ) == -1 ) {
-					# Not found - we require to request the value without /all
-					($respvalue, $respcode, $rawdata) = mshttp_call($msnr, "/dev/sps/io/" . URI::Escape::uri_escape($params[$pidx]) ); 
-				} 
-			}
-			$response{$params[$pidx]} = $respvalue;
-		} else {
-			$response{$params[$pidx]} = undef;
-		}
-	}
-	return %response if (@params > 1);
-	return $response{$params[0]} if (@params == 1);
-}
 #####################################################
 # Finally 1; ########################################
 #####################################################
