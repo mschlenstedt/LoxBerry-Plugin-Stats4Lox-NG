@@ -102,7 +102,7 @@ if( $q->{action} eq "updatestat" ) {
 		active => defined $q->{active} ? $q->{active} : "false",
 		msno => $q->{msno},
 		outputs => \@outputs,
-		url => $q->{uuid}
+		# url => $q->{uuid}
 	);
 	
 	# Validation
