@@ -2,7 +2,7 @@
 
 use LoxBerry::System;
 
-require "$lbpbindir/libs/Loxone/Stats4Lox.pm";
+require "$lbpbindir/libs/Stats4Lox.pm";
 
 # Debug
 $Stats4Lox::DEBUG = 0;

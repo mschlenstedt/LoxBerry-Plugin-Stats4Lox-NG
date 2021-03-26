@@ -3,15 +3,16 @@ use strict;
 use warnings;
 use JSON;
 use LoxBerry::IO;
+
 use base 'Exporter';
 our @EXPORT = qw (
 	msget_value
+	influx_lineprot
 );
 
 package Stats4Lox;
 
 our $DEBUG = 0;
-
 if ($DEBUG) {
 	use Data::Dumper;
 }
@@ -103,6 +104,71 @@ sub msget_value
 
 	print STDERR "Response of subroutine:\n" . Data::Dumper::Dumper(%response) . "\n" if ($DEBUG);
 	return ($resp_code, %response);
+}
+
+#####################################################
+# Create InfluxDB lineformat
+# Param 1: Timestamp
+# Param 2: measurement
+# Param 3: Hash with tags
+# Param 4: Hash with fields
+#####################################################
+sub influx_lineprot
+{
+	my $timestamp = shift;
+	my $measurement = shift;
+	my %tags = %{$_[0]};
+	my %fields = %{$_[1]};
+
+	if (!$timestamp) {$timestamp = ""};
+
+	if (!$measurement) {
+		print STDERR "Measurement is needed.";
+		return (undef);
+	};
+
+	if (keys %fields == 0) {
+		print STDERR "At least one field is needed.";
+		return (undef);
+	};
+
+	print STDERR "Submitted measurement: " . $measurement . "\n" if ($DEBUG);
+	print STDERR "Submitted timestamp: " . $timestamp . "\n" if ($DEBUG);
+	print STDERR "Submitted tags:\n" . Data::Dumper::Dumper(\%tags) . "\n" if ($DEBUG);
+	print STDERR "Submitted fields:\n" . Data::Dumper::Dumper(\%fields) . "\n" if ($DEBUG);
+
+	$measurement =~ s/([ ,])/\\$1/g;
+	my $data;
+	my $line = $measurement;
+	if (keys %tags > 0) {
+		foreach  my $key (keys %tags) {
+			$data = "$key=$tags{$key}";
+			$data =~ s/([ ,])/\\$1/g;
+			$line .= ",$data";
+		}
+	}
+
+	$line .= " ";
+
+	my $i = 0;
+	foreach  my $key (keys %fields) {
+		#Try to figure out if field must be handled as string - maybe to compolicated here - better suggestions are welcome ;-)
+		my $stringtest = $fields{$key};
+		$stringtest =~ s/(.*)i$/$1/g; # i as last position is integer
+		if ( $stringtest =~ m/[a-zA-Z]/ ) { # still String?
+			$data = "$key=\"$fields{$key}\"";
+		} else {
+			$data = "$key=$fields{$key}";
+		}
+		$data =~ s/([ ,])/\\$1/g;
+		$line .= "," if $i > 0;
+		$line .= "$data";
+		$i++;
+	}
+
+	$line .= " $timestamp" if $timestamp;
+
+	return ($line);
 }
 
 #####################################################
