@@ -84,47 +84,44 @@ sub msget_value
 	}
 	# Default value
 	my $value = $respjson->{LL}->{value};
-        $value =~ s/^([-\d\.]+).*/$1/g; # cut of unit
-	$data{Default} = $value;
+        $value =~ s/^([-\d\.]+)\s+(.*)/$1/g; # cut of unit
+	$data{Value} = $value;
+	$data{Name} = "Default";
+	$data{Unit} = $2;
+	$data{Code} = $resp_code;
 
-	push (@response, %data);
-	print STDERR Data::Dumper::Dumper(\@response);
+	push (@response, \%data);
 
 	# Additional outputs
 	my $i = 0;
 	while ($respjson->{LL}->{"output$i"}) {
 
-		%data = undef;
-
-		my $valname = $respjson->{LL}->{"output$i"}->{name};
+		my %outdata;
 		my $val = $respjson->{LL}->{"output$i"}->{value};
-		$data{$valname} = $val;
-
-		push (@response, \%data);
+		$outdata{Value} = $respjson->{LL}->{"output$i"}->{value};
+		$outdata{Name} = $respjson->{LL}->{"output$i"}->{name};
+		$outdata{Key} = "output$i";
+		$outdata{Nr} = $respjson->{LL}->{"output$i"}->{nr};
+		push (@response, \%outdata);
 
 		$i++;
 	}
 
-	#print STDERR Data::Dumper::Dumper(\@response);
-	
 	# Additional SpecialStates from IRR
 	$i = 0;
 	while ($respjson->{LL}->{"SpecialState$i"}) {
 
-		%data = undef;
-
-		my $valname = $respjson->{LL}->{"SpecialState$i"}->{uuid};
-		my $val = $respjson->{LL}->{"SpecialState$i"}->{value};
-		$data{$valname} = $val;
-		
-		push (@response, \%data);
+		my %ssdata;
+		$ssdata{Value} = $respjson->{LL}->{"SpecialState$i"}->{value};
+		$ssdata{Name} = $respjson->{LL}->{"SpecialState$i"}->{uuid};
+		$ssdata{Nr} = $respjson->{LL}->{"SpecialState$i"}->{nr};
+		push (@response, \%ssdata);
 
 		$i++;
 	}
 
-	print STDERR Data::Dumper::Dumper(\@response);
+	print STDERR "Response of subroutine:\n" . Data::Dumper::Dumper(\@response) . "\n" if ($DEBUG);
 
-	#print STDERR "Response of subroutine:\n" . Data::Dumper::Dumper(\@response) . "\n" if ($DEBUG);
 	return ($resp_code, \@response);
 }
 
