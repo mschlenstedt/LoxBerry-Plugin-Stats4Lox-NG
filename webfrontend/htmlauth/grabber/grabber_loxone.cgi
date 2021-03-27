@@ -7,6 +7,12 @@ use strict;
 use warnings;
 use Data::Dumper;
   
+require "$lbpbindir/libs/Stats4Lox.pm";
+$Stats4Lox::DEBUG = 0;
+
+# Measurement name for Influx
+my $measurement = "stats_loxone";
+
 # Stats Configuration
 my $jsonobjcfg = LoxBerry::JSON->new();
 my $cfgfile = $lbpconfigdir . "/stats.json";
@@ -20,6 +26,10 @@ my $mem = $jsonobjcfg->open(filename => $memfile, writeonclose => 1);
 # Loop through stats
 my @data;
 for my $results( @{$cfg->{loxone}} ){
+	if (! $results->{uuid} || ! $results->{msno}) {
+		print STDERR "   Data isn't complete. Skipping...\n";
+		next;
+	}
 	print STDERR "Grabbing " . $results->{name} . "     $results->{uuid}\n";
 	my $tag = $results->{name};
 	my $now = time();
@@ -34,73 +44,58 @@ for my $results( @{$cfg->{loxone}} ){
 	$mem->{$tag}->{nextrun} = $now + $results->{interval};
 	
 	# Grab data
-	my (undef, undef, $resp) = LoxBerry::IO::mshttp_call($results->{msno}, "$results->{url}");
-	if ( !$resp ) {
-		print STDERR "   Could not grab data from Miniserver - empty data. Wrong URL?\n";
+	my ($code, $resp) = Stats4Lox::msget_value($results->{msno}, $results->{uuid});
+	if ( !$resp || $code ne "200" ) {
+		print STDERR "   Could not grab data from Miniserver.\n";
 		next;
 	}
-	#print STDERR $resp . "\n";
-	# Convert to valid UTF8
-	#$resp = Encode::decode("UTF-8", $resp);
-	# Convert to JSON
-	my $respjson;
-	eval {
-		$respjson = decode_json( "$resp" );
-		1;
-	};
-	if ($@) {
-		print STDERR "   Could not grab data from Miniserver - no valid JSON data received: $@\n";
-		next;
-	}
-	if ($respjson->{LL}->{Code} ne "200") {
-		print STDERR "   Could not grab data from Miniserver - error code: $respjson->{LL}->{Code}\n";
-		next;
-	}
-	# Collect data
-	my $values;
-	$values->{name} = $results->{name};
-	$values->{description} = $results->{description};
-	$values->{uuid} = $results->{uuid};
-	$values->{type} = $results->{type};
-	$values->{category} = $results->{category};
-	$values->{room} = $results->{room};
 	
-	my @results;
-	my $value = $respjson->{LL}->{value};
-	$value =~ s/^([-\d\.]+).*/$1/g;
-	$value = $value + 0;
-	# $values->{value} = $value;
-	my %defaultresult = ( $values->{uuid} . "_default" => $value );
-	push @results, \%defaultresult;
-	
+	# Collect data and create Influx lineformat
+	my %tags = ();
+	$tags{"name"} =	$results->{name} if ($results->{name});
+	$tags{"description"} = $results->{description} if ($results->{description});
+	$tags{"uuid"} = $results->{uuid} if ($results->{uuid});
+	$tags{"type"} = $results->{type} if ($results->{type}) ;
+	$tags{"category"} = $results->{category} if($results->{category});
+	$tags{"room"} = $results->{room} if ($results->{room});
+	$tags{"msno"} = $results->{msno} if ($results->{msno});
+
 	my @outputs;
 	if( ref($results->{outputs}) eq "ARRAY" ) {
 		@outputs = @{$results->{outputs}};
 	}
 	if( scalar(@outputs) == 0) {
-		# use all putputs
+		# use all outputs
 		@outputs = ();
 		print STDERR "   Using ALL outputs - config is empty - \n";
-		foreach( sort keys %{$respjson->{LL}} ) {
-			push @outputs, substr( $_, 6) if( LoxBerry::System::begins_with($_, "output") );
+		#foreach( sort keys %{$respjson->{LL}} ) {
+		#	push @outputs, substr( $_, 6) if( LoxBerry::System::begins_with($_, "output") );
+		#}
+		foreach (@$resp) {
+			if ($_->{"Key"}) {
+				push @outputs, $_->{"Key"};
+			}
 		}
+				
 	}
 	else {
 		print STDERR "   Using defined outputs " . join(",", @outputs) . "\n";
 	}
 	
+	my %fields = ();
 	foreach ( @outputs ) {
-		if ($_ < 0) {
-			next; # Skip -1 (default value for future use)
+		my $key = $_;
+		foreach (@$resp) {
+			if ($_->{"Key"} eq $key) {
+				my $valname = $tags{"uuid"} . "_" . $_->{"Name"};
+				my $val = $_->{"Value"};
+				$fields{"$valname"} = $val;
+			}
 		}
-		my $valname = $respjson->{LL}->{"output$_"}->{name};
-		my $valvalue = $respjson->{LL}->{"output$_"}->{value};
-		my %result = ( $values->{uuid} . "_" . $valname => $valvalue );
-		push @results, \%result;
-	
 	}
-	$values->{value} = \@results;
-	push (@data, $values);
+
+	my $lineprot = Stats4Lox::influx_lineprot(undef, $measurement, \%tags, \%fields);
+	push @data, $lineprot;
 
 	# Slow down
 	sleep (0.2);
@@ -109,8 +104,9 @@ for my $results( @{$cfg->{loxone}} ){
 #print STDERR Dumper @data;
 
 # Output
-my $jsonout = to_json( \@data, {ascii => 1, pretty => 1 });
-print "Content-type: application/json\n\n";
-print $jsonout;
+print "Content-type: text/ascii; charset=UTF-8\n\n";
+foreach (@data) {
+	print $_ . "\n";
+}
 
 exit(0);
