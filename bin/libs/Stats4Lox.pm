@@ -29,7 +29,8 @@ sub msget_value
 
 	my $msnr = shift;
 	my $block = shift;
-	my %response;
+	my @response;
+	my %data;
 	
 	my %ms = LoxBerry::System::get_miniservers();
 	if (! $ms{$msnr}) {
@@ -84,26 +85,47 @@ sub msget_value
 	# Default value
 	my $value = $respjson->{LL}->{value};
         $value =~ s/^([-\d\.]+).*/$1/g; # cut of unit
-	$response{Default} = $value;
+	$data{Default} = $value;
+
+	push (@response, %data);
+	print STDERR Data::Dumper::Dumper(\@response);
+
 	# Additional outputs
 	my $i = 0;
 	while ($respjson->{LL}->{"output$i"}) {
+
+		%data = undef;
+
 		my $valname = $respjson->{LL}->{"output$i"}->{name};
 		my $val = $respjson->{LL}->{"output$i"}->{value};
-		$response{$valname} = $val;
-		$i++;
-	}
-	# Additional SpecialStates from IRR
-	$i = 0;
-	while ($respjson->{LL}->{"SpecialState$i"}) {
-		my $valname = $respjson->{LL}->{"SpecialState$i"}->{uuid};
-		my $val = $respjson->{LL}->{"SpecialState$i"}->{value};
-		$response{$valname} = $val;
+		$data{$valname} = $val;
+
+		push (@response, \%data);
+
 		$i++;
 	}
 
-	print STDERR "Response of subroutine:\n" . Data::Dumper::Dumper(%response) . "\n" if ($DEBUG);
-	return ($resp_code, %response);
+	#print STDERR Data::Dumper::Dumper(\@response);
+	
+	# Additional SpecialStates from IRR
+	$i = 0;
+	while ($respjson->{LL}->{"SpecialState$i"}) {
+
+		%data = undef;
+
+		my $valname = $respjson->{LL}->{"SpecialState$i"}->{uuid};
+		my $val = $respjson->{LL}->{"SpecialState$i"}->{value};
+		$data{$valname} = $val;
+		
+		push (@response, \%data);
+
+		$i++;
+	}
+
+	print STDERR Data::Dumper::Dumper(\@response);
+
+	#print STDERR "Response of subroutine:\n" . Data::Dumper::Dumper(\@response) . "\n" if ($DEBUG);
+	return ($resp_code, \@response);
 }
 
 #####################################################
