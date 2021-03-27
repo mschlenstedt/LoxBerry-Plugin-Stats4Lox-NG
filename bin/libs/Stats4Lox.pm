@@ -117,6 +117,7 @@ sub msget_value
 		my %ssdata;
 		$ssdata{Value} = $respjson->{LL}->{"SpecialState$i"}->{value};
 		$ssdata{Name} = $respjson->{LL}->{"SpecialState$i"}->{uuid};
+		$ssdata{Key} = "SpecialState$i";
 		$ssdata{Nr} = $respjson->{LL}->{"SpecialState$i"}->{nr};
 		push (@response, \%ssdata);
 
