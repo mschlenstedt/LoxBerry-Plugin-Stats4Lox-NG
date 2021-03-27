@@ -89,6 +89,7 @@ sub msget_value
         $value =~ s/^([-\d\.]+)\s+(.*)/$1/g; # cut of unit
 	$data{Value} = $value;
 	$data{Name} = "Default";
+	$data{Key} = "Default";
 	$data{Unit} = $2;
 	$data{Code} = $resp_code;
 
