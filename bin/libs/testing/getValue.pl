@@ -12,7 +12,7 @@ my ($code, $resp) = Stats4Lox::msget_value( 1, "a6da627a-6677-11e3-a77d9c3de0c58
 
 print "Response Code is: $code\n\n";
 
-my $i;
+my $i = "0";
 foreach (@$resp) {
 	print "=== $i. Dataset: ===\n";
 	foreach $key ( keys %$_ ) {

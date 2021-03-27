@@ -39,11 +39,12 @@ sub msget_value
 	}
 	
 	print STDERR "Querying param: $block with /all\n" if ($DEBUG);
-	my (undef, undef, $rawdata) = LoxBerry::IO::mshttp_call($msnr, "/jdev/sps/io/" . URI::Escape::uri_escape($block) . '/all'); 
+	#my (undef, undef, $rawdata) = LoxBerry::IO::mshttp_call($msnr, "/jdev/sps/io/" . URI::Escape::uri_escape($block) . '/all'); 
+	my ($rawdata, $status) = LoxBerry::IO::mshttp_call2($msnr, "/jdev/sps/io/" . URI::Escape::uri_escape($block) . '/all'); 
 
-	if ( ! $rawdata ) {
-		print STDERR "No data from subroutine LoxBerry::IO::mshttp_call.\n";
-		return (600, undef);
+	if ( $status->{code} ne "200" ) {
+		print STDERR "Error while getting data from Miniserver: $status->{message}. Status: $status->{status}\n";
+		return ($status->{code}, undef);
 	}
 	
 	# Clean up Loxone's analoge output f*ck up (is always 0/zero if grabbed with /all...):
@@ -57,7 +58,8 @@ sub msget_value
 		if( $rawdata !~ m/\"output0\":/ ) {
 			# Not found - we require to request the value without /all
 			print STDERR "Re-Querying param: $block withOUT /all due to f*cked up analoge output\n" if ($DEBUG);
-			(undef, undef, $rawdata) = LoxBerry::IO::mshttp_call($msnr, "/jdev/sps/io/" . URI::Escape::uri_escape($block)); 
+			#(undef, undef, $rawdata) = LoxBerry::IO::mshttp_call($msnr, "/jdev/sps/io/" . URI::Escape::uri_escape($block)); 
+			my ($rawdata, $status) = LoxBerry::IO::mshttp_call2($msnr, "/jdev/sps/io/" . URI::Escape::uri_escape($block)); 
 		} 
 	}
 	
