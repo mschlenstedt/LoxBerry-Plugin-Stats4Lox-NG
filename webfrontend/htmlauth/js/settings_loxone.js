@@ -591,11 +591,12 @@ function popupLoxoneDetails( uid, msno ) {
 		var dataStr;
 		if( data.error == null && data?.code == "200" ) {
 			$("#valuesLoxoneDetailsLive_title").html(`Live Data from Miniserver ${miniservers[control.msno].Name}`);
-
+			
 			for( var key in data.response ) {
 				console.log("Output loop", key, data.response[key]);
 				var outputKey = data.response[key].Key;
-				data.response[key].localdesc = loxone_elements[control.Type?.toUpperCase()]?.OL[outputKey];
+				var outputName = data.response[key].Name;
+				data.response[key].localdesc = loxone_elements[control.Type?.toUpperCase()]?.OL[outputName];
 				data.response[key].localdesc = data.response[key].localdesc != undefined ? data.response[key].localdesc : "";
 				data.response[key].statChecked = statmatch?.outputs?.includes(outputKey) ? "checked" : "";
 				data.response[key].statDisabled = statmatch?.active === "true" ? "" : "disabled";
