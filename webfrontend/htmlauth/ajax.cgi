@@ -174,17 +174,17 @@ if( $q->{action} eq "lxlquery" ) {
 
 if( defined $response and !defined $error ) {
 	print "Status: 200 OK\r\n";
-	print "Content-type: application/json\r\n\r\n";
+	print "Content-type: application/json; charset=utf-8\r\n\r\n";
 	print $response;
 }
 elsif ( defined $error and $error ne "" ) {
 	print "Status: 500 Internal Server Error\r\n";
-	print "Content-type: application/json\r\n\r\n";
+	print "Content-type: application/json; charset=utf-8\r\n\r\n";
 	print to_json( { error => $error } );
 }
 else {
 	print "Status: 501 Not implemented\r\n";
-	print "Content-type: application/json\r\n\r\n";
+	print "Content-type: application/json; charset=utf-8\r\n\r\n";
 	$error = "Action ".$q->{action}." unknown";
 	print to_json( { error => $error } );
 }
