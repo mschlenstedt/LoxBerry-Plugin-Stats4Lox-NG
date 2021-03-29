@@ -90,6 +90,9 @@ if( $q->{action} eq "updatestat" ) {
 	if ( defined $q->{outputs} ) {
 		@outputs = split(",", $q->{outputs});
 	}
+	else {
+		@outputs = ();
+	}
 	
 	my %updatedelement = (
 		name => $q->{name},
@@ -110,7 +113,7 @@ if( $q->{action} eq "updatestat" ) {
 	push @errors, "name must be defined" if( ! $updatedelement{name} );
 	push @errors, "uuid must be defined" if( ! $updatedelement{uuid} );
 	push @errors, "msno must be defined" if( ! $updatedelement{msno} );
-	push @errors, "url must be defined" if( ! $updatedelement{url} );
+	# push @errors, "url must be defined" if( ! $updatedelement{url} );
 	push @errors, "active must be defined" if( ! $updatedelement{active} );
 
 	
@@ -138,27 +141,30 @@ if( $q->{action} eq "updatestat" ) {
 }
 	
 if( $q->{action} eq "lxlquery" ) {
-	require LoxBerry::IO;
-	require JSON;
-	my $url = '/jdev/sps/io/'.$q->{uuid}.'/all';
-	my (undef, $code, $resp) = LoxBerry::IO::mshttp_call($q->{msno}, $url);
+	# require LoxBerry::IO;
+	# require JSON;
+	# my $url = '/jdev/sps/io/'.$q->{uuid}.'/all';
+	# my (undef, $code, $resp) = LoxBerry::IO::mshttp_call($q->{msno}, $url);
 	
-	my $respobj;
-	my $jsonerror;
-	eval {
-		$respobj = decode_json($resp);
-	};
-	if( $@ ) {
-		$jsonerror = $@;
-		$respobj = $resp;
-	}
+	# my $respobj;
+	# my $jsonerror;
+	# eval {
+		# $respobj = decode_json($resp);
+	# };
+	# if( $@ ) {
+		# $jsonerror = $@;
+		# $respobj = $resp;
+	# }
+	
+	require "$lbpbindir/libs/Stats4Lox.pm";
+	my ($code, $data) = Stats4Lox::msget_value( $q->{msno}, $q->{uuid} );
 	
 	my %response = (
 		msno => $q->{msno},
 		uuid => $q->{uuid},
 		code => $code,
-		response => $respobj,
-		error => $jsonerror
+		response => $data,
+		# error => $jsonerror
 	);
 	$response = encode_json( \%response );
 }
@@ -166,12 +172,12 @@ if( $q->{action} eq "lxlquery" ) {
 
 
 
-if( defined $response and $error eq "" ) {
+if( defined $response and !defined $error ) {
 	print "Status: 200 OK\r\n";
 	print "Content-type: application/json\r\n\r\n";
 	print $response;
 }
-elsif ( $error ne "" ) {
+elsif ( defined $error and $error ne "" ) {
 	print "Status: 500 Internal Server Error\r\n";
 	print "Content-type: application/json\r\n\r\n";
 	print to_json( { error => $error } );
