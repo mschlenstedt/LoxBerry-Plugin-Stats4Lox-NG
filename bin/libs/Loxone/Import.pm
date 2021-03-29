@@ -9,6 +9,7 @@ use FindBin qw($Bin);
 use lib "$Bin/..";
 use Globals;
 use DateTime;
+require "$lbpbindir/libs/Stats4Lox.pm";
 
 use Data::Dumper;
 
@@ -62,6 +63,11 @@ sub new
 		$self->{importstatus}->{errortext} = "Statobj with msno=$self->{msno} and uuid=$self->{uuid} not found";
 		Carp::croak("Statobj with msno=$self->{msno} and uuid=$self->{uuid} not found");
 	}
+	
+	$self->getLoxoneLabels();
+	
+	$self->setMappings();
+	
 	
 	return $self;
 }
@@ -254,6 +260,8 @@ sub getMonthStat {
 		$result{StatMetadata}{$_->nodeName} = $_->value;
 	}
 	
+	my $NumOutputs = defined $root->{NumOutputs} ? $root->{NumOutputs} : 1;
+	
 	my @statsnodes = $statsxml->findnodes('/Statistics/S');
 	my @timedata;
 	
@@ -263,19 +271,106 @@ sub getMonthStat {
 		my $data_time = createDateTime($node->{T}); 
 		$data{T} =  $data_time->epoch;
 		$data{val} = ();
-		foreach my $statattr ( $node->attributes ) {
-			next if ($statattr->nodeName eq "T" );
-			# $data{$statattr->nodeName} = $statattr->value;
-			push @{$data{val}}, \{ $statattr->nodeName => $statattr->value };
+		# foreach my $statattr ( $node->attributes ) {
+			# next if ($statattr->nodeName eq "T" );
+			# # $data{$statattr->nodeName} = $statattr->value;
+			# push @{$data{val}}, \{ $statattr->nodeName => $statattr->value };
+			# $result{StatMetadata}{usedLabels}{$statattr->nodeName} = 1;
+		# }
+		
+		for( my $i = 0; $i < $NumOutputs; $i++ ) {
+			my $valname = $i == 0 ? "V" : "V$i";
+			push @{$data{val}}, $node->{$valname};
 		}
+
 		push @timedata, \%data;
 	}
 	
 	$result{values} = \@timedata;
+	
 	$log->DEB("Loxone::Import->getMonthStat: Timestamp count found " . scalar @timedata);
 	
 	return \%result;
 
+}
+
+sub getLoxoneLabels {
+	my $self = shift;
+	my $log = $self->{log};
+	my $msno = $self->{msno};
+	my $uuid = $self->{uuid};
+	
+	$log->INF("Querying MS$msno to get output labels");
+	my ($code, $data) = Stats4Lox::msget_value( $msno, $uuid );
+	
+	if( $code ne "200" ) {
+		$log->ERR("Could not get live response of block for labels");
+		return;
+	}
+
+	$self->{LoxoneLabels} = $data;
+	return 1;
+	
+}
+
+#
+## This sub manages known mappings and default mappings for element types
+#
+# The result is a hash with index => livelabel  
+# Index is the index of the value array, starting with 0, so 0 is always the first value
+# e.g. 
+#	Energy block
+#	{ 
+#		"0" => "AQ",
+#		"1" => "AQp"
+#	}
+
+
+
+
+sub setMappings {
+
+	my $self = shift;
+	my $log = $self->{log};
+	my $statobj = $self->{statobj};
+	my %lxlabels = map { $_->{Key} => $_->{Name} } @{$self->{LoxoneLabels}};
+	
+	$log->DEB("Loxone::Import->setMappings: Called");
+	my $type = $statobj->{type};
+	my $type_uc = uc($type);
+	$log->DEB("Loxone::Import->setMappings: Stat element type is $type");
+	
+	# Default mappings for known types
+	
+	my %mapping;
+	
+	if( $type_uc eq "ENERGY" ) {
+		%mapping = ( "0" => "AQ", "1" => "AQp" );
+	}
+	# elsif( $type_uc eq "" ) {
+		# %mapping = ( );
+	# }
+	else {
+		
+		# DEFAULT MAPPING
+		
+		if ( grep( /^output0$/, @{$statobj->{outputs}} ) and $lxlabels{output0} eq "AQ" ) {
+			%mapping = ( "0" => "AQ" );
+		}
+		else {
+			%mapping = ( "0" => "Default" );
+		}
+	}
+	
+	
+	my $printmapping = "";
+	foreach( sort keys %mapping ) {
+		$printmapping .= "$_->$mapping{$_} ";
+	}
+	$log->INF("Loxone::Import->setMappings: Used mapping is: $printmapping");
+		
+
+	
 }
 
 

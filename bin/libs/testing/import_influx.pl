@@ -66,6 +66,7 @@ foreach my $yearmonth ( @statmonths ) {
 	# print STDERR Data::Dumper::Dumper( $monthdata ) . "\n";
 	LOGINF "   Datasets " . scalar @{$monthdata->{values}};
 	
+	
 }
 
 
