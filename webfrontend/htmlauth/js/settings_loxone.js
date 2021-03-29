@@ -596,7 +596,11 @@ function popupLoxoneDetails( uid, msno ) {
 				console.log("Output loop", key, data.response[key]);
 				var outputKey = data.response[key].Key;
 				var outputName = data.response[key].Name;
-				data.response[key].localdesc = loxone_elements[control.Type?.toUpperCase()]?.OL[outputName];
+				try {
+					data.response[key].localdesc = loxone_elements[control.Type?.toUpperCase()]?.OL[outputName];
+				} catch {
+					data.response[key].localdesc == undefined;
+				}
 				data.response[key].localdesc = data.response[key].localdesc != undefined ? data.response[key].localdesc : "";
 				data.response[key].statChecked = statmatch?.outputs?.includes(outputKey) ? "checked" : "";
 				data.response[key].statDisabled = statmatch?.active === "true" ? "" : "disabled";
