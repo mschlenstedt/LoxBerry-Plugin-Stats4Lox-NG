@@ -2,8 +2,8 @@ use warnings;
 use strict;
 use LoxBerry::System;
 use LoxBerry::IO;
-# use LoxBerry::Log;
-# use Carp::Croak;
+use Carp;
+use LoxBerry::Log;
 use XML::LibXML;
 use FindBin qw($Bin);
 use lib "$Bin/..";
@@ -13,20 +13,21 @@ use DateTime;
 use Data::Dumper;
 
 
+$LoxBerry::IO::DEBUG=1;
+
 package Loxone::Import;
 
 our $DEBUG = 1;
 our $LocalTZ = DateTime::TimeZone->new( name => 'local' );
+our $http_timeout = 30;
+
 
 sub new 
 {
-	print STDERR "Loxone::Import->new: Called\n" if ($DEBUG);
-	
 	my $class = shift;
 	
 	if (@_ % 2) {
-		print STDERR "Loxone::Import->new: ERROR Illegal parameter list has odd number of values\n";
-		Carp::croak "Illegal parameter list has odd number of values\n" . join("\n", @_) . "\n";
+		Carp::croak "Loxone::Import->new: Illegal parameter list has odd number of values\n" . join("\n", @_) . "\n";
 	}
 	
 	my %p = @_;
@@ -36,31 +37,30 @@ sub new
 		uuid =>$p{uuid},
 		log =>$p{log}
 	};
+
+	my $log = $self->{log};
+	
+	$log->DEB("Loxone::Import->new: Called");
 	
 	if( !defined $self->{msno} ) {
-		die "msno paramter missing";
+		Carp::croak("msno paramter missing");
 	}
 	if( !defined $self->{uuid} ) {
-		die "uuid parameter missing";
+		Carp::croak("uuid parameter missing");
 	}
 
-	# Creating state json
-	print STDERR "Loxone::Import->new: Creating status file\n" if ($DEBUG);
-	`mkdir -p $Globals::importstatusdir`;
-	
-	$self->{importstatusobj} = new LoxBerry::JSON;
-	$self->{importstatus} = $self->{importstatusobj}->open( filename => $Globals::importstatusdir."/import_$self->{msno}_$self->{uuid}.json", writeonclose => 1 );
-	
 	my %miniservers = LoxBerry::System::get_miniservers();
 	if( !defined $miniservers{$self->{msno}} ) {
-		die "Miniserver $self->{msno} not defined";
+		Carp::croak("Miniserver $self->{msno} not defined");
 	}
 	
 	bless $self, $class;
 	
 	$self->getStatsjsonElement();
 	if(!defined $self->{statobj}) {
-		die("Statobj with msno=$self->{msno} and uuid=$self->{uuid} not found");
+		$self->{importstatus}->{error} = 1;
+		$self->{importstatus}->{errortext} = "Statobj with msno=$self->{msno} and uuid=$self->{uuid} not found";
+		Carp::croak("Statobj with msno=$self->{msno} and uuid=$self->{uuid} not found");
 	}
 	
 	return $self;
@@ -68,22 +68,22 @@ sub new
 
 sub getStatlist
 {
-	print STDERR "Loxone::Import->getStatlist: Called\n" if ($DEBUG);
 	my $self = shift;
-	
 	my $log = $self->{log};
+	$log->DEB("Loxone::Import->getStatlist: Called");
+	
 	my $msno = $self->{msno};
 	my $uuid = $self->{uuid};
 	
 	my $resphtml;
 	my $usedcachefile=0;
 	
-	print STDERR "Loxone::Import->getStatlist: Checking for cached statlist of $msno\n" if ($DEBUG);
+	$log->DEB("Loxone::Import->getStatlist: Checking for cached statlist of $msno");
 	my $statlistcachefile = $Globals::s4ltmp."/msstatlist_ms$msno.tmp";
 	if( -e $statlistcachefile ) {
 		my $modtime = (stat($statlistcachefile))[9];
 		if ( defined $modtime and (time()-$modtime) < 900 ) {
-			print STDERR "Loxone::Import->getStatlist: Reading cache file $statlistcachefile\n" if ($DEBUG);
+			$log->DEB("Loxone::Import->getStatlist: Reading cache file $statlistcachefile");
 			$resphtml = LoxBerry::System::read_file($statlistcachefile);
 			if( $resphtml ) {
 				$usedcachefile=1;
@@ -95,15 +95,27 @@ sub getStatlist
 		
 		# Request statlist 
 		my $url = "/stats";
-		my $respcode;
-		print STDERR "Loxone::Import->getStatlist: Requesting stat list from Miniserver $msno ($url)\n" if ($DEBUG);
-		(undef, $respcode, $resphtml) = LoxBerry::IO::mshttp_call($msno, $url);
-			
-		if( !$resphtml) {
-			print STDERR "Loxone::Import->getStatlist: ERROR no response from Miniserver (Code $respcode)\n" if ($DEBUG);
-			return undef;
+		my $status;
+		
+		my $retrycount = 3;
+		my $retries = 0;
+		while ( $retries < $retrycount ) {
+			$retries++;
+			$log->DEB("Loxone::Import->getStatlist: Requesting stat list from Miniserver $msno (Try $retries/$retrycount)");
+		
+			($resphtml, $status) = LoxBerry::IO::mshttp_call2($msno, $url, ( timeout => $http_timeout*$retries ) );
+			if( $resphtml and $status->{code} eq "200" ) {
+				last;
+			}
+			$log->WARN("Loxone::Import->getStatlist: Error $status->{message} - Sleeping a bit...");
+			sleep(3);
 		}
-		print STDERR "Loxone::Import->getStatlist: Saving response to cachefile $statlistcachefile\n" if ($DEBUG);
+	
+		if( !$resphtml) {
+			$log->DEB("Loxone::Import->getStatlist: ERROR no response from Miniserver ($status->{status})");
+			return;
+		}
+		$log->DEB("Loxone::Import->getStatlist: Saving response to cachefile $statlistcachefile");
 		
 		eval {
 			open(my $fh, '>', $statlistcachefile);
@@ -114,7 +126,7 @@ sub getStatlist
 		
 	my %resultsAll;
 	
-	print STDERR "Loxone::Import->getStatlist: Parsing response\n" if ($DEBUG);
+	$log->DEB("Loxone::Import->getStatlist: Parsing response");
 	
 	my @resp = split( /\n/, $resphtml );
 	my $count = 0;
@@ -131,11 +143,11 @@ sub getStatlist
 			
 		}
 	}
-	print STDERR "Loxone::Import->getStatlist: Number of lines $count\n" if ($DEBUG);
-	print STDERR "Loxone::Import->getStatlist: Number of different uuids ". keys(%resultsAll) . "\n" if ($DEBUG);
+	$log->DEB("Loxone::Import->getStatlist: Number of lines $count");
+	$log->DEB("Loxone::Import->getStatlist: Number of different uuids ". keys(%resultsAll));
 	
 	$self->{statlistAll} = \%resultsAll;
-	print STDERR "Loxone::Import->getStatlist: Finished ok\n" if ($DEBUG);
+	$log->DEB("Loxone::Import->getStatlist: Finished ok");
 	
 	return @{$resultsAll{$uuid}};
 	
@@ -144,73 +156,93 @@ sub getStatlist
 sub getStatsjsonElement
 {
 	
-	print STDERR "Loxone::Import->getStatsjsonElement: Called\n" if ($DEBUG);
-	
 	my $self = shift;
+	my $log = $self->{log};
 	
-	print STDERR "Loxone::Import->getStatsjsonElement: Opening stats.json ($Globals::statsconfig)\n" if ($DEBUG);
+	$log->DEB("Loxone::Import->getStatsjsonElement: Called");
+	
+	$log->DEB("Loxone::Import->getStatsjsonElement: Opening stats.json ($Globals::statsconfig)");
 	
 	my $statsjsonobj = new LoxBerry::JSON;
 	my $statsjson = $statsjsonobj->open( filename => $Globals::statsconfig, readonly => 1 );
 	if (!$statsjson) {
-		print STDERR "Loxone::Import->getStatsjsonElement: ERROR Opening stats.json (empty)\n" if ($DEBUG);
+		$log->DEB("Loxone::Import->getStatsjsonElement: ERROR Opening stats.json (empty)");
 		return;
 	}
 	
-	print STDERR "Loxone::Import->getStatsjsonElement: Searching for $self->{uuid} and $self->{msno}\n";
+	$log->DEB("Loxone::Import->getStatsjsonElement: Searching for $self->{uuid} and $self->{msno}");
 	
 	my @result = $statsjsonobj->find( $statsjson->{loxone}, "\$_->{uuid} eq '".$self->{uuid}."' and \$_->{msno} eq '".$self->{msno}."'");
 	
 	if( @result ) {
-		print STDERR "Loxone::Import->getStatsjsonElement: Found ". scalar @result ." elements\n" if ($DEBUG);
+		$log->DEB("Loxone::Import->getStatsjsonElement: Found ". scalar @result ." elements");
 		my $statobj = $statsjson->{loxone}[$result[0]];
-		print STDERR "Loxone::Import->getStatsjsonElement: Found stat name $statobj->{name}\n" if($DEBUG);
+		$log->DEB("Loxone::Import->getStatsjsonElement: Found stat name $statobj->{name}");
 		$self->{statobj} = $statobj;
 	}
 	else {
-		print STDERR "Loxone::Import->getStatsjsonElement: ERROR stats.json element not found\n" if ($DEBUG);
+		$log->DEB("Loxone::Import->getStatsjsonElement: ERROR stats.json element not found");
 	}
 }
 
 
 sub getMonthStat {
-	print STDERR "Loxone::Import->getMonthStat: Called\n" if ($DEBUG);
 	
 	my $self = shift;
-	
 	my $log = $self->{log};
 	my $msno = $self->{msno};
 	my $uuid = $self->{uuid};
 	
+	$log->DEB("Loxone::Import->getMonthStat: Called");
+		
 	my %args = @_;
 	my $yearmon = $args{yearmon};
 	
 	if(!$uuid) {
-		print STDERR "Loxone::Import->getMonthStat: ERROR uuid not defined.\n";
+		$log->DEB("Loxone::Import->getMonthStat: ERROR uuid not defined.");
 		return;
 	}
 	if(!$yearmon) {
-		print STDERR "Loxone::Import->getMonthStat: ERROR yearmon not defined.\n";
+		$log->DEB("Loxone::Import->getMonthStat: ERROR yearmon not defined.");
 		return;
 	}
 	
 	my $url = "/stats/$uuid.$yearmon.xml";
 	
-	print STDERR "Loxone::Import->getMonthStat: Querying stat for month $yearmon";
-	my (undef, undef, $respxml) = LoxBerry::IO::mshttp_call($msno, $url);
 	
-	if( ! $respxml) {
-		print STDERR "Loxone::Import->getMonthStat: ERROR No response from MS$msno ($url)\n";
+	my $retrycount = 3;
+	my $retries = 0;
+	my ($respxml, $status);
+	
+	while ( $retries < $retrycount ) {
+		$retries++;
+	
+		$log->DEB("Loxone::Import->getMonthStat: Querying stat for month $yearmon (Try $retries/$retrycount)");
+		($respxml, $status) = LoxBerry::IO::mshttp_call2($msno, $url, ( timeout => ($http_timeout*$retries) ) );
+		
+		if($respxml) {		
+			last;
+		}
+		
+		$log->WARN("Loxone::Import->getMonthStat: ERROR No response from MS$msno ($url)");
+		$log->WARN("Loxone::Import->getMonthStat: Sleeping a bit...");
+		sleep(3);
+	}
+	
+	if( !$respxml ) {
+		log->ERR("Loxone::Import->getMonthStat: Could not get data from MS$msno / $yearmon");
 		return;
 	}
+	
+	
 	my $parser = XML::LibXML->new();
 	my $statsxml;
-	print STDERR "Loxone::Import->getMonthStat: Loading XML";
+	$log->DEB("Loxone::Import->getMonthStat: Loading XML");
 	eval {
 		$statsxml = XML::LibXML->load_xml( string => $respxml, no_blanks => 1);
 	};
 	if( $@ ) {
-		print STDERR "Loxone::Import->getMonthStat: ERROR Could not load XML (month $yearmon)\n";
+		$log->DEB("Loxone::Import->getMonthStat: ERROR Could not load XML (month $yearmon)");
 		return;
 	}
 	
@@ -240,7 +272,7 @@ sub getMonthStat {
 	}
 	
 	$result{values} = \@timedata;
-	print STDERR "Loxone::Import->getMonthStat: Timestamp count found " . scalar @timedata ."\n";
+	$log->DEB("Loxone::Import->getMonthStat: Timestamp count found " . scalar @timedata);
 	
 	return \%result;
 
@@ -276,19 +308,10 @@ sub createDateTime
 sub DESTROY {
 
 		my $self = shift;
-		print STDERR "Loxone::Import->END: Called\n" if ($DEBUG);
-		if( $self->{importstatusobj} ) {
-			print STDERR "Loxone::Import->END: importstatusobj existing\n" if ($DEBUG);
+		my $log = $self->{log};
+	
+		$log->DEB("Loxone::Import->END: Called");
 		
-			$self->{importstatus}->{exitingprogram} = $?;
-			if($@) {
-				$self->{importstatus}->{exception} = $@;
-				$self->{importstatus}->{iserror} = 1;
-			} else {
-				undef $self->{importstatus}->{exception};
-				$self->{importstatus}->{iserror} = 0;
-			}
-		}
 }
 #####################################################
 # Finally 1; ########################################
