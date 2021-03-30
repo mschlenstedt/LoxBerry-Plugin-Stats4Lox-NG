@@ -632,16 +632,46 @@ function popupLoxoneDetails( uid, msno ) {
 			
 		}
 		else {
-			dataStr += `<span style="color:red"><b>Error getting data</b></span><br>`;
-			if( typeof data.error !== "undefined" ) 
-				dataStr += `Error: ${data.error}<br>`;
-			if( typeof data.response == "string" ) 
-				dataStr += `Original response:<br><span class="small">${data.response}</span>`;
+			console.log("LiveView done with error", data);
+			liveTable.html( popupLoxoneDetails_LiveViewError(data) );
 		}	
 		$("#valuesLoxoneDetails").html(dataStr);
+	})
+	.fail(function(data){
+		console.log("LiveView fail", data);
+		liveTable.html( popupLoxoneDetails_LiveViewError(data) );
 	});
 	
 }
+
+// This function returns an error html if Detail Live data have errors
+function popupLoxoneDetails_LiveViewError( data ) {
+
+	$("#valuesLoxoneDetailsLive_title").html(`<span style="color:#f7443b;"><b>Error getting Live data</b></span>`);
+	
+	dataStr = "";
+	
+	dataStr = `<tr class="LoxoneDetails_tr"><td class="LoxoneDetails_td">Information</td><td class="LoxoneDetails_td">Could not query Live data. Possibly S4L has no permissions to this block, or the block isself has no data to return.</td></tr>`;
+	
+	if( data.code ) {
+		dataStr += `<tr class="LoxoneDetails_tr"><td class="LoxoneDetails_td">Error</td><td class="LoxoneDetails_td">${data.code}</td></tr>`;
+	}
+	if( data.response ) {
+		dataStr += `<tr class="LoxoneDetails_tr"><td class="LoxoneDetails_td">Original response</td><td class="LoxoneDetails_td"><span class="small">${data.response}</span></td></tr>`;
+	}
+	
+	console.log("popupLoxoneDetails_LiveViewError", data);
+	
+	return dataStr;
+
+}
+
+
+
+
+
+
+
 
 
 // Sort function for arrays of objects
