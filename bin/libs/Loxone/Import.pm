@@ -68,7 +68,6 @@ sub new
 	
 	$self->setMappings();
 	
-	
 	return $self;
 }
 
@@ -335,6 +334,11 @@ sub setMappings {
 	my $statobj = $self->{statobj};
 	my %lxlabels = map { $_->{Key} => $_->{Name} } @{$self->{LoxoneLabels}};
 	
+	# statlabels now contains: Default => Default, output0 => AQ,...
+	my %statlabels = map { $_ => $lxlabels{$_} } @{$statobj->{outputs}};
+	
+	
+	
 	$log->DEB("Loxone::Import->setMappings: Called");
 	my $type = $statobj->{type};
 	my $type_uc = uc($type);
@@ -342,34 +346,69 @@ sub setMappings {
 	
 	# Default mappings for known types
 	
-	my %mapping;
+	my @mappings;
 	
 	if( $type_uc eq "ENERGY" ) {
-		%mapping = ( "0" => "AQ", "1" => "AQp" );
+		@mappings = ( 
+			{ 
+				statpos => "0",
+				lxlabel => "Default" 
+			},
+			{ 
+				statpos => "0", 
+				lxlabel => "AQ" 
+			}, 
+			{ 
+				statpos => "1",
+				lxlabel => "AQp"
+			} 
+		);
 	}
 	# elsif( $type_uc eq "" ) {
-		# %mapping = ( );
+		# @mappings = (
+			# { statpos => "0", lxlabel => "Default" },
+			# { statpos => "0", lxlabel => "AQ" }
+		# );
 	# }
 	else {
 		
 		# DEFAULT MAPPING
 		
-		if ( grep( /^output0$/, @{$statobj->{outputs}} ) and $lxlabels{output0} eq "AQ" ) {
-			%mapping = ( "0" => "AQ" );
-		}
-		else {
-			%mapping = ( "0" => "Default" );
-		}
+		@mappings = (
+			{ 
+				statpos => "0",
+				lxlabel => "Default"
+			},
+			{ 
+				statpos => "0",
+				lxlabel => "AQ" 
+			}
+		);
 	}
 	
+	# Remove mappings to outputs that are not enabled in stats.json
 	
-	my $printmapping = "";
-	foreach( sort keys %mapping ) {
-		$printmapping .= "$_->$mapping{$_} ";
-	}
-	$log->INF("Loxone::Import->setMappings: Used mapping is: $printmapping");
-		
+	my @filtered_mappings;
+	foreach my $mapping (@mappings) {
+		# print Data::Dumper::Dumper($mapping) . "\n";
+		my $mapkey = $mapping->{statpos};
+		my $maplabel = $mapping->{lxlabel};
+		# print STDERR "mapkey: $mapkey  maplabel: $maplabel\n";
 
+		if( grep { $statlabels{$_} eq $maplabel } keys %statlabels ) {
+			# Label (e.g. AQ) found in mapping
+			push @filtered_mappings, $mapping;
+		}
+	}
+	
+	
+	my @printmappings;
+	foreach my $mapping ( @filtered_mappings ) {
+		push @printmappings, "«$mapping->{statpos}»→«$mapping->{lxlabel}»";
+	}
+	$log->INF("Loxone::Import->setMappings: Used mapping is: " . join(" ", @printmappings));
+		
+	$self->{mapping} = \@filtered_mappings;
 	
 }
 
