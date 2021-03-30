@@ -684,27 +684,33 @@ function saveFilters() {
 function restoreFilters() {
 
 	// console.log("restoreFilters", localStorage.getItem("s4l_loxone_filters"));
-	filters = JSON.parse( localStorage.getItem("s4l_loxone_filters") );
-		
-	for( const [key, value] of Object.entries(filters)) {
-		checkboxes = $(`input[type="radio"][id="${key}_${value}"]`);
-		selects = $(`select[name="${key}"]`);
-		
-		// console.log("restore", key, value, checkboxes, selects);
-		// console.log(key, value);
-		
-		if( checkboxes.length > 0 ) {
-			// console.log("INPUT", checkboxes);
-			$(checkboxes).attr("checked", "checked");
-			$(`input[type="radio"][name="${key}"]`).checkboxradio("refresh");
+	
+	try {
+		filters = JSON.parse( localStorage.getItem("s4l_loxone_filters") );
+			
+		for( const [key, value] of Object.entries(filters)) {
+			checkboxes = $(`input[type="radio"][id="${key}_${value}"]`);
+			selects = $(`select[name="${key}"]`);
+			
+			// console.log("restore", key, value, checkboxes, selects);
+			// console.log(key, value);
+			
+			if( checkboxes.length > 0 ) {
+				// console.log("INPUT", checkboxes);
+				$(checkboxes).attr("checked", "checked");
+				$(`input[type="radio"][name="${key}"]`).checkboxradio("refresh");
+			}
+			else if( selects.length > 0 ) {
+				// console.log("SELECT");
+				$(selects).val(value).selectmenu("refresh");
+			}
+			else if( key == "filter_search" ) {
+				$(`#${key}`).val( value );
+			}
 		}
-		else if( selects.length > 0 ) {
-			// console.log("SELECT");
-			$(selects).val(value).selectmenu("refresh");
-		}
-		else if( key == "filter_search" ) {
-			$(`#${key}`).val( value );
-		}
+	} catch(e) {
+		console.log("restoreFilters Exception catched (filters possibly empty)");
+		filters = { };
 	}
 }
 
