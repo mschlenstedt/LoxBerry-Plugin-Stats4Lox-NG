@@ -9,6 +9,7 @@ our @EXPORT = qw (
 	$importstatusdir
 	$loxplanjsondir
 	$statsconfig
+	$influx_bulk_blocksize
 );
 
 # RAMDISK temporary directory
@@ -16,7 +17,7 @@ our $s4ltmp = '/dev/shm/s4ltmp';
 our $importstatusdir = $LoxBerry::System::lbpdatadir.'/import';
 our $loxplanjsondir = $LoxBerry::System::lbpdatadir;
 our $statsconfig = "$LoxBerry::System::lbpconfigdir/stats.json";
-
+our $influx_bulk_blocksize = 5000;
 
 
 # BLACKLIST of controls not to add to controls section in json
