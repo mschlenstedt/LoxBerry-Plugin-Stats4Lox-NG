@@ -20,6 +20,29 @@ our $statsconfig = "$LoxBerry::System::lbpconfigdir/stats.json";
 our $influx_bulk_blocksize = 5000;
 
 
+# IMPORT MAPPINGS
+
+# How should data columns from a Loxone stat file map to outputs
+# statpos --> index in the Loxone stat file (0-based index)
+# lxlabel --> label of the output to map to
+
+# Individual mappings by control type
+
+our $ImportMapping = {};
+$ImportMapping->{ENERGY} = [ 
+	{ statpos => "0", lxlabel => "Default" },
+	{ statpos => "0", lxlabel => "AQ" },
+	{ statpos => "1", lxlabel => "AQp" } 
+];
+
+# DEFAULT MAPPING
+$ImportMapping->{Default} = [
+	{ statpos => "0", lxlabel => "Default" },
+	{ statpos => "0", lxlabel => "AQ"}
+];
+
+
+
 # BLACKLIST of controls not to add to controls section in json
 
 # Unsure

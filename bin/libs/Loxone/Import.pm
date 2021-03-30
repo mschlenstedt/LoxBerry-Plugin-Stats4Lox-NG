@@ -347,44 +347,13 @@ sub setMappings {
 	# Default mappings for known types
 	
 	my @mappings;
-	
-	if( $type_uc eq "ENERGY" ) {
-		@mappings = ( 
-			{ 
-				statpos => "0",
-				lxlabel => "Default" 
-			},
-			{ 
-				statpos => "0", 
-				lxlabel => "AQ" 
-			}, 
-			{ 
-				statpos => "1",
-				lxlabel => "AQp"
-			} 
-		);
+	if( defined $Globals::ImportMapping->{$type_uc} ) {
+		@mappings = @{$Globals::ImportMapping->{$type_uc}};
 	}
-	# elsif( $type_uc eq "" ) {
-		# @mappings = (
-			# { statpos => "0", lxlabel => "Default" },
-			# { statpos => "0", lxlabel => "AQ" }
-		# );
-	# }
 	else {
-		
-		# DEFAULT MAPPING
-		
-		@mappings = (
-			{ 
-				statpos => "0",
-				lxlabel => "Default"
-			},
-			{ 
-				statpos => "0",
-				lxlabel => "AQ" 
-			}
-		);
+		@mappings = @{$Globals::ImportMapping->{Default}};
 	}
+	
 	
 	# Remove mappings to outputs that are not enabled in stats.json
 	

@@ -164,6 +164,7 @@ if( $q->{action} eq "lxlquery" ) {
 		uuid => $q->{uuid},
 		code => $code,
 		response => $data,
+		mappings => $Globals::ImportMapping,
 		# error => $jsonerror
 	);
 	$response = encode_json( \%response );
