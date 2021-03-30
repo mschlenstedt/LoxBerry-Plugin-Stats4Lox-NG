@@ -11,7 +11,7 @@ let controlstable = "";
 let elementTypes_used = [];
 let loxone_elements;
 
-let filters = [];
+let filters = {};
 
 let filterSearchDelay;
 var filterSearchString = "";
@@ -37,6 +37,7 @@ $(function() {
 		filters[filter_parent] = filterval;
 		
 		// After changing the filter, recreate the table
+		saveFilters();
 		updateTable();
 	});
 	
@@ -166,6 +167,8 @@ $(function() {
 	$("#filter_search").on( "input", function(event, ui){
 		window.clearTimeout(filterSearchDelay); 
 		filterSearchString = $(event.target).val();
+		filters["filter_search"] = filterSearchString;
+		saveFilters();
 		// console.log("Text filter", filterSearchString);
 		filterSearchDelay = window.setTimeout(function() { updateTable(); }, 500);
 	});
@@ -173,6 +176,8 @@ $(function() {
 		if( $(event.target).val() == "" ) {
 			window.clearTimeout(filterSearchDelay); 
 			filterSearchString = $(event.target).val();
+			filters["filter_search"] = filterSearchString;
+			saveFilters();
 			updateTable();
 		}
 	});
@@ -324,6 +329,9 @@ function generateFilter() {
 		$('#filter_element').append(
 		`<option value="${obj[0]}">${obj[1]}</option>`); 
 	}
+	
+	restoreFilters();
+	
 	
 }
 
@@ -666,9 +674,39 @@ function popupLoxoneDetails_LiveViewError( data ) {
 
 }
 
+// Saves all filter properties
+function saveFilters() {
+	
+	localStorage.setItem("s4l_loxone_filters", JSON.stringify(filters));
+	// console.log("saveFilters", filters, localStorage.getItem("s4l_loxone_filters"));
+}
 
+function restoreFilters() {
 
-
+	// console.log("restoreFilters", localStorage.getItem("s4l_loxone_filters"));
+	filters = JSON.parse( localStorage.getItem("s4l_loxone_filters") );
+		
+	for( const [key, value] of Object.entries(filters)) {
+		checkboxes = $(`input[type="radio"][id="${key}_${value}"]`);
+		selects = $(`select[name="${key}"]`);
+		
+		// console.log("restore", key, value, checkboxes, selects);
+		// console.log(key, value);
+		
+		if( checkboxes.length > 0 ) {
+			// console.log("INPUT", checkboxes);
+			$(checkboxes).attr("checked", "checked");
+			$(`input[type="radio"][name="${key}"]`).checkboxradio("refresh");
+		}
+		else if( selects.length > 0 ) {
+			// console.log("SELECT");
+			$(selects).val(value).selectmenu("refresh");
+		}
+		else if( key == "filter_search" ) {
+			$(`#${key}`).val( value );
+		}
+	}
+}
 
 
 
