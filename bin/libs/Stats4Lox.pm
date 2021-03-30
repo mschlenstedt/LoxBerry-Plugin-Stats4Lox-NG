@@ -42,6 +42,7 @@ sub msget_value
 	#my (undef, undef, $rawdata) = LoxBerry::IO::mshttp_call($msnr, "/jdev/sps/io/" . URI::Escape::uri_escape($block) . '/all'); 
 	my ($rawdata, $status) = LoxBerry::IO::mshttp_call2($msnr, "/jdev/sps/io/" . URI::Escape::uri_escape($block) . '/all'); 
 
+	
 	if ( $status->{code} ne "200" ) {
 		print STDERR "Error while getting data from Miniserver: $status->{message}. Status: $status->{status}\n";
 		return ($status->{code}, undef);
@@ -84,9 +85,12 @@ sub msget_value
 		print STDERR "Error from Miniserver. Code: $resp_code\n";
 		return ($resp_code, undef);
 	}
+	$resp_code = $resp_code + 0; # Convert from string
+
 	# Default value
 	my $value = $respjson->{LL}->{value};
         $value =~ s/^([-\d\.]+)\s*(.*)/$1/g; # cut of unit
+	$value = $value + 0; # Convert from string
 	$data{Value} = $value;
 	$data{Name} = "Default";
 	$data{Key} = "Default";
