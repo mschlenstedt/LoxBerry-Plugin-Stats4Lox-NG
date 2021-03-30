@@ -65,16 +65,12 @@ $(function() {
 				// Activate interval field
 				$("#LoxoneDetails_s4lstatinterval").prop( "disabled", false ).textinput("refresh");
 				$('[name="LoxoneDetails_s4loutput"]').prop( "disabled", false );
-				$('[name="LoxoneDetails_s4loutput"][value="-1"').prop( "checked", true );
-				$('[name="LoxoneDetails_s4loutput"][value="-1"').prop( "disabled", true );
-				
+				$('[name="LoxoneDetails_s4loutput"][value="Default"').prop( "checked", true );
 			} 
 			else {
 				// Disable interval field and outputs
 				$("#LoxoneDetails_s4lstatinterval").prop( "disabled", true ).textinput("refresh");
 				$('[name="LoxoneDetails_s4loutput"]').prop( "disabled", true );
-				// Uncheck default value 
-				$('[name="LoxoneDetails_s4loutput"][value="-1"').prop( "checked", false );
 			}
 			
 		}
@@ -99,7 +95,7 @@ $(function() {
 		// Collect checkboxes
 		var stat_outputs = [];
 		$('[name="LoxoneDetails_s4loutput"]:checked').each(function(){
-			stat_outputs.push(parseInt($(this).val()));
+			stat_outputs.push($(this).val());
 		});
 		
 		console.log("stat details data to send", control, stat_active, stat_interval, stat_outputs);
@@ -547,8 +543,6 @@ function popupLoxoneDetails( uid, msno ) {
 			return obj.uuid === control.UID && obj.msno == control.msno
 		})
 	if( statmatch?.outputs ) {
-		// To be safe - convert output strings numbers to output numbers
-		statmatch.outputs = statmatch?.outputs?.map(Number);
 		console.log("outputs", statmatch.outputs );
 	}
 	
@@ -595,54 +589,36 @@ function popupLoxoneDetails( uid, msno ) {
 		console.log(data);
 		
 		var dataStr;
-		if( data.error == null && typeof data?.response?.LL !== "undefined" ) {
+		if( data.error == null && data?.code == "200" ) {
 			$("#valuesLoxoneDetailsLive_title").html(`Live Data from Miniserver ${miniservers[control.msno].Name}`);
 			
-			// Create array from outputs
-			var LoxOutputs = [];
-				// Default output
-			if( typeof data?.response?.LL?.value !== "undefined" ) {
-				console.log("statmatch?.outputs?.includes(0)", statmatch?.outputs?.includes(0));
-				var outputElement = { 
-					nr : -1,
-					name : "Default", 
-					value : data.response.LL.value,
-					localdesc : "",
-					statChecked : statmatch?.active === "true" ? "checked" : "",
-					statDisabled : "disabled"
-				};
-				LoxOutputs.push( outputElement );
-			}
-				// More outputs
-			for( var key in data.response.LL ) {
-				if ( key.startsWith('output' ) ) {
-					var outputnr = parseInt( key.substring(6) );
-					var outputName = data?.response?.LL[key]?.name;
-					outputDescrLocal = loxone_elements[control.Type?.toUpperCase()]?.OL[outputName];
-					console.log("statmatch?.outputs?.includes(outputnr)", outputnr, statmatch?.outputs?.includes(outputnr));
-					var outputElement = { 
-						nr : outputnr,
-						name : outputName,
-						value : data.response.LL[key].value,
-						localdesc: outputDescrLocal,
-						statChecked : statmatch?.outputs?.includes(outputnr) ? "checked" : "",
-						statDisabled : statmatch?.active === "true" ? "" : "disabled"
-					}; 
-					LoxOutputs.push( outputElement );
+			for( var key in data.response ) {
+				console.log("Output loop", key, data.response[key]);
+				var outputKey = data.response[key].Key;
+				var outputName = data.response[key].Name;
+				try {
+					data.response[key].localdesc = loxone_elements[control.Type?.toUpperCase()]?.OL[outputName];
+				} catch {
+					data.response[key].localdesc == undefined;
 				}
+				data.response[key].localdesc = data.response[key].localdesc != undefined ? data.response[key].localdesc : "";
+				data.response[key].statChecked = statmatch?.outputs?.includes(outputKey) ? "checked" : "";
+				data.response[key].statDisabled = statmatch?.active === "true" ? "" : "disabled";
+				console.log("Output loop result", key, data.response[key]);
 			}
-			// All elements now are in the array, now we loop the array
-			LoxOutputs.sort(dynamicSort("nr"));
+
+			// All elements now have added metadara in the array, now we loop the array again
 			
+			var LoxOutputs = data.response;
 			for( var key in LoxOutputs ) {
 				var dataStr = `
 					<tr>
 						<td class="LoxoneDetails_td" style="width:120px;">
-							<input type="checkbox" name="LoxoneDetails_s4loutput" data-role="none" class="s4lchange" value="${LoxOutputs[key].nr}" ${LoxOutputs[key].statChecked} ${LoxOutputs[key].statDisabled}>
-							&nbsp;${LoxOutputs[key].name}
+							<input type="checkbox" name="LoxoneDetails_s4loutput" data-role="none" class="s4lchange" value="${LoxOutputs[key].Key}" ${LoxOutputs[key].statChecked} ${LoxOutputs[key].statDisabled}>
+							&nbsp;${LoxOutputs[key].Name}
 						</td>
 						<td class="LoxoneDetails_td" style="width:50px;">
-							${LoxOutputs[key].value}
+							${LoxOutputs[key].Value}
 						</td>
 						<td class="LoxoneDetails_td small">
 							${LoxOutputs[key].localdesc}

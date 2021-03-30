@@ -8,11 +8,13 @@ use CGI;
 use FindBin qw($Bin);
 use lib "$Bin/..";
 use Loxone::Import;
+require "$lbpbindir/libs/Stats4Lox.pm";
 
 my $log = LoxBerry::Log->new (
     name => 'Load_Stats',
 	stderr => 1,
-	loglevel => 7
+	loglevel => 7,
+	addtime => 1
 );
  
 my $cgi = CGI->new;
@@ -20,6 +22,11 @@ my $q = $cgi->Vars;
 
 my $msno = $q->{msno};
 my $uuid = $q->{uuid};
+
+# Status json
+my $statusobj;
+my $status;
+
 
 # Validations
 if( !defined $msno ) {
@@ -36,18 +43,41 @@ if( !defined $miniservers{$msno} ) {
 	exit(1);
 }
 
+LOGINF "Logfile: $log->{filename}";
+
+getstatusfile();
+
 my $import = new Loxone::Import(msno => $msno, uuid=> $uuid, log => $log);
 
 my @statmonths = $import->getStatlist();
+LOGDEB "Statlist $#statmonths elements.";
+if( ! $#statmonths ) {
+	LOGCRIT "Could not get Statistics list from Loxone Miniserver MS$msno";
+	exit(2);
+}
+
 
 print Data::Dumper::Dumper( $import->{statlistAll} );
 
 foreach my $yearmonth ( @statmonths ) {
-	print STDERR "Fetching $import->{uuid} Month: $yearmonth\n";
+	LOGINF "Fetching $import->{uuid} Month: $yearmonth";
 	
 	my $monthdata = $import->getMonthStat( yearmon => $yearmonth );
 	# print STDERR Data::Dumper::Dumper( $monthdata ) . "\n";
-	print STDERR "   Datasets " . scalar @{$monthdata->{values}} . "\n";
+	LOGINF "   Datasets " . scalar @{$monthdata->{values}};
 	
 	
+}
+
+
+sub getstatusfile {
+	
+	# Creating state json
+	$log->DEB("Loxone::Import->new: Creating status file");
+	`mkdir -p $Globals::importstatusdir`;
+
+	my $statusobj = new LoxBerry::JSON;
+	my $status = $statusobj->open( filename => $Globals::importstatusdir."/import_${msno}_${uuid}.json", writeonclose => 1 );
+	LOGINF "Status file: " . $statusobj->filename();
+
 }
