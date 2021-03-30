@@ -604,12 +604,19 @@ function popupLoxoneDetails( uid, msno ) {
 				console.log("Output loop", key, data.response[key]);
 				var outputKey = data.response[key].Key;
 				var outputName = data.response[key].Name;
-				try {
-					data.response[key].localdesc = loxone_elements[control.Type?.toUpperCase()]?.OL[outputName];
-				} catch {
-					data.response[key].localdesc == undefined;
-				}
-				data.response[key].localdesc = data.response[key].localdesc != undefined ? data.response[key].localdesc : "";
+				
+				if( outputKey == "Default" ) {
+					data.response[key].localdesc = data.response[key].Unit ? data.response[key].Unit + " " : "";
+					data.response[key].localdesc += "(Decimal accuracy possibly limited. Use AQ/Q instead if available.)";
+				} 
+				else {
+					try {
+						data.response[key].localdesc = loxone_elements[control.Type?.toUpperCase()]?.OL[outputName];
+					} catch {
+						data.response[key].localdesc == undefined;
+					}
+					data.response[key].localdesc = data.response[key].localdesc != undefined ? data.response[key].localdesc : "";
+				}	
 				data.response[key].statChecked = statmatch?.outputs?.includes(outputKey) ? "checked" : "";
 				data.response[key].statDisabled = statmatch?.active === "true" ? "" : "disabled";
 				console.log("Output loop result", key, data.response[key]);
