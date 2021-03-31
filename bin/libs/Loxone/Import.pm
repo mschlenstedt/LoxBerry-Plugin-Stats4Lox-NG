@@ -382,16 +382,16 @@ sub submitData
 	my $bulkmax = $Globals::influx_bulk_blocksize;
 	
 	# Loop all timestamps
-	foreach my $record ( @{$data->{values} ) {
+	foreach my $record ( @{$data->{values}} ) {
 		# Values of a timestamp are distributed according to the mapping
 		# so we walk through the mapping to get the correct values
 		foreach my $mapping ( @{$mappings} ) {
 			
-			$statpos = $mapping->{statpos};
-			$label = $mapping->{lxlabel};
-			$value = $record->{val}[$statpos];
+			my $statpos = $mapping->{statpos};
+			my $label = $mapping->{lxlabel};
+			my $value = $record->{val}[$statpos];
 			
-			my %influxrecord = {
+			my %influxrecord = (
 				timestamp => $record->{T}."000000000",		# Epoch Nanoseconds
 				value => $value,							# Value
 				msno => $statobj->{msno},					# Miniserver No. in LoxBerry
@@ -400,17 +400,19 @@ sub submitData
 				category => $statobj->{category},			# Loxone Category name
 				room => $statobj->{room},					# Loxone Room name
 				type => $statobj->{type},					# Loxone Type of control
-				label => $label								# Label of output (Default, AQ, ...)
-			}
-			push @bulkdata, \%influxrecord;
+				label => $label,							# Label of output (Default, AQ, ...)
+			);
+			push@bulkdata, \%influxrecord;
 			$bulkcount++;
 		}
+		
+		$log->DEB("Loxone::Import->submitData: Prepared $bulkcount records") if( $bulkcount%500 == 0 );
 		
 		if( $bulkcount >= $bulkmax ) {
 			
 			# Bulk is full - transmit
-			
-			$Stats4Lox::loxone_lineprot( \@bulkdata );
+			$log->DEB("Loxone::Import->submitData: Transmitting $bulkcount records");
+			Stats4Lox::loxone_lineprot( \@bulkdata );
 			
 			$bulkcount = 0;
 			@bulkdata = ();
@@ -421,7 +423,8 @@ sub submitData
 
 	# Finally, submit the rest of the bulk
 	if( @bulkdata ) {
-		$Stats4Lox::loxone_lineprot( \@bulkdata );
+		$log->DEB("Loxone::Import->submitData: Transmitting $bulkcount records");
+		Stats4Lox::loxone_lineprot( \@bulkdata );
 	}
 	
 	# Month done
