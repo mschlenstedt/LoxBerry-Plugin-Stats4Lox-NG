@@ -16,7 +16,17 @@ use Data::Dumper;
 
 $LoxBerry::IO::DEBUG=1;
 
+########################
+## LOXONE::IMPORT     ##
+########################
+
 package Loxone::Import;
+
+use base 'Exporter';
+our @EXPORT = qw (
+	supdate
+);
+
 
 our $DEBUG = 1;
 our $LocalTZ = DateTime::TimeZone->new( name => 'local' );
@@ -380,6 +390,7 @@ sub submitData
 	my @bulkdata;
 	my $bulkcount = 0;
 	my $bulkmax = $Globals::influx_bulk_blocksize;
+	my $fullcount = 0;
 	
 	# Loop all timestamps
 	foreach my $record ( @{$data->{values}} ) {
@@ -404,6 +415,7 @@ sub submitData
 			);
 			push@bulkdata, \%influxrecord;
 			$bulkcount++;
+			$fullcount++;
 		}
 		
 		$log->DEB("Loxone::Import->submitData: Prepared $bulkcount records") if( $bulkcount%500 == 0 );
@@ -412,8 +424,9 @@ sub submitData
 			
 			# Bulk is full - transmit
 			$log->DEB("Loxone::Import->submitData: Transmitting $bulkcount records");
-			Stats4Lox::loxone_lineprot( \@bulkdata );
-			
+			eval {
+				Stats4Lox::loxone_lineprot( \@bulkdata );
+			};
 			$bulkcount = 0;
 			@bulkdata = ();
 			
@@ -424,11 +437,13 @@ sub submitData
 	# Finally, submit the rest of the bulk
 	if( @bulkdata ) {
 		$log->DEB("Loxone::Import->submitData: Transmitting $bulkcount records");
-		Stats4Lox::loxone_lineprot( \@bulkdata );
+		eval {
+			Stats4Lox::loxone_lineprot( \@bulkdata );
+		};
 	}
 	
 	# Month done
-	
+	return $fullcount;
 	
 }
 
@@ -461,6 +476,48 @@ sub createDateTime
 		return $dt;
 	}
 }
+
+sub statusgetfile {
+	
+	my %p = @_;
+	my $log = $p{log};
+	my $msno = $p{msno};
+	my $uuid = $p{uuid};
+	
+	
+	# Creating state json
+	$log->DEB("Loxone::Import->new: Creating status file");
+	`mkdir -p $Globals::importstatusdir`;
+
+	my $statusfilename = $Globals::importstatusdir."/import_${msno}_${uuid}.json";
+	
+	$main::statusobj = new LoxBerry::JSON;
+	$main::status = $main::statusobj->open( filename => $statusfilename, writeonclose => 1 );
+	$log->INF("Status file: " . $main::statusobj->filename());
+	
+	# Lock status file
+	open($main::statusfh, ">>", $statusfilename);
+	statuslock($main::statusfh);
+}
+
+sub statuslock {
+    my ($fh) = @_;
+    # flock($fh, 2) or die "Cannot lock - $!\n";
+}
+
+# supdate --> Status Update
+sub supdate {
+
+	my ($data) = @_;
+	
+	foreach( keys %{$data} ) {
+		$main::status->{$_} = $data->{$_};
+	}
+	$main::status->{statustime} = time();
+	$main::statusobj->write();
+	
+}
+
 
 sub DESTROY {
 

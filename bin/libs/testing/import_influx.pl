@@ -5,6 +5,7 @@ use LoxBerry::System;
 use LoxBerry::Log;
 use LoxBerry::JSON;
 use CGI;
+use Time::HiRes;
 use FindBin qw($Bin);
 use lib "$Bin/..";
 use Loxone::Import;
@@ -24,9 +25,9 @@ my $msno = $q->{msno};
 my $uuid = $q->{uuid};
 
 # Status json
-my $statusobj;
-my $status;
-
+our $statusobj;
+our $status;
+our $statusfh;
 
 # Validations
 if( !defined $msno ) {
@@ -45,9 +46,29 @@ if( !defined $miniservers{$msno} ) {
 
 LOGINF "Logfile: $log->{filename}";
 
-getstatusfile();
+eval {
+	Loxone::Import::statusgetfile( msno=>$msno, uuid=>$uuid, log=>$log );
+};
+if( $@ ) {
+	LOGCRIT "Cannot lock status file - already locked";
+	exit(3);
+}
+# Initial status file update
+supdate( { 
+	status => "running",
+	msno => $msno,
+	uuid => $uuid,
+	name => undef,
+	pid => $$,
+	starttime => time(),
+	endtime => undef,
+	current => undef,
+	finished => { },
+} );
 
 my $import = new Loxone::Import(msno => $msno, uuid=> $uuid, log => $log);
+
+supdate( { name => $import->{statobj}->{name} } );
 
 my @statmonths = $import->getStatlist();
 LOGDEB "Statlist $#statmonths elements.";
@@ -57,9 +78,12 @@ if( ! $#statmonths ) {
 }
 
 
-print Data::Dumper::Dumper( $import->{statlistAll} );
+# print Data::Dumper::Dumper( $import->{statlistAll} );
 
 foreach my $yearmonth ( @statmonths ) {
+	supdate( { current => $yearmonth } );
+	my $starttime = Time::HiRes::time();
+	
 	LOGINF "Fetching $import->{uuid} Month: $yearmonth";
 	
 	my $monthdata = $import->getMonthStat( yearmon => $yearmonth );
@@ -67,22 +91,31 @@ foreach my $yearmonth ( @statmonths ) {
 	LOGINF "   Datasets " . scalar @{$monthdata->{values}};
 	
 	
-	$import->submitData( $monthdata );
+	my $fullcount = $import->submitData( $monthdata );
+
+	my %finished = (
+		duration => int((Time::HiRes::time()-$starttime)*1000)/1000,
+		count => $fullcount,
+		timestampcount => scalar @{$monthdata->{values}},
+		endtime => time()
+	);	
 	
-	
-	
+	$status->{finished}{$yearmonth} = \%finished;
+	supdate( { } );  
+
 	
 }
 
+LOGOK "All month finished.";
+supdate( { status=>"finished" });
 
-sub getstatusfile {
-	
-	# Creating state json
-	$log->DEB("Loxone::Import->new: Creating status file");
-	`mkdir -p $Globals::importstatusdir`;
+exit(0);
 
-	my $statusobj = new LoxBerry::JSON;
-	my $status = $statusobj->open( filename => $Globals::importstatusdir."/import_${msno}_${uuid}.json", writeonclose => 1 );
-	LOGINF "Status file: " . $statusobj->filename();
-
+sub END {
+	if( $statusobj ) {
+		if ( $status->{status} ne "finished" ) {
+			supdate( { status => "error" } );
+		}
+		supdate( { endtime => time() } );
+	}
 }
