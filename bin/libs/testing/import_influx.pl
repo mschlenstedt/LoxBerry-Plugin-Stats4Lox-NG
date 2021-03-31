@@ -67,6 +67,11 @@ foreach my $yearmonth ( @statmonths ) {
 	LOGINF "   Datasets " . scalar @{$monthdata->{values}};
 	
 	
+	$import->submitData( $monthdata );
+	
+	
+	
+	
 }
 
 

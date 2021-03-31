@@ -312,21 +312,6 @@ sub getLoxoneLabels {
 	
 }
 
-#
-## This sub manages known mappings and default mappings for element types
-#
-# The result is a hash with index => livelabel  
-# Index is the index of the value array, starting with 0, so 0 is always the first value
-# e.g. 
-#	Energy block
-#	{ 
-#		"0" => "AQ",
-#		"1" => "AQp"
-#	}
-
-
-
-
 sub setMappings {
 
 	my $self = shift;
@@ -380,6 +365,72 @@ sub setMappings {
 	$self->{mapping} = \@filtered_mappings;
 	
 }
+
+sub submitData
+{
+	my $self = shift;
+	my $log = $self->{log};
+	my $statobj = $self->{statobj};
+	my $mappings = $self->{mapping};
+	
+	my ($data) = @_;
+	
+	$log->DEB("Loxone::Import->submitData: Called");
+	
+	my @bulkdata;
+	my $bulkcount = 0;
+	my $bulkmax = $Globals::influx_bulk_blocksize;
+	
+	# Loop all timestamps
+	foreach my $record ( @{$data->{values} ) {
+		# Values of a timestamp are distributed according to the mapping
+		# so we walk through the mapping to get the correct values
+		foreach my $mapping ( @{$mappings} ) {
+			
+			$statpos = $mapping->{statpos};
+			$label = $mapping->{lxlabel};
+			$value = $record->{val}[$statpos];
+			
+			my %influxrecord = {
+				timestamp => $record->{T}."000000000",		# Epoch Nanoseconds
+				value => $value,							# Value
+				msno => $statobj->{msno},					# Miniserver No. in LoxBerry
+				uuid => $statobj->{uuid},					# Loxone UUID
+				name => $statobj->{name},					# Loxone Name of the block
+				category => $statobj->{category},			# Loxone Category name
+				room => $statobj->{room},					# Loxone Room name
+				type => $statobj->{type},					# Loxone Type of control
+				label => $label								# Label of output (Default, AQ, ...)
+			}
+			push @bulkdata, \%influxrecord;
+			$bulkcount++;
+		}
+		
+		if( $bulkcount >= $bulkmax ) {
+			
+			# Bulk is full - transmit
+			
+			$Stats4Lox::loxone_lineprot( \@bulkdata );
+			
+			$bulkcount = 0;
+			@bulkdata = ();
+			
+		}
+	
+	}
+
+	# Finally, submit the rest of the bulk
+	if( @bulkdata ) {
+		$Stats4Lox::loxone_lineprot( \@bulkdata );
+	}
+	
+	# Month done
+	
+	
+}
+
+
+
 
 
 sub createDateTime
