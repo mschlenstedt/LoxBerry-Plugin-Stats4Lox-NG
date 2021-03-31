@@ -233,6 +233,8 @@ sub getMonthStat {
 		$retries++;
 	
 		$log->DEB("Loxone::Import->getMonthStat: Querying stat for month $yearmon (Try $retries/$retrycount)");
+		$log->DEB("Loxone::Import->getMonthStat: url: $url");
+		
 		($respxml, $status) = LoxBerry::IO::mshttp_call2($msno, $url, ( timeout => ($http_timeout*$retries) ) );
 		
 		if($respxml) {		
@@ -249,6 +251,24 @@ sub getMonthStat {
 		return;
 	}
 	
+	$self->parseStatXML_REGEX( yearmon=>$yearmon, xml=>\$respxml );
+	
+
+}
+
+##### XML variant of parseStatXML
+#####
+
+sub parseStatXML
+{
+	my $self = shift;
+	my $log = $self->{log};
+	my $msno = $self->{msno};
+	my $uuid = $self->{uuid};
+	
+	my %args = @_;
+	my $yearmon = $args{yearmon};
+	my $respxml = $args{xml};
 	
 	my $parser = XML::LibXML->new();
 	my $statsxml;
@@ -300,8 +320,81 @@ sub getMonthStat {
 	$log->DEB("Loxone::Import->getMonthStat: Timestamp count found " . scalar @timedata);
 	
 	return \%result;
-
+	
 }
+
+
+#### REGEX variant of parseStatXML
+sub parseStatXML_REGEX
+{
+	my $self = shift;
+	my $log = $self->{log};
+	my $msno = $self->{msno};
+	my $uuid = $self->{uuid};
+	
+	my %args = @_;
+	my $yearmon = $args{yearmon};
+	my $respxml = ${$args{xml}};
+	
+	my $line;
+	my %result;
+	
+	$log->DEB("Loxone::Import->getMonthStat: Loading XML (REGEX)");
+	
+	# Split file to lines
+	my @xml = split("\n", $respxml);
+	
+	# print STDERR "respxml size: " . length($respxml) . " linecount: " . scalar @xml . "\n";
+	
+	
+	# Check XML header (line 1)
+	$line = shift @xml;
+	# print STDERR "Line1: $line\n";
+	if( index( $line, '<?xml' ) == -1 ) {
+		$log->DEB("Loxone::Import->getMonthStat: ERROR Seems not to be XML (month $yearmon)");
+		return;
+	}
+	
+	# Get Statistics header (line 2)
+
+	$line = shift @xml;
+	($result{StatMetadata}{Name}) = $line =~ /<Statistics.*Name="(.*?)"/;
+	($result{StatMetadata}{NumOutputs}) = $line =~ /<Statistics.*NumOutputs="(.*?)"/;
+	($result{StatMetadata}{Outputs}) = $line =~ /<Statistics.*Outputs="(.*?)"/;
+	$log->DEB("Loxone::Import->getMonthStat $result{StatMetadata}{Name} ($result{StatMetadata}{Outputs}) / $result{StatMetadata}{NumOutputs}");
+	my $NumOutputs = $result{StatMetadata}{NumOutputs};
+
+	# Loop further lines (line 3+)
+	
+	my @timedata;
+	foreach $line ( @xml ) {
+		my %data;
+		
+		my ($data_time) = $line =~ /<S.*T="(.*?)"/;
+		next if (!$data_time);
+		# print STDERR "data_time: $data_time\n";
+		$data_time = createDateTime($data_time); 
+		$data{T} =  $data_time->epoch;
+		$data{val} = ();
+		# print STDERR "Time $data{T} ";
+		for( my $i = 1; $i <= $NumOutputs; $i++ ) {
+			my $valname = $i == 1 ? "V" : "V$i";
+			my ($val) = $line =~ /<S.*$valname="(.*?)"/;
+			push @{$data{val}}, $val;
+		#	print STDERR "$valname=$val ";
+		}
+		#print STDERR "\n";
+		push @timedata, \%data;
+	}
+	
+	$result{values} = \@timedata;
+	
+	$log->DEB("Loxone::Import->getMonthStat: Timestamp count found " . scalar @timedata);
+	
+	return \%result;
+	
+}
+
 
 sub getLoxoneLabels {
 	my $self = shift;
