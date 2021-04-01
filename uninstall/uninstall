@@ -49,4 +49,7 @@ echo "<INFO> Starting influxdb and telegraf services."
 systemctl start influxdb
 systemctl start telegraf
 
+echo "<INFO> Removing sysctl config."
+rm -f /etc/sysctl.d/96-stats4lox.conf
+
 exit 0
