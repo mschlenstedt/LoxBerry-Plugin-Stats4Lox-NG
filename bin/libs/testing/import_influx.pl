@@ -12,12 +12,14 @@ use Loxone::Import;
 require "$lbpbindir/libs/Stats4Lox.pm";
 
 my $log = LoxBerry::Log->new (
-    name => 'Load_Stats',
+    name => 'Import_Stats',
 	stderr => 1,
 	loglevel => 7,
 	addtime => 1
 );
- 
+
+LOGSTART "Import";
+
 my $cgi = CGI->new;
 my $q = $cgi->Vars;
 
@@ -43,6 +45,7 @@ if( !defined $miniservers{$msno} ) {
 	LOGCRIT "Miniserver $msno not defined";
 	exit(1);
 }
+LOGTITLE "Import MS$msno / $uuid";
 
 LOGINF "Logfile: $log->{filename}";
 
@@ -115,7 +118,11 @@ sub END {
 	if( $statusobj ) {
 		if ( $status->{status} ne "finished" ) {
 			supdate( { status => "error" } );
+			LOGCRIT "Import exited with error.";
 		}
 		supdate( { endtime => time() } );
 	}
+	eval { 
+		LOGEND;
+	};
 }
