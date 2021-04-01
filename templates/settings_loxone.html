@@ -54,12 +54,28 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 
 }
 
+.hintbox {
+	background-color: #ffff73;
+	padding: 15px;
+	border: 1px solid gray;
+}
 
 
 </style>
 
 <div class="datahidden" id="loxone_elements_json"><TMPL_VAR LOXONE_ELEMENTS></div>
 <div class="datahidden" id="miniservers_json"><TMPL_VAR LOXONE_MINISERVERS></div>
+
+<!-- Hints: Select stats -->
+<div id="hint_activatestatistics" class="hintbox" style="display:none;">
+<b>Statistic Selection hint</b><br>
+<p>Filter or search for Loxone elements you want to activate statistics for. 
+Press the Details button to get live data from the Miniserver, and select the
+interval and outputs you want to record.
+Changes in the Details view are applied immediately (no "Save" button). 
+</p>
+<a href="#" class="ui-btn ui-btn-inline ui-mini" onclick="hint_hide('hint_activatestatistics');">Hide</a>
+</div>
 
 
 
@@ -144,7 +160,7 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 			<table class="LoxoneDetails_table data-uidmsno" id="valuesLoxoneDetailsLive_table" data-uid="" data-msno="">
 				<tr>
 					<td>Default</td>
-					<td>${data.response.LL.value}</td>
+					<td>&nbsp;</td>
 					<td>&nbsp;</td>
 				</tr>
 				<tr>

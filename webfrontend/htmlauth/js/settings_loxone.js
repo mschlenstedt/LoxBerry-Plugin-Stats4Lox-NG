@@ -13,10 +13,19 @@ let loxone_elements;
 
 let filters = {};
 
+let hints_hide = {};
+
 let filterSearchDelay;
 var filterSearchString = "";
 
 $(function() {
+	
+	// debugger;
+	restore_hints_hide();
+	if(hints_hide?.hint_activatestatistics != true) {
+		$("#hint_activatestatistics").show();
+	}
+	
 	miniservers = JSON.parse( $("#miniservers_json").text() );
 	loxone_elements = JSON.parse( $("#loxone_elements_json").text() );
 	getLoxplan();
@@ -721,9 +730,25 @@ function restoreFilters() {
 	}
 }
 
+function restore_hints_hide() {
+	
+	try {
+		hints_hide = JSON.parse( localStorage.getItem("s4l_loxone_hints_hide") );
+		if( hints_hide == null ) {
+			hints_hide = { };
+		}
+	} 
+	catch(e) {
+		console.log("restore_hints_hide", e);
+		hints_hide = { };
+	}
+}
 
-
-
+function hint_hide(hintid) {
+	hints_hide[hintid] = true;
+	$("#"+hintid).fadeOut();
+	localStorage.setItem("s4l_loxone_hints_hide", JSON.stringify(hints_hide)); 
+}
 
 // Sort function for arrays of objects
 // https://stackoverflow.com/a/4760279/3466839
