@@ -103,21 +103,48 @@ sub updateImportStatus
 {
 	my @files = @_;
 	
+	
 	foreach my $file ( @files ) {
+		
+		my $msno;
+		my $uuid;
+		
+		# First, try to evaluate msno and uuid from filename
+		my $regex = qr/import_(\d{1,2})_([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{16})/p;
+		if ( $file =~ /$regex/ ) {
+			$msno = $1;
+			$uuid = $2;
+			print STDERR "Found: MSNO $msno  UUID $uuid\n";
+		}
+		
 		eval {
 			$filelist{$file}{status} = decode_json( LoxBerry::System::read_file($file) );
 			
 		};
 		if($@) {
-			print STDERR "ERROR could not read $file: $@\n";
-			next;
+			if( !$msno and !$uuid ) {
+				print STDERR "ERROR Could not read $file: $@\n";
+				next;
+			} else {
+				print STDERR "WARNING Filename is used instead of content $file: $@\n";
+				delete $filelist{$file}{status};
+			}
 		}
 		
 		# Evaluate status of import
 		my $statusobj = $filelist{$file}{status};
-		my $status = $statusobj->{status};
+		my $status;
 		
-		if( !defined $filelist{$file}{status}->{msno} or !defined $filelist{$file}{status}->{uuid} ) {
+		if( defined $filelist{$file}{status}->{msno} and defined $filelist{$file}{status}->{uuid} ) {
+			$filelist{$file}{msno} = $filelist{$file}{status}->{msno};
+			$filelist{$file}{uuid} = $filelist{$file}{status}->{uuid};
+			$status = $statusobj->{status};
+		
+		} elsif ( $msno and $uuid ) {
+			$filelist{$file}{msno} = $msno;
+			$filelist{$file}{uuid} = $uuid;
+			$status = "scheduled";
+		} else {
 			$status = "error";
 		}
 		
@@ -165,7 +192,7 @@ sub getStatusChanges
 	my @changedfiles;
 	
 	# Read import directory
-	my @importfiles = glob( $Globals::importstatusdir . '/*.json' );
+	my @importfiles = glob( $Globals::importstatusdir . '/import_*.json' );
 	my %importfileshash = map { $_ => 1 } @importfiles;
 	# Delete entries from local hash that have been deleted on disk
 	foreach my $file ( keys %filelist ) {
@@ -191,7 +218,7 @@ sub getStatusChanges
 		}
 		else {
 			my $mtime = (stat($file))[9];
-			if ( $mtime > $filelist{$file}{mtime} and $mtime > $filelist{$file}{schedprocessed}) {
+			if ( $mtime > $filelist{$file}{mtime} ) {        # and $mtime > $filelist{$file}{schedprocessed}
 				# Existing changed files
 				# print STDERR "UPDATED file $file in internal store\n";
 				$filelist{$file}{mtime} = $mtime;
@@ -252,8 +279,8 @@ sub runImport
 	}
 
 	
-	my $msno = $filelist{$file}{status}->{msno};
-	my $uuid = $filelist{$file}{status}->{uuid};
+	my $msno = $filelist{$file}{msno};
+	my $uuid = $filelist{$file}{uuid};
 	
 	my $commandline = "$lbpbindir/libs/testing/import_influx.pl msno=$msno uuid=$uuid >$file.log 2>&1 &";
 	print STDERR "Calling IMPORT for $msno / $uuid\n";
