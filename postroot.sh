@@ -180,4 +180,11 @@ else
 	echo "<OK> Telegraf service is running. Fine."
 fi
 
+# Enlarge UDP/IP receive buffer limit for import
+echo "<INFO> Enlarge UDP/IP receive buffer limit..."
+sysctl -w net.core.rmem_max=8388608
+sysctl -w net.core.rmem_default=8388608
+ln -s $PCONFIG/sysctl.conf /etc/sysctl.d/96-stats4lox.conf
+
+
 exit 0
