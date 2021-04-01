@@ -14,10 +14,16 @@ our @EXPORT = qw (
 
 # RAMDISK temporary directory
 our $s4ltmp = '/dev/shm/s4ltmp';
-our $importstatusdir = $LoxBerry::System::lbpdatadir.'/import';
 our $loxplanjsondir = $LoxBerry::System::lbpdatadir;
 our $statsconfig = "$LoxBerry::System::lbpconfigdir/stats.json";
+
+
+# IMPORT SETTINGS
 our $influx_bulk_blocksize = 5000;
+our $import_time_to_dead_minutes = 60;
+our $import_max_parallel_processes = 4;
+our $import_max_parallel_per_ms = 2;
+our $importstatusdir = $LoxBerry::System::lbpdatadir.'/import';
 
 
 # IMPORT MAPPINGS

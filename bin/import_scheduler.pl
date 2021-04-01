@@ -24,8 +24,6 @@ my %running;
 my %error;
 my %dead;
 
-my $time_to_dead_min = 60;
-
 if( defined $q->{importlist} ) {
 	# Do reading stuff and respond with import overview data
 	my @changedfiles = getStatusChanges();
@@ -60,17 +58,17 @@ my $schedulerStatusfile = $Globals::s4ltmp."/s4l_import_scheduler.json";
 unlink $schedulerStatusfile;
 my $schedstatusobj = new LoxBerry::JSON;
 my $schedstatus = $schedstatusobj->open( filename => $schedulerStatusfile, writeonclose => 1 );
-
+my @slots;
 # Loop
 while(time() < $lastchange_timestamp+$timeout) {
 	
 	
 	
-	print STDERR "CHANGES:\n";
+	# print STDERR "CHANGES:\n";
 	
 	# Search for new/changed import statusfiles
 	my @changedfiles = getStatusChanges();
-	print STDERR join("\n", @changedfiles) . "\n";
+	# print STDERR join("\n", @changedfiles) . "\n";
 	if( @changedfiles ) {
 		# Keep Scheduler open as long as imports change their status
 		$lastchange_timestamp = time();
@@ -80,17 +78,17 @@ while(time() < $lastchange_timestamp+$timeout) {
 	updateImportStatus( @changedfiles );
 	
 	# Run one scheduled import
-	my @scheduled = keys %scheduled;
-	if( @scheduled ) {
+	if( @slots ) {
 		$lastchange_timestamp = time();
-		runImport( $scheduled[0] );
+		my $task = shift @slots;
+		runImport( $task ) if $task;
 	}
-	
 	
 	# Things to do not so often
 	if( time() > $next_step_5sec ) {
 		$next_step_5sec = time()+5;
 		updateDeadStatus();
+		@slots = getSlots();
 	}
 	
 	# Update the file for the UI
@@ -114,7 +112,7 @@ sub updateImportStatus
 		if ( $file =~ /$regex/ ) {
 			$msno = $1;
 			$uuid = $2;
-			print STDERR "Found: MSNO $msno  UUID $uuid\n";
+			# print STDERR "Found: MSNO $msno  UUID $uuid\n";
 		}
 		
 		eval {
@@ -126,7 +124,7 @@ sub updateImportStatus
 				print STDERR "ERROR Could not read $file: $@\n";
 				next;
 			} else {
-				print STDERR "WARNING Filename is used instead of content $file: $@\n";
+				print STDERR "WARNING Filename is used instead of content\n";
 				delete $filelist{$file}{status};
 			}
 		}
@@ -249,20 +247,67 @@ sub updateSchedulerStatusfile
 sub updateDeadStatus
 {
 	foreach my $file ( keys %running ) {
-		if( $filelist{$file}{status}->{statustime} < time()-$time_to_dead_min*60 ) {
+		if( $filelist{$file}{status}->{statustime} < time()-$Globals::import_time_to_dead_minutes*60 ) {
 			delete $running{$file};
 			$dead{$file} = 1;
 		} 
 	}
 }
 
+sub getSlots
+{
+	# Some countings
+	my %scheduled_and_running = ( %scheduled, %running );
+	print STDERR "Scheduled: " . scalar (keys %scheduled) . " Running: " . scalar (keys %running) . " Merged: " . scalar (keys %scheduled_and_running) . "\n";
+	
+	
+	# Get everything that looks like running and separate it per miniserver
+	my $count_running = 0;
+	my %count_by_ms;
+	foreach my $file ( keys %scheduled_and_running ) {
+		my $msno = $filelist{$file}{msno};
+		
+		if( $scheduled{$file} and $filelist{$file}{schedprocessed} > time()-30 ) {
+			# Task was started in the last 30 seconds - assume it will shortly start
+			# print STDERR "Shortly started - remove from list\n";
+			$count_by_ms{$msno}++;
+			delete $scheduled_and_running{$file};
+			$count_running++;
+			next;
+		} 
+		elsif( $running{$file} ) {
+			# Task IS running
+			# print STDERR "Is running - remove from list\n";
+			$count_by_ms{$msno}++;
+			delete $scheduled_and_running{$file};
+			$count_running++;
+			next;
+		} 
+		my $name = defined $filelist{$file}{status}->{name} ? $filelist{$file}{status}->{name} : "";
+		print STDERR "  Waiting: $filelist{$file}{uuid} " . $name . "\n";
+		
+	}
+	
+	# We can directly skip, when all slots are full
+	return if( $count_running >= $Globals::import_max_parallel_processes );
+	
+	# Find a slot for 
+	foreach my $file ( keys %scheduled_and_running ) {
+		my $msno = $filelist{$file}{msno};
+		if( defined $count_by_ms{$msno} and $count_by_ms{$msno} >= $Globals::import_max_parallel_per_ms ) {
+			delete $scheduled_and_running{$file};
+		}
+	}
+	
+	# We now have the hash %scheduled_and_running reduced to all possible slots
+	return(keys %scheduled_and_running);
+}
+
+
 sub runImport 
 {
 	my ($file) = @_;
-	if( $filelist{$file}{schedprocessed} > time()-30 ) {
-		# Was processed in the last 30 seconds - skip for now
-		return;
-	}
+	
 	$filelist{$file}{schedprocessed} = time();
 	
 	if( defined $filelist{$file}{trycount} ) {
@@ -283,7 +328,9 @@ sub runImport
 	my $uuid = $filelist{$file}{uuid};
 	
 	my $commandline = "$lbpbindir/libs/testing/import_influx.pl msno=$msno uuid=$uuid >$file.log 2>&1 &";
-	print STDERR "Calling IMPORT for $msno / $uuid\n";
+	
+	my $name = defined $filelist{$file}{status}->{name} ? $filelist{$file}{status}->{name} : "";
+	print STDERR "  IMPORT: $uuid $name starting\n";
 	print STDERR "Commandline: $commandline\n";
 	system($commandline);
 	# if( $exitcode != 0 ) {
