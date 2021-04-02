@@ -493,6 +493,7 @@ sub submitData
 				msno => $statobj->{msno},					# Miniserver No. in LoxBerry
 				uuid => $statobj->{uuid},					# Loxone UUID
 				name => $statobj->{name},					# Loxone Name of the block
+				description => $statobj->{description},
 				category => $statobj->{category},			# Loxone Category name
 				room => $statobj->{room},					# Loxone Room name
 				type => $statobj->{type},					# Loxone Type of control
