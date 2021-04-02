@@ -487,29 +487,32 @@ sub submitData
 	
 	# Loop all timestamps
 	foreach my $record ( @{$data->{values}} ) {
-		# Values of a timestamp are distributed according to the mapping
-		# so we walk through the mapping to get the correct values
-		foreach my $mapping ( @{$mappings} ) {
-			
-			my $statpos = $mapping->{statpos};
-			my $label = $mapping->{lxlabel};
-			my $value = $record->{val}[$statpos];
-			
-			my %influxrecord = (
-				timestamp => $record->{T}."000000000",		# Epoch Nanoseconds
-				value => $value,							# Value
+		
+		my %influxrecord = (
+				timestamp => $record->{T}*1000*1000,		# Epoch Nanoseconds
 				msno => $statobj->{msno},					# Miniserver No. in LoxBerry
 				uuid => $statobj->{uuid},					# Loxone UUID
 				name => $statobj->{name},					# Loxone Name of the block
 				category => $statobj->{category},			# Loxone Category name
 				room => $statobj->{room},					# Loxone Room name
 				type => $statobj->{type},					# Loxone Type of control
-				label => $label,							# Label of output (Default, AQ, ...)
 			);
-			push@bulkdata, \%influxrecord;
-			$bulkcount++;
-			$fullcount++;
+		# Values of a timestamp are distributed according to the mapping
+		# so we walk through the mapping to get the correct values
+		
+		my @values;
+		foreach my $mapping ( @{$mappings} ) {
+			
+			my $statpos = $mapping->{statpos};
+			my $label = $mapping->{lxlabel};
+			my $value = $record->{val}[$statpos];
+			push @values, \( "key" => $label, "value" => $value );
+			
 		}
+		push @{$influxrecord{values}}, \@values;
+		push@bulkdata, \%influxrecord;
+		$bulkcount++;
+		$fullcount++;
 		
 		$log->DEB("Loxone::Import->submitData: Prepared $bulkcount records") if( $bulkcount%500 == 0 );
 		
