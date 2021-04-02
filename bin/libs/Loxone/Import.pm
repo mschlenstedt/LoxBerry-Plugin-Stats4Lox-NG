@@ -501,17 +501,18 @@ sub submitData
 		# Values of a timestamp are distributed according to the mapping
 		# so we walk through the mapping to get the correct values
 		
-		my @values;
+		my @values = ();
 		foreach my $mapping ( @{$mappings} ) {
 			
 			my $statpos = $mapping->{statpos};
 			my $label = $mapping->{lxlabel};
 			my $value = $record->{val}[$statpos];
-			push @values, \( "key" => $label, "value" => $value );
+			push @values, { key => $label, value => $value };
 			
 		}
-		push @{$influxrecord{values}}, \@values;
+		push @{$influxrecord{values}}, @values;
 		push@bulkdata, \%influxrecord;
+		# print STDERR Data::Dumper::Dumper( $influxrecord{values} );
 		$bulkcount++;
 		$fullcount++;
 		
