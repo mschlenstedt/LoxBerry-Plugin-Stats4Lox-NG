@@ -24,6 +24,9 @@ our $import_time_to_dead_minutes = 60;
 our $import_max_parallel_processes = 4;
 our $import_max_parallel_per_ms = 2;
 our $importstatusdir = $LoxBerry::System::lbpdatadir.'/import';
+our $influx_measurement = 'stats_loxone';
+our $telegraf_unix_socket = '/tmp/telegraf.sock';
+our $telegraf_udp_socket = '8094';
 
 
 # IMPORT MAPPINGS
