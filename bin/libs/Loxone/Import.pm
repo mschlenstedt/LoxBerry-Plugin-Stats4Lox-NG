@@ -510,8 +510,8 @@ sub submitData
 			push @values, { key => $label, value => $value };
 			
 		}
-		push @{$influxrecord{values}}, @values;
-		push@bulkdata, \%influxrecord;
+		$influxrecord{values} = \@values;
+		push @bulkdata, \%influxrecord;
 		# print STDERR Data::Dumper::Dumper( $influxrecord{values} );
 		$bulkcount++;
 		$fullcount++;
