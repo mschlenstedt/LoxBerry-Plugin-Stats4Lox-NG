@@ -1,0 +1,145 @@
+<style>
+.datahidden {
+	display:none;
+}
+
+.small {
+	font-size:70%;
+}
+
+.grayed {
+	color: gray;
+}
+
+.center {
+	text-align: center;
+}
+
+.LoxoneDetails_table {
+	min-width: 400px;
+	width: 400px;
+	border-collapse: collapse;
+	border-bottom: 1px solid gray;
+}
+
+.LoxoneDetails_tr {
+	padding: 2px 5px 2px 5px;
+}
+.LoxoneDetails_td {
+	padding: 2px 5px 2px 5px;
+	border-collapse: collapse;
+	border-top: 1px solid gray;
+	// border-bottom: 1px solid gray;
+}
+
+tr:nth-child(even).controlstable_tr {background: #CCC}
+tr:nth-child(odd).controlstable_tr {background: #FFF}
+
+.s4l_interval_highlight {
+	background-color: #0059b3 !important;
+	text-shadow:none !important;
+	color:white !important;
+}
+
+.popuptitle {
+	background-color: #6dac20;
+	color: white;
+	text-shadow: 1px 1px 2px black;
+	padding: 5px;
+}
+
+#progressState {
+	min-width:200px;
+	min-height:70px;
+
+}
+
+.hintbox {
+	background-color: #ffff73;
+	padding: 15px;
+	border: 1px solid gray;
+}
+
+.coll_heading_running {
+	background-color:#7373ff;
+
+}
+.coll_heading_scheduled {
+	background-color:#ffffbf;
+	
+}
+.coll_heading_finished {
+	background-color:#bfffdf;
+	
+}
+.coll_heading_error {
+	background-color:red;
+	
+}
+.coll_heading_dead {
+	background-color:#8c0000;
+	
+}
+
+
+
+</style>
+
+<div class="datahidden" id="miniservers_json"><TMPL_VAR LOXONE_MINISERVERS></div>
+
+<!-- Hints: Loxone Import report -->
+<div id="hint_importreport" class="hintbox" style="display:none;">
+<b>Statistic Selection hint</b><br>
+<p>Filter or search for Loxone elements you want to activate statistics for. 
+Press the Details button to get live data from the Miniserver, and select the
+interval and outputs you want to record.
+Changes in the Details view are applied immediately (no "Save" button). 
+</p>
+<a href="#" class="ui-btn ui-btn-inline ui-mini" onclick="hint_hide('hint_activatestatistics');">Hide</a>
+</div>
+
+
+
+<!-- Progress popup -->
+<div data-role="popup" id="popupProgress" data-dismissible="false" style="max-width:400px">
+	<div style="padding: 20px 20px;">
+		<h4 class="ui-title popuptitle">Progress</h4>
+		<div id="progressState"></div>
+	</div>
+</div>
+
+<p>This page shows all Loxone statistic imports that are running, waiting and have finished. The page refreshes automatically.</p> 
+
+<div data-role="collapsible" data-collapsed="false" id="coll_running" data-mini="true" data-inset="false" class="coll_heading_running">
+    <h4>Running</h4>
+    <p>I'm the collapsible content. By default I'm closed, but you can click the header to open me.</p>
+</div>
+
+<div data-role="collapsible" data-collapsed="false" id="coll_scheduled" data-mini="true" data-inset="false" class="coll_heading_scheduled">
+    <h4>Waiting</h4>
+    <p>I'm the collapsible content. By default I'm closed, but you can click the header to open me.</p>
+</div>
+
+<div data-role="collapsible" data-collapsed="false" id="coll_finished" data-mini="true" data-inset="false" class="coll_heading_finished">
+    <h4>Finished</h4>
+    <p>I'm the collapsible content. By default I'm closed, but you can click the header to open me.</p>
+</div>
+
+<div data-role="collapsible" data-collapsed="false" id="coll_error" data-mini="true" data-inset="false" class="coll_heading_error">
+    <h4>Error</h4>
+    <p>I'm the collapsible content. By default I'm closed, but you can click the header to open me.</p>
+</div>
+
+
+<div data-role="collapsible" data-collapsed="false" id="coll_dead" data-mini="true" data-inset="false" class="coll_heading_dead">
+    <h4>Dead</h4>
+    <p>I'm the collapsible content. By default I'm closed, but you can click the header to open me.</p>
+</div>
+
+
+
+
+
+<!-- Table -->
+<div class="datahidden" id="reportstablediv">
+</div>
