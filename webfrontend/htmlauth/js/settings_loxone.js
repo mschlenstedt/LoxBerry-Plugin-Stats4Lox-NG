@@ -519,6 +519,9 @@ function createTableBody() {
 function popupLoxoneDetails( uid, msno ) {
 	$("#popupLoxoneDetails").popup("option","positionTo","window"); 
 	$("#popupLoxoneDetails").popup("open");
+	if(hints_hide?.hint_importbutton != true) {
+		$("#hint_importbutton").show();
+	}
 	//$("#contentLoxoneDetails #valuesLoxoneDetails").empty();
 	var control = controls.find( obj => { return obj.UID === uid && obj.msno == msno })
 	
@@ -603,17 +606,27 @@ function popupLoxoneDetails( uid, msno ) {
 			msno : control.msno,
 	})
 	.done(function(data){
-		console.log(data);
+		console.log("Response from ajax lxlquery", data);
 		
 		var dataStr;
 		if( data.error == null && data?.code == "200" ) {
 			$("#valuesLoxoneDetailsLive_title").html(`Live Data from Miniserver ${miniservers[control.msno].Name}`);
+			
+			// Get mapping for this control type
+			var typeMappings = typeof data.mappings[control.Type.toUpperCase()] != "undefined" ? data.mappings[control.Type.toUpperCase()] : data.mappings["Default"];
+			console.log("Mappings for "+control.Type, typeMappings); 
 			
 			for( var key in data.response ) {
 				console.log("Output loop", key, data.response[key]);
 				var outputKey = data.response[key].Key;
 				var outputName = data.response[key].Name;
 				
+				// Find mapping for outputKey
+				var mapKey = typeMappings.findIndex( element => element.lxlabel == outputName );
+				data.response[key].mapString = mapKey != -1 ? (parseInt(typeMappings[mapKey].statpos)+1) : "";
+				data.response[key].mapImg = data.response[key].mapString != "" ? `<img src="images/import_icon.png" style="vertical-align:text-top;">` : "";
+				
+				// Special string for Default output
 				if( outputKey == "Default" ) {
 					data.response[key].localdesc = data.response[key].Unit ? data.response[key].Unit + " " : "";
 					data.response[key].localdesc += "(Decimal accuracy possibly limited. Use AQ/Q instead if available.)";
@@ -637,6 +650,9 @@ function popupLoxoneDetails( uid, msno ) {
 			for( var key in LoxOutputs ) {
 				var dataStr = `
 					<tr>
+						<td class="LoxoneDetails_td small" style="width:25px;">
+							${data.response[key].mapString}${data.response[key].mapImg}
+						</td>
 						<td class="LoxoneDetails_td" style="width:120px;">
 							<input type="checkbox" name="LoxoneDetails_s4loutput" data-role="none" class="s4lchange" value="${LoxOutputs[key].Key}" ${LoxOutputs[key].statChecked} ${LoxOutputs[key].statDisabled}>
 							&nbsp;${LoxOutputs[key].Name}
