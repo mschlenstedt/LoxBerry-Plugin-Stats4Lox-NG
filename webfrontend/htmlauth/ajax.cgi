@@ -141,21 +141,6 @@ if( $q->{action} eq "updatestat" ) {
 }
 	
 if( $q->{action} eq "lxlquery" ) {
-	# require LoxBerry::IO;
-	# require JSON;
-	# my $url = '/jdev/sps/io/'.$q->{uuid}.'/all';
-	# my (undef, $code, $resp) = LoxBerry::IO::mshttp_call($q->{msno}, $url);
-	
-	# my $respobj;
-	# my $jsonerror;
-	# eval {
-		# $respobj = decode_json($resp);
-	# };
-	# if( $@ ) {
-		# $jsonerror = $@;
-		# $respobj = $resp;
-	# }
-	
 	require "$lbpbindir/libs/Stats4Lox.pm";
 	my ($code, $data) = Stats4Lox::msget_value( $q->{msno}, $q->{uuid} );
 	
@@ -175,6 +160,41 @@ if( $q->{action} eq "import_scheduler_report" ) {
 	$response = LoxBerry::System::read_file( $Globals::s4ltmp."/s4l_import_scheduler.json" );
 }
 
+if( $q->{action} eq "scheduleimport" and $q->{msno} and $q->{uuid} ) {
+	my $msno = $q->{msno};
+	my $uuid = $q->{uuid};
+	
+	my $importfile = $Globals::importstatusdir."/import_${msno}_${uuid}.json";
+	
+	if( $q->{importtype} eq "full" ) {
+		
+		unlink $importfile;
+		require LoxBerry::JSON;
+		my $jsonobjimport = LoxBerry::JSON->new();
+		my $import = $jsonobjimport->open(filename => $importfile);
+		$import->{msno} = $msno;
+		$import->{uuid} = $uuid;
+		$import->{name} = $q->{name};
+		$import->{status} = "scheduled";
+		$jsonobjimport->write();
+		
+	}
+	
+	# Start the Import Scheduler
+	system("$lbpbindir/import_scheduler.pl > ${Globals::importstatusdir}/import_scheduler.log 2>&1 &");
+	
+	sleep 1;
+	
+	# Respond with scheduled file
+	$response = LoxBerry::System::read_file( $importfile );
+	
+}
+
+
+
+#####################################
+# Manage Response and error
+#####################################
 
 if( defined $response and !defined $error ) {
 	print "Status: 200 OK\r\n";

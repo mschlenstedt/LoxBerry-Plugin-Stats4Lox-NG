@@ -199,6 +199,15 @@ $(function() {
 		popupLoxoneDetails(uid, msno);
 	});
 	
+	// Bind Import Now button
+	jQuery(document).on('click', '#LoxoneDetails_s4lstatimportbutton', function(event, ui){
+		target = event.target;
+		uid = $(target).data("uid");
+		msno = $(target).data("msno");
+		scheduleImport(msno, uid);
+	});
+	
+	
 });
 
 function getLoxplan() {
@@ -527,6 +536,7 @@ function popupLoxoneDetails( uid, msno ) {
 	
 	// Set data properties to tables
 	$(".data-uidmsno").data("uid", control.UID).data("msno", control.msno);
+	$("#LoxoneDetails_s4lstatimportbutton").data("uid", control.UID).data("msno", control.msno);
 	
 	// Fill popup title 
 	$("#LoxoneDetails_titletitle").text(control.Title);
@@ -744,6 +754,37 @@ function restoreFilters() {
 		console.log("restoreFilters Exception catched (filters possibly empty)");
 		filters = { };
 	}
+}
+
+function scheduleImport( msno, uid ) {
+	
+	var control = statsconfigLoxone.find(obj => {
+		return obj.uuid === uid && obj.msno == msno })
+	console.log("scheduleImport", msno, uid, control );
+	if( control ) {
+		// Element found in internal data
+		$.post( "ajax.cgi", { 
+			action : "scheduleimport",
+			importtype : "full",
+			uuid : uid,
+			msno : msno,
+			category : control.category,
+			description: control.description,
+			name : control.name,
+			room: control.room,
+			type : control.type,
+			
+		})
+		.done(function(data){
+			console.log(data);
+		});
+	
+	} 
+	else {
+		throw `scheduleImport: ${msno} and ${uid} not found in internal list`;
+	}
+
+
 }
 
 function restore_hints_hide() {

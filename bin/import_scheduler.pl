@@ -327,7 +327,7 @@ sub runImport
 	my $msno = $filelist{$file}{msno};
 	my $uuid = $filelist{$file}{uuid};
 	
-	my $commandline = "$lbpbindir/libs/testing/import_influx.pl msno=$msno uuid=$uuid >$file.log 2>&1 &";
+	my $commandline = "$lbpbindir/import_loxone.pl -msno=${msno} -uuid=${uuid} >$file.log 2>&1 &";
 	
 	my $name = defined $filelist{$file}{status}->{name} ? $filelist{$file}{status}->{name} : "";
 	print STDERR "  IMPORT: $uuid $name starting\n";

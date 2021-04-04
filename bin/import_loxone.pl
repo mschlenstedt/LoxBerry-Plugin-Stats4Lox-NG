@@ -4,7 +4,7 @@ use strict;
 use LoxBerry::System;
 use LoxBerry::Log;
 use LoxBerry::JSON;
-use CGI;
+use Getopt::Long;
 use Time::HiRes qw(time);
 use FindBin qw($Bin);
 use lib "$Bin/..";
@@ -20,11 +20,13 @@ my $log = LoxBerry::Log->new (
 
 LOGSTART "Import";
 
-my $cgi = CGI->new;
-my $q = $cgi->Vars;
+my $msno;
+my $uuid;
 
-my $msno = $q->{msno};
-my $uuid = $q->{uuid};
+GetOptions (
+	"msno=i" => \$msno,
+	"uuid=s" => \$uuid
+);
 
 # Status json
 our $statusobj;
@@ -122,8 +124,7 @@ foreach my $yearmonth ( @statmonths ) {
 	$e_year+=2000;
 	my $estimate_time_left_time_hr = sprintf("%04d-%02d-%02d %02d:%02d:%02d", $e_year, $e_mon,$e_mday, $e_hour, $e_min, $e_sec);
 	
-	# my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) =
-                                            localtime(time);
+	# my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time);
 	# my $timenow = "$year-$mon-$mday $hour:$min:$sec";
 	
 	my %stats = (
