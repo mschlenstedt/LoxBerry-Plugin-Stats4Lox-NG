@@ -84,7 +84,7 @@ function updateReportTables(data) {
 			var starttime_dt = new Date(Math.round(status?.starttime*1000));
 			var starttime = starttime_dt.toLocaleString('en-GB', { hour:'numeric', minute:'numeric', second:'numeric', hour12:false } );
 			
-			var estimatedEnd_dt = new Date(Math.round((status?.starttime+status?.stats?.estimate_time_left_secs)*1000));
+			var estimatedEnd_dt = new Date(Math.round((status?.starttime+status?.stats?.duration_time_secs+status?.stats?.estimate_time_left_secs)*1000));
 			estimatedEnd = estimatedEnd_dt.toLocaleString('en-GB', { hour:'numeric', minute:'numeric', second:'numeric', hour12:false } );
 			
 			var current = status?.current != null ? status?.current.substr(0,4) + '/' + status?.current.substr(4,2) : "";
