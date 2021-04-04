@@ -170,7 +170,10 @@ if( $q->{action} eq "lxlquery" ) {
 	$response = encode_json( \%response );
 }
 
+if( $q->{action} eq "import_scheduler_report" ) {
 
+	$response = LoxBerry::System::read_file( $Globals::s4ltmp."/s4l_import_scheduler.json" );
+}
 
 
 if( defined $response and !defined $error ) {

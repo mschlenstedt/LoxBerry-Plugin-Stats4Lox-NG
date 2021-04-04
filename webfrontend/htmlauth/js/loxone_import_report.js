@@ -3,6 +3,10 @@ let miniservers_used = [];
 
 let hints_hide = {};
 
+let imports = [];
+
+let timer;
+
 $(function() {
 	
 	restore_hints_hide();
@@ -11,11 +15,271 @@ $(function() {
 	}
 	
 	miniservers = JSON.parse( $("#miniservers_json").text() );
+
+	getImportSchedulerReport();
+	
+	timer = window.setInterval(getImportSchedulerReport, 1000);
+
 	
 });
 	
 	
+function getImportSchedulerReport() {
+	$.post( "ajax.cgi", { 
+			action : "import_scheduler_report",  
+	})
+	.done(function(data){
+		console.log("import_scheduler_report done", data);
+		updateReportTables(data);
+	})
+	.fail(function(data){
+		console.log("import_scheduler_report fail", data);
+	});
 	
+}
+
+function updateReportTables(data) {
+	
+	
+	// imports = Object.values(data.filelist);
+	// imports.sort( dynamicSortMultiple( "msno", "uuid" ) );
+	
+	imports = Object.keys(data.filelist)
+		.map(key => ({file: key, data: data.filelist[key]}));
+	
+	var count_running = Object.keys(data.states?.running).length;
+	var count_scheduled = Object.keys(data.states?.scheduled).length;
+	var count_finished = Object.keys(data.states?.finished).length;
+	var count_error = Object.keys(data.states?.error).length;
+	var count_dead = Object.keys(data.states?.dead).length;
+
+	var hR = "";
+	var hS = "";
+	var hF = "";
+	var hE = "";
+	var hD = "";
+	
+	// debugger;
+	
+	for( imp of imports ) {
+		
+		var status = imp.data.status;
+		
+		var starttime_dt = new Date(Math.round(status?.starttime*1000));
+		var starttime = starttime_dt.toLocaleString('en-GB', { hour:'numeric', minute:'numeric', second:'numeric', hour12:false } );
+			
+		var endtime_dt = new Date(Math.round(status?.endtime*1000));
+		var endtime = endtime_dt.toLocaleString('en-GB', { hour:'numeric', minute:'numeric', second:'numeric', hour12:false } );
+		
+		var statustime_dt = new Date(Math.round(status?.statustime*1000));
+		var statustime = statustime_dt.toLocaleString('en-GB', { hour:'numeric', minute:'numeric', second:'numeric', hour12:false } );
+		
+		
+		if( data.states?.running[imp.file] ) {
+			
+			
+			var finished_percent = Math.round (status?.stats?.record_count_finished / (status?.stats?.record_count_finished + status?.stats?.estimate_records_left) * 100 );
+			finished_percent = !isNaN(finished_percent) ? finished_percent : 0;
+			
+			var starttime_dt = new Date(Math.round(status?.starttime*1000));
+			var starttime = starttime_dt.toLocaleString('en-GB', { hour:'numeric', minute:'numeric', second:'numeric', hour12:false } );
+			
+			var estimatedEnd_dt = new Date(Math.round((status?.starttime+status?.stats?.estimate_time_left_secs)*1000));
+			estimatedEnd = estimatedEnd_dt.toLocaleString('en-GB', { hour:'numeric', minute:'numeric', second:'numeric', hour12:false } );
+			
+			var current = status?.current != null ? status?.current.substr(0,4) + '/' + status?.current.substr(4,2) : "";
+			
+			hR+=`
+			<tr>
+				<td>
+					<span class="small grayed">Miniserver</span><br>
+					${imp.data.msno}
+				</td>
+				<td>
+					${status.name}<br>
+					<span class="small grayed">${imp.data.uuid}</span>
+				</td>
+				<td>
+					<span class="small grayed">Started</span><br>
+					${starttime}
+				</td>
+				<td style="min-width:80px;">
+					<span class="small grayed">Progress</span><br>
+					<div class="progress-border">
+						<div class="progress-fill" style="height:15px;width:${finished_percent}%">${finished_percent}%</div>
+					</div>
+				</td>
+				<td>
+					<span class="small grayed">Current month</span><br>
+					${current}
+				</td>
+				<td>
+					<span class="small grayed">Estimated end</span><br>
+					${estimatedEnd}
+				</td>
+			</tr>`;
+		}
+		else if ( data.states?.scheduled[imp.file] ) {
+			
+			
+			hS+=`
+			<tr>
+				<td>
+					<span class="small grayed">Miniserver</span><br>
+					${imp.data.msno}
+				</td>
+				<td>
+					${status.name}<br>
+					<span class="small grayed">${imp.data.uuid}</span>
+				</td>
+			</tr>
+			`;
+			
+		}
+		else if ( data.states?.finished[imp.file] ) {
+
+			var duration = status.duration ? Math.ceil(status.duration/60).toString()+" Min." : "N/A"; 
+			var records = status?.stats?.record_count_finished ? status?.stats?.record_count_finished.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".") : "";
+			
+			hF+=`
+			<tr>
+				<td>
+					<span class="small grayed">Miniserver</span><br>
+					${imp.data.msno}
+				</td>
+				<td>
+					${status.name}<br>
+					<span class="small grayed">${imp.data.uuid}</span>
+				</td>
+				<td>
+					<span class="small grayed">Started</span><br>
+					${starttime}
+				</td>
+				<td>
+					<span class="small grayed">Finished</span><br>
+					${endtime}
+				</td>
+				<td>
+					<span class="small grayed">Duration</span><br>
+					${duration}
+				</td>
+				<td>
+					<span class="small grayed">Imported records</span><br>
+					${records}
+				</td>
+			</tr>
+			`;
+		
+		
+		
+		
+		
+		}
+		else if ( data.states?.error[imp.file] ) {
+		
+			var duration = imp.data.duration ? Math.ceil(imp.data.duration/60) : ""; 
+			var records = status?.stats?.record_count_finished ? status?.stats?.record_count_finished.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".") : "";
+			
+			var current = status?.current != null ? status?.current.substr(0,4) + '/' + status?.current.substr(4,2) : "";
+			
+			hE+=`
+			<tr>
+				<td>
+					<span class="small grayed">Miniserver</span><br>
+					${imp.data.msno}
+				</td>
+				<td>
+					${status.name}<br>
+					<span class="small grayed">${imp.data.uuid}</span>
+				</td>
+				<td>
+					<span class="small grayed">Started</span><br>
+					${starttime}
+				</td>
+				<td>
+					<span class="small grayed">Finished (with error)</span><br>
+					${endtime}
+				</td>
+				<td>
+					<span class="small grayed">Error on month</span><br>
+					${current}
+				</td>
+			</tr>
+			`;
+			
+			
+			
+		
+		}
+		else if ( data.states?.dead[imp.file] ) {
+			
+			
+			hD+=`
+			<tr>
+				<td>
+					<span class="small grayed">Miniserver</span><br>
+					${imp.data.msno}
+				</td>
+				<td>
+					${status.name}<br>
+					<span class="small grayed">${imp.data.uuid}</span>
+				</td>
+				<td>
+					<span class="small grayed">Started</span><br>
+					${starttime}
+				</td>
+				<td>
+					<span class="small grayed">Last Update of Import</span><br>
+					${statustime}
+				</td>
+				<td>
+					<span class="small grayed">Error on month</span><br>
+					${current}
+				</td>
+			</tr>
+			`;
+		
+		
+		}
+	}
+	
+	if( !hR ) {
+		hR = `<tr><td>Currently no running imports.</td></tr>`
+	}
+	if( !hS ) {
+		hS = `<tr><td>Currently no waiting imports.</td></tr>`
+	}
+	if( !hF ) {
+		hF = `<tr><td>No imports finished yet.</td></tr>`
+	}
+	if( !hE ) {
+		hE = `<tr><td>No imports with errors.</td></tr>`
+	}
+	if( !hD ) {
+		hD = `<tr><td>No dead imports.</td></tr>`
+	}
+	
+	
+	$("#data_importreport_running tbody").empty().html(hR);
+	$("#data_importreport_scheduled tbody").empty().html(hS);
+	$("#data_importreport_finished tbody").empty().html(hF);
+	$("#data_importreport_error tbody").empty().html(hE);
+	$("#data_importreport_dead tbody").empty().html(hD);
+
+	
+	
+	
+}
+
+
+
+
+
+
+
+
+
+
 
 function restore_hints_hide() {
 	

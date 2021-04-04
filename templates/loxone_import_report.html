@@ -81,6 +81,12 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 	
 }
 
+.progress-border {
+	border:1px solid #ccc;
+}
+.progress-fill {
+	background-color:#6dac20;
+}
 
 
 </style>
@@ -111,29 +117,59 @@ Changes in the Details view are applied immediately (no "Save" button).
 <p>This page shows all Loxone statistic imports that are running, waiting and have finished. The page refreshes automatically.</p> 
 
 <div data-role="collapsible" data-collapsed="false" id="coll_running" data-mini="true" data-inset="false" class="coll_heading_running">
-    <h4>Running</h4>
-    <p>I'm the collapsible content. By default I'm closed, but you can click the header to open me.</p>
+	<h4>Running</h4>
+	<div>
+		<table class="importreport_table importreport_table_running" id="data_importreport_running">
+			<tbody>
+			<tr><td>Updating...</td></tr>
+			</tbody>
+		</table>
+	</div>
 </div>
 
 <div data-role="collapsible" data-collapsed="false" id="coll_scheduled" data-mini="true" data-inset="false" class="coll_heading_scheduled">
     <h4>Waiting</h4>
-    <p>I'm the collapsible content. By default I'm closed, but you can click the header to open me.</p>
+   <div>
+		<table class="importreport_table importreport_table_scheduled" id="data_importreport_scheduled">
+			<tbody>
+			<tr><td>Updating...</td></tr>
+			</tbody>
+		</table>
+	</div>
 </div>
 
 <div data-role="collapsible" data-collapsed="false" id="coll_finished" data-mini="true" data-inset="false" class="coll_heading_finished">
     <h4>Finished</h4>
-    <p>I'm the collapsible content. By default I'm closed, but you can click the header to open me.</p>
+    <div>
+		<table class="importreport_table importreport_table_finished" id="data_importreport_finished">
+			<tbody>
+			<tr><td>Updating...</td></tr>
+			</tbody>
+		</table>
+	</div>
 </div>
 
 <div data-role="collapsible" data-collapsed="false" id="coll_error" data-mini="true" data-inset="false" class="coll_heading_error">
     <h4>Error</h4>
-    <p>I'm the collapsible content. By default I'm closed, but you can click the header to open me.</p>
+    <div>
+		<table class="importreport_table importreport_table_error" id="data_importreport_error">
+			<tbody>
+			<tr><td>Updating...</td></tr>
+			</tbody>
+		</table>
+	</div>
 </div>
 
 
 <div data-role="collapsible" data-collapsed="false" id="coll_dead" data-mini="true" data-inset="false" class="coll_heading_dead">
     <h4>Dead</h4>
-    <p>I'm the collapsible content. By default I'm closed, but you can click the header to open me.</p>
+    <div>
+		<table class="importreport_table importreport_table_dead" id="data_importreport_dead">
+			<tbody>
+			<tr><td>Updating...</td></tr>
+			</tbody>
+		</table>
+	</div>
 </div>
 
 
