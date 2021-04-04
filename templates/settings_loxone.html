@@ -60,6 +60,12 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 	border: 1px solid gray;
 }
 
+.ui-icon-import:after {
+	background-image: url("images/import_icon.png");
+}
+.ui-nosvg .ui-icon-import:after {
+	background-image: url("images/import_icon.png");
+}
 
 </style>
 
@@ -176,7 +182,7 @@ Changes in the Details view are applied immediately (no "Save" button).
 							<p>
 								<b>Import button hint:</b> To import your Loxone Statistics, you need to activate <i>Stats4Lox Statistics</i> and
 								select outputs on the right. Loxone statistics only contain a subset of available outputs. A
-								symbol on every output signals that this data will be imported.
+								symbol on every output signals that this data will be imported to that output <i>if checked</i>.
 								If you press "Import Now", the import is queued and imported in the background.
 							</p>
 							<a href="#" class="ui-btn ui-btn-inline ui-mini" onclick="hint_hide('hint_importbutton');">Hide</a>
@@ -251,44 +257,50 @@ Changes in the Details view are applied immediately (no "Save" button).
 
 <!-- Filter Loxone Visu enabled -->
 
-<div style="display:flex;">
-<div style="padding:5px;">
-<fieldset data-role="controlgroup" data-type="horizontal" data-mini="true">
-	<legend>Loxone Visu</legend>
-	<input type="radio" name="filter_loxvisu" id="filter_loxvisu_all" value="all" checked="checked" class="filter_radio">
-	<label for="filter_loxvisu_all">All</label>
-	<input type="radio" name="filter_loxvisu" id="filter_loxvisu_on" value="on" class="filter_radio">
-	<label for="filter_loxvisu_on">On</label>
-	<input type="radio" name="filter_loxvisu" id="filter_loxvisu_off" value="off" class="filter_radio">
-	<label for="filter_loxvisu_off">Off</label>
-</fieldset>
-</div>
+<div style="display:flex;align-items:flex-end;">
+	<div style="padding:5px;">
+	<fieldset data-role="controlgroup" data-type="horizontal" data-mini="true">
+		<legend>Loxone Visu</legend>
+		<input type="radio" name="filter_loxvisu" id="filter_loxvisu_all" value="all" checked="checked" class="filter_radio">
+		<label for="filter_loxvisu_all">All</label>
+		<input type="radio" name="filter_loxvisu" id="filter_loxvisu_on" value="on" class="filter_radio">
+		<label for="filter_loxvisu_on">On</label>
+		<input type="radio" name="filter_loxvisu" id="filter_loxvisu_off" value="off" class="filter_radio">
+		<label for="filter_loxvisu_off">Off</label>
+	</fieldset>
+	</div>
 
-<!-- Filter Loxone Stat enabled -->
-<div style="padding:5px;">
-<fieldset data-role="controlgroup" data-type="horizontal" data-mini="true">
-	<legend>Loxone Statistic</legend>
-	<input type="radio" name="filter_loxstat" id="filter_loxstat_all" value="all" checked="checked" class="filter_radio">
-	<label for="filter_loxstat_all">All</label>
-	<input type="radio" name="filter_loxstat" id="filter_loxstat_on" value="on" class="filter_radio">
-	<label for="filter_loxstat_on">On</label>
-	<input type="radio" name="filter_loxstat" id="filter_loxstat_off" value="off" class="filter_radio">
-	<label for="filter_loxstat_off">Off</label>
-</fieldset>
-</div>
+	<!-- Filter Loxone Stat enabled -->
+	<div style="padding:5px;">
+	<fieldset data-role="controlgroup" data-type="horizontal" data-mini="true">
+		<legend>Loxone Statistic</legend>
+		<input type="radio" name="filter_loxstat" id="filter_loxstat_all" value="all" checked="checked" class="filter_radio">
+		<label for="filter_loxstat_all">All</label>
+		<input type="radio" name="filter_loxstat" id="filter_loxstat_on" value="on" class="filter_radio">
+		<label for="filter_loxstat_on">On</label>
+		<input type="radio" name="filter_loxstat" id="filter_loxstat_off" value="off" class="filter_radio">
+		<label for="filter_loxstat_off">Off</label>
+	</fieldset>
+	</div>
 
-<!-- Filter S4L Stat enabled -->
-<div style="padding:5px;">
-<fieldset data-role="controlgroup" data-type="horizontal" data-mini="true">
-	<legend>Stats4Lox Statistic</legend>
-	<input type="radio" name="filter_s4lstat" id="filter_s4lstat_all" value="all" checked="checked" class="filter_radio">
-	<label for="filter_s4lstat_all">All</label>
-	<input type="radio" name="filter_s4lstat" id="filter_s4lstat_on" value="on" class="filter_radio">
-	<label for="filter_s4lstat_on">On</label>
-	<input type="radio" name="filter_s4lstat" id="filter_s4lstat_off" value="off" class="filter_radio">
-	<label for="filter_s4lstat_off">Off</label>
-</fieldset>
-</div>
+	<!-- Filter S4L Stat enabled -->
+	<div style="padding:5px;">
+	<fieldset data-role="controlgroup" data-type="horizontal" data-mini="true">
+		<legend>Stats4Lox Statistic</legend>
+		<input type="radio" name="filter_s4lstat" id="filter_s4lstat_all" value="all" checked="checked" class="filter_radio">
+		<label for="filter_s4lstat_all">All</label>
+		<input type="radio" name="filter_s4lstat" id="filter_s4lstat_on" value="on" class="filter_radio">
+		<label for="filter_s4lstat_on">On</label>
+		<input type="radio" name="filter_s4lstat" id="filter_s4lstat_off" value="off" class="filter_radio">
+		<label for="filter_s4lstat_off">Off</label>
+	</fieldset>
+	</div>
+
+	<div style="padding:5px;">
+		<a href="loxone_import_report.cgi" class="ui-btn ui-btn-inline ui-mini ui-icon-import ui-btn-icon-right" target="_blank">Statistic Import Report</a>
+	</div>
+
+
 
 </div>
 
