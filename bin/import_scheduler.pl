@@ -116,7 +116,7 @@ sub updateImportStatus
 		}
 		
 		eval {
-			$filelist{$file}{status} = decode_json( LoxBerry::System::read_file($file) );
+			$filelist{$file}{status} = from_json( LoxBerry::System::read_file($file) );
 			
 		};
 		if($@) {
