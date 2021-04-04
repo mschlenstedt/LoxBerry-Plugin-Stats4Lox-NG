@@ -66,23 +66,19 @@ function updateReportTables(data) {
 		var status = imp.data.status;
 		
 		var starttime_dt = new Date(Math.round(status?.starttime*1000));
-		var starttime = starttime_dt.toLocaleString('en-GB', { hour:'numeric', minute:'numeric', second:'numeric', hour12:false } );
-			
+		var starttime = starttime_dt.toLocaleString();
+		
 		var endtime_dt = new Date(Math.round(status?.endtime*1000));
-		var endtime = endtime_dt.toLocaleString('en-GB', { hour:'numeric', minute:'numeric', second:'numeric', hour12:false } );
+		var endtime = endtime_dt.toLocaleString();
 		
 		var statustime_dt = new Date(Math.round(status?.statustime*1000));
-		var statustime = statustime_dt.toLocaleString('en-GB', { hour:'numeric', minute:'numeric', second:'numeric', hour12:false } );
-		
-		
+		var statustime = statustime_dt.toLocaleString();
+			
 		if( data.states?.running[imp.file] ) {
 			
 			
 			var finished_percent = Math.round (status?.stats?.record_count_finished / (status?.stats?.record_count_finished + status?.stats?.estimate_records_left) * 100 );
 			finished_percent = !isNaN(finished_percent) ? finished_percent : 0;
-			
-			var starttime_dt = new Date(Math.round(status?.starttime*1000));
-			var starttime = starttime_dt.toLocaleString('en-GB', { hour:'numeric', minute:'numeric', second:'numeric', hour12:false } );
 			
 			var estimatedEnd_dt = new Date(Math.round((status?.starttime+status?.stats?.duration_time_secs+status?.stats?.estimate_time_left_secs)*1000));
 			estimatedEnd = estimatedEnd_dt.toLocaleString('en-GB', { hour:'numeric', minute:'numeric', second:'numeric', hour12:false } );
