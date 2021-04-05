@@ -7,7 +7,7 @@ use LoxBerry::JSON;
 use Getopt::Long;
 use Time::HiRes qw(time);
 use FindBin qw($Bin);
-use lib "$Bin/..";
+use lib "$Bin/libs";
 use Loxone::Import;
 require "$lbpbindir/libs/Stats4Lox.pm";
 
