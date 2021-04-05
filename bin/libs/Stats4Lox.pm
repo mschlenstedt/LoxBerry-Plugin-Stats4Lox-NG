@@ -8,6 +8,7 @@ use base 'Exporter';
 our @EXPORT = qw (
 	msget_value
 	influx_lineprot
+	loxone2telegraf
 );
 
 package Stats4Lox;
@@ -198,6 +199,125 @@ sub influx_lineprot
 	return ($line);
 }
 
+#####################################################
+# Send Value to Telegraf
+# Param 1: Timestamp
+# Param 2: measurement
+# Param 3: Hash with tags
+# Param 4: Hash with fields
+#####################################################
+sub lox2telegraf
+{
+	my @data = @{$_[0]};
+	my $nosend = $_[1];
+	my $timestamp;
+	my %tags = ();
+	my %fields = ();
+	my @queue;
+
+	#print Dumper @data;
+	
+	my $measurement = "stats4lox";
+
+	if ( scalar @data == 0) {
+		print STDERR "Array of Hashes needed. See documentation.";
+		return (2, undef);
+	}
+
+	foreach my $record (@data) {
+		if (! $record->{uuid}) {
+			print STDERR "UUID is needed. Skipping this dataset.";
+			next;
+		}
+		$timestamp = $record->{timestamp} + 0 if ($record->{timestamp}); # Convert to num
+		$tags{"name"} =	$record->{name} if ($record->{name});
+		$tags{"description"} = $record->{description} if ($record->{description});
+		$tags{"uuid"} = $record->{uuid} if ($record->{uuid});
+		$tags{"type"} = $record->{type} if ($record->{type}) ;
+		$tags{"category"} = $record->{category} if($record->{category});
+		$tags{"room"} = $record->{room} if ($record->{room});
+		$tags{"msno"} = $record->{msno} if ($record->{msno});
+		foreach my $value ( @{$record->{values}} ) {
+			my $valname = $tags{uuid} . "_" . $value->{key};
+			$fields{$valname} = $value->{value};
+		}
+
+		#print Dumper \%tags;
+		#print Dumper \%fields;
+
+		my $line = Stats4Lox::influx_lineprot( $timestamp, $measurement, \%tags, \%fields );
+		push (@queue, $line);
+	}
+
+	#my @outputs;
+	#if( ref($results->{outputs}) eq "ARRAY" ) {
+	#	@outputs = @{$results->{outputs}};
+	#}
+
+	print STDERR "Send Queue:\n" . Dumper \@queue if $DEBUG;
+	
+	# If no send
+	if ($nosend) {
+		return (1, @queue);
+	}
+
+	use IO::Socket;
+	#use IO::Socket qw(AF_INET AF_UNIX SOCK_STREAM SHUT_WR);
+	my $tryudp = 0;
+	my $client;
+	my $telegraf_udp_socket = "8094";
+	my $telegraf_unix_socket = "/tmp/telegraf.sock";
+	
+	# Send to telegraf via Unix socket
+	if (-e $telegraf_unix_socket) { 
+		eval {
+			$client = IO::Socket::UNIX->new(
+				Peer =>	"$telegraf_unix_socket",
+				Type => SOCK_STREAM,
+				Timeout => 10,
+			) or die "Unix Socket could not be created, failed with error: $!\n";;
+		};
+		if( ! $@ ) {
+			$client->autoflush(1);
+			foreach(@queue) {
+				print STDERR "Data to sent: $_\n" if $DEBUG;
+				my $sent = $client->send($_ . "\n");
+				print STDERR "Sent data of length: $sent\n" if $DEBUG;
+				#print $client $_ . "\n";
+			}
+			$client->shutdown(SHUT_WR);
+		} else {
+			print STDERR "Could not use unix socket (will fallback to udp): $@" if $DEBUG;
+			$tryudp = 1;
+		}
+	} else {
+		$tryudp = 1;
+	}
+	
+	# Send to telegraf via UDP socket
+	if ($tryudp) { 
+		eval {
+			$client = IO::Socket::INET->new(
+				PeerAddr    => 'localhost',
+				PeerPort => $telegraf_udp_socket,
+				Proto => 'udp',
+				Timeout => 10,
+			) or die "UDP Socket could not be created, failed with error: $!\n";;
+		};
+		if( ! $@ ) {
+			$client->autoflush(1);
+			foreach(@queue) {
+				print STDERR "Data to sent: $_\n" if $DEBUG;
+				my $sent = $client->send($_ . "\n");
+				print STDERR "Sent data of length: $sent\n" if $DEBUG;
+			}
+			$client->shutdown(SHUT_WR);
+		} else {
+			print STDERR "Could not use udp socket (giving up - data was NOT sent!): $@" if $DEBUG;
+		}
+	}
+
+}
 #####################################################
 # Finally 1; ########################################
 #####################################################
