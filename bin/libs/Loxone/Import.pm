@@ -523,7 +523,7 @@ sub submitData
 			# Bulk is full - transmit
 			$log->DEB("Loxone::Import->submitData: Transmitting $bulkcount records");
 			eval {
-				Stats4Lox::loxone_lineprot( \@bulkdata );
+				Stats4Lox::lox2telegraf( \@bulkdata, undef );
 			};
 			$bulkcount = 0;
 			@bulkdata = ();
