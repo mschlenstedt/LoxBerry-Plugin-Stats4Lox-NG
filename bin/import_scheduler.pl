@@ -69,13 +69,14 @@ while(time() < $lastchange_timestamp+$timeout) {
 	# Search for new/changed import statusfiles
 	my @changedfiles = getStatusChanges();
 	# print STDERR join("\n", @changedfiles) . "\n";
-	if( @changedfiles ) {
-		# Keep Scheduler open as long as imports change their status
-		$lastchange_timestamp = time();
-	}
-
+	
 	# Read import statusfile of changed imports into memory
 	updateImportStatus( @changedfiles );
+
+	if( @changedfiles) {
+	# Keep Scheduler open as long as imports change their status
+		$lastchange_timestamp = time();
+	}
 	
 	# Run one scheduled import
 	if( @slots ) {
@@ -89,12 +90,14 @@ while(time() < $lastchange_timestamp+$timeout) {
 		$next_step_5sec = time()+5;
 		updateDeadStatus();
 		@slots = getSlots();
+		# Keep Scheduler open as long as tasks are running or scheduled
+		$lastchange_timestamp = time() if (keys %scheduled or keys %running);
 	}
 	
 	# Update the file for the UI
 	updateSchedulerStatusfile();
 	
-	Time::HiRes::sleep(2);
+	Time::HiRes::sleep(1);
 }
 
 sub updateImportStatus
