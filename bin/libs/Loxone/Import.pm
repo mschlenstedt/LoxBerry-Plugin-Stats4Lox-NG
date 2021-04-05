@@ -30,7 +30,7 @@ our @EXPORT = qw (
 
 our $DEBUG = 1;
 our $LocalTZ = DateTime::TimeZone->new( name => 'local' );
-our $http_timeout = 30;
+our $http_timeout = 120;
 
 
 sub new 
@@ -536,7 +536,7 @@ sub submitData
 	if( @bulkdata ) {
 		$log->DEB("Loxone::Import->submitData: Transmitting $bulkcount records");
 		eval {
-			Stats4Lox::loxone_lineprot( \@bulkdata );
+			Stats4Lox::lox2telegraf( \@bulkdata, undef );
 		};
 	}
 	
