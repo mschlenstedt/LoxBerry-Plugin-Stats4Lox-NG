@@ -50,16 +50,18 @@ eval {
 	Loxone::Import::statusgetfile( msno=>$msno, uuid=>$uuid, log=>$log );
 };
 if( $@ ) {
-	LOGCRIT "Cannot lock status file - already locked";
+	my $error = "statusgetfile: Cannot lock status file - already locked --> $@";
+	LOGCRIT $error;
 	exit(3);
 }
 
 my %miniservers = LoxBerry::System::get_miniservers();
 if( !defined $miniservers{$msno} ) {
-	LOGCRIT "Miniserver $msno not defined";
+	my $error = "get_miniservers: Miniserver no. $msno not defined on your LoxBerry.";
+	LOGCRIT $error;
 	supdate( {
 		status => "error",
-		errortext => "Miniserver no. $msno not defined on your LoxBerry.",
+		errortext => $error,
 		msno => $msno,
 		uuid => $uuid,
 		starttime => time(),
@@ -88,10 +90,12 @@ eval {
 	$import = new Loxone::Import(msno => $msno, uuid=> $uuid, log => $log);
 };
 if( $@ ) {
+	my $error = "new Import: Error --> $@",
+	LOGCRIT $error;
 	supdate( { 
 		name => $import->{statobj}->{name},
 		status => "error",
-		errortext => "Init Import: $@",
+		errortext => $error
 	} );
 	exit(4);
 }
@@ -103,11 +107,12 @@ eval {
 	LOGDEB "Statlist $#statmonths elements.";
 };
 if( $@ or !$#statmonths ) {
-	LOGCRIT "Could not get Statistics list from Loxone Miniserver MS$msno";
+	my $error = "getStatList: Could not get Statistics list from Loxone Miniserver MS$msno --> $@";
+	LOGCRIT $error;
 	supdate( { 
 		name => $import->{statobj}->{name},
 		status => "error",
-		errortext => "getStatList: $@",
+		errortext => $error
 	} );
 	exit(2);
 }
@@ -128,10 +133,11 @@ foreach my $yearmonth ( @statmonths ) {
 		$monthdata = $import->getMonthStat( yearmon => $yearmonth );
 	};
 	if( $@ ) {
-		LOGCRIT "getMonthStat $yearmonth: $@";
+		my $error = "getMonthStat $yearmonth: $@";
+		LOGCRIT $error;
 		supdate( { 
 			status => "error",
-			errortext => "getMonthStat $yearmonth: $@"
+			errortext => $error
 		} );
 		exit(5);
 	}
@@ -143,10 +149,11 @@ foreach my $yearmonth ( @statmonths ) {
 		$fullcount = $import->submitData( $monthdata );
 	};
 	if( $@ ) {
-		LOGCRIT "submitData $yearmonth: $@";
+		my $error = "submitData $yearmonth: $@";
+		LOGCRIT $error;
 		supdate( { 
 			status => "error",
-			errortext => "submitData $yearmonth: $@"
+			errortext => $error
 		} );
 		exit(6);
 	}
