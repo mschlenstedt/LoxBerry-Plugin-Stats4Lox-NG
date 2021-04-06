@@ -1,0 +1,3 @@
+#!/bin/bash
+importstatusdir=REPLACELBPDATADIR
+REPLACELBPBINDIR/import_scheduler.pl > $importstatusdir/import_scheduler.log 2>&1 &
