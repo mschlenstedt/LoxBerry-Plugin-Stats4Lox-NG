@@ -495,7 +495,7 @@ sub submitData
 	foreach my $record ( @{$data->{values}} ) {
 		
 		my %influxrecord = (
-				timestamp => $record->{T}*1000*1000,		# Epoch Nanoseconds
+				timestamp => $record->{T}*1000*1000*1000,		# Epoch Nanoseconds
 				msno => $statobj->{msno},					# Miniserver No. in LoxBerry
 				uuid => $statobj->{uuid},					# Loxone UUID
 				name => $statobj->{name},					# Loxone Name of the block
