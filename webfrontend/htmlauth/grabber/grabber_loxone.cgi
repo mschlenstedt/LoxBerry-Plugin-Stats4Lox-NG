@@ -5,13 +5,18 @@ use LoxBerry::JSON;
 use LoxBerry::IO;
 use strict;
 use warnings;
-use Data::Dumper;
-  
+#use Data::Dumper;
+
 require "$lbpbindir/libs/Stats4Lox.pm";
-$Stats4Lox::DEBUG = 0;
+#$Stats4Lox::DEBUG = 1;
+
+# Plugin config
+my $pcfgfile = $lbpconfigdir . "/stats4lox.json";
+my $pjsonobj = LoxBerry::JSON->new();
+my $pcfg = $pjsonobj->open(filename => $pcfgfile, readonly => 1);
 
 # Measurement name for Influx
-my $measurement = "stats_loxone";
+my $measurement = $pcfg->{loxone}->{measurement};
 
 # Stats Configuration
 my $jsonobjcfg = LoxBerry::JSON->new();
@@ -68,15 +73,11 @@ for my $results( @{$cfg->{loxone}} ){
 		# use all outputs
 		@outputs = ();
 		print STDERR "   Using ALL outputs - config is empty - \n";
-		#foreach( sort keys %{$respjson->{LL}} ) {
-		#	push @outputs, substr( $_, 6) if( LoxBerry::System::begins_with($_, "output") );
-		#}
 		foreach (@$resp) {
 			if ($_->{"Key"}) {
 				push @outputs, $_->{"Key"};
 			}
 		}
-				
 	}
 	else {
 		print STDERR "   Using defined outputs " . join(",", @outputs) . "\n";
