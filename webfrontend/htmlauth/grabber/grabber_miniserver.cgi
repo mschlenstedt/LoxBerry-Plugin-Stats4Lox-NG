@@ -5,17 +5,34 @@ use LoxBerry::JSON;
 use LoxBerry::IO;
 use strict;
 use warnings;
-use Data::Dumper;
-  
-# Stats Configuration
-my $jsonobjcfg = LoxBerry::JSON->new();
-my $cfgfile = $lbpconfigdir . "/stats.json";
-my $cfg = $jsonobjcfg->open(filename => $cfgfile, readonly => 1);
+#use Data::Dumper;
 
+require "$lbpbindir/libs/Stats4Lox.pm";
+#$Stats4Lox::DEBUG = 1;
+my $DEBUG = 0;
+
+# Plugin config
+my $pcfgfile = $lbpconfigdir . "/stats4lox.json";
+my $pjsonobj = LoxBerry::JSON->new();
+my $pcfg = $pjsonobj->open(filename => $pcfgfile, readonly => 1);
+
+# Settings
+my $measurement = $pcfg->{miniserver}->{measurement};
+my $interval = $pcfg->{miniserver}->{interval};
+
+# Header
+print "Content-type: text/ascii; charset=UTF-8\n\n";
+
+# Skip if not enabled
+if ( ! is_enabled($pcfg->{miniserver}->{active}) ) {
+	print STDERR "Miniserver Grabber is disabled. Existing.\n" if $DEBUG;
+	exit 0;
+}
+  
 # Next runs
 my $jsonobjmem = LoxBerry::JSON->new();
 my $memfile = "/dev/shm/stats4lox_mem_miniservergrabber.json";
-my $mem = $jsonobjcfg->open(filename => $memfile, writeonclose => 1);
+my $mem = $jsonobjmem->open(filename => $memfile, writeonclose => 1);
 
 # Data to grab
 my %stats2grab = (
@@ -43,76 +60,59 @@ my %stats2grab = (
 # All Miniservers
 my %miniservers = LoxBerry::System::get_miniservers();
 
+if ( ! %miniservers ) {
+	print STDERR "No Miniservers configured. Existing.\n" if $DEBUG;
+	exit 0;
+}
+
 # Loop through Miniservers
 my @data;
-for my $results( @{$cfg->{miniserver}} ){
-	if ( is_disabled ($results->{active}) ) {
-		next;
-	}
-	print STDERR "Grabbing Miniserver " . $results->{msno} . "\n";
-	my $msno = $results->{msno};
+foreach my $msno (sort keys %miniservers) {
+	print STDERR "Grabbing Miniserver " . $msno . "\n" if $DEBUG;
 	my $now = time();
 	# Checking if interval is reached
 	if ($mem->{$msno}) {
 		if ( $now < $mem->{$msno}->{nextrun} ) {
-			print STDERR "   Interval not reached - skipping this time\n";
+			print STDERR "   Interval not reached - skipping this time\n" if $DEBUG;
 			next;
 		}
 	}
 	# Save epoche for next run/poll
-	$mem->{$msno}->{nextrun} = $now + $results->{interval};
+	$mem->{$msno}->{nextrun} = $now + $interval;
 	
 	# Collect data
-	my $values;
-	$values->{name} = $miniservers{$msno}{Name};
-	$values->{note} = $miniservers{$msno}{Note};
-	$values->{msno} = $msno;
+	my %tags = ();
+	$tags{name} = $miniservers{$msno}{Name} if $miniservers{$msno}{Name};
+	$tags{note} = $miniservers{$msno}{Note} if $miniservers{$msno}{Note};
+	$tags{msno} = $msno;
 	
 	# Grab stat data
-	my @results;
+	my %fields = ();
 	foreach my $key (keys %stats2grab) {
 		my $url = $stats2grab{$key};
-		my (undef, undef, $resp) = LoxBerry::IO::mshttp_call($msno, "$url");
-		if ( !$resp ) {
-			print STDERR "   Could not grab data from Miniserver - empty data. Wrong URL?\n";
+		# Grab data
+		my ($code, $resp) = Stats4Lox::msget_value($msno, $url);
+		if ( !$resp || $code ne "200" ) {
+			print STDERR "   Could not grab data from Miniserver.\n" if $DEBUG;
 			next;
 		}
-		#print STDERR $resp . "\n";
-		# Convert to valid UTF8
-		#$resp = Encode::decode("UTF-8", $resp);
-		# Convert to JSON
-		my $respjson;
-		eval {
-			$respjson = decode_json( "$resp" );
-			1;
-		};
-		if ($@) {
-			print STDERR "   Could not grab data from Miniserver - no valid JSON data received: $@\n";
-			next;
-		}
-		if ($respjson->{LL}->{Code} ne "200") {
-			print STDERR "   Could not grab data from Miniserver - error code: $respjson->{LL}->{Code}\n";
-			next;
-		}
-		my $value = $respjson->{LL}->{value};
-		$value =~ s/^([-\d\.]+).*/$1/g;
-		$value = $value + 0;
-		# $values->{value} = $value;
-		my %defaultresult = ( "msno_" . $msno . "_" . $key => $value );
-		push @results, \%defaultresult;
+		print STDERR "Value of " . $key . " is " . $resp->[0]->{Value} . "\n";
+		my $valname = "msno_" . $msno . "_" . $key;
+		$fields{$valname} = $resp->[0]->{Value};
 
 		# Slow down
 		sleep (0.2);
 	}
 
-	$values->{value} = \@results;
-	push (@data, $values);
-
+	my $lineprot = Stats4Lox::influx_lineprot(undef, $measurement, \%tags, \%fields);
+	push @data, $lineprot;
 }
 
+#print STDERR Dumper @data;
+
 # Output
-my $jsonout = to_json( \@data, {ascii => 1, pretty => 1 });
-print "Content-type: application/json\n\n";
-print $jsonout;
+foreach (@data) {
+	print $_ . "\n";
+}
 
 exit(0);

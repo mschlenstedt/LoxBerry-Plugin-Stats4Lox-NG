@@ -40,7 +40,7 @@ sub msget_value
 		return (601, undef);
 	}
 	
-	print STDERR "Querying param: $block with /all\n" if ($DEBUG);
+	print STDERR "Querying param: $block\n" if ($DEBUG);
 	my $rawdata;
 	my $status;
 	if ( $block =~ m/^\/jdev\//) { # assume this is a full url
@@ -63,7 +63,7 @@ sub msget_value
 	no warnings "numeric";
 	if($respvalue_filtered ne "" and $respvalue_filtered == 0) {
 		# Search for outputs - if present, value is ok and no analogue output
-		if( $rawdata !~ m/\"output0\":/ ) {
+		if( $rawdata !~ m/\"output0\":/ && $block !~ m/^\/jdev\// ) {
 			# Not found - we require to request the value without /all
 			print STDERR "Re-Querying param: $block withOUT /all due to f*cked up analoge output\n" if ($DEBUG);
 			#(undef, undef, $rawdata) = LoxBerry::IO::mshttp_call($msnr, "/jdev/sps/io/" . URI::Escape::uri_escape($block)); 
