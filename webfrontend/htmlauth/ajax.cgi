@@ -201,6 +201,34 @@ if( $q->{action} eq "scheduleimport" and $q->{msno} and $q->{uuid} ) {
 	
 }
 
+if( $q->{action} eq "deleteimport" and $q->{msno} and $q->{uuid} ) {
+	my $msno = $q->{msno};
+	my $uuid = $q->{uuid};
+	createImportFolder();
+	my $importfile = $Globals::importstatusdir."/import_${msno}_${uuid}.json";
+	
+	if( ! -e $importfile ) {
+		unlink "$importfile.log";
+		$response = "{ }";
+		system("$lbpbindir/import_scheduler.pl > ${Globals::importstatusdir}/import_scheduler.log 2>&1 &");
+		sleep 1;
+	}
+	else {
+		require LoxBerry::JSON;
+		my $jsonobjimport = LoxBerry::JSON->new();
+		my $import = $jsonobjimport->open(filename => $importfile, lockexclusive => 1, locktimeout => 10);
+		if( ! $import or $import->{status} eq "running" ) {
+			$error = "Cannot lock import $msno / $uuid or import is currently running";
+		}
+		else {
+			unlink $importfile;
+			unlink "$importfile.log";
+			$response = "{ }";
+			system("$lbpbindir/import_scheduler.pl > ${Globals::importstatusdir}/import_scheduler.log 2>&1 &");
+			sleep 1;
+		}
+	}
+}
 
 
 #####################################

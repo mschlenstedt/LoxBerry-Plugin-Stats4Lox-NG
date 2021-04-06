@@ -5,7 +5,7 @@ let hints_hide = {};
 
 let imports = [];
 
-let timer;
+let timer = false;
 
 $(function() {
 	
@@ -16,6 +16,8 @@ $(function() {
 	
 	miniservers = JSON.parse( $("#miniservers_json").text() );
 
+	setTimer();
+	
 	getImportSchedulerReport();
 	
 	// Bind Import Now button
@@ -26,13 +28,24 @@ $(function() {
 		rescheduleImport("full", filekey);
 	});
 	
-	setTimer();
+	// Bind Delete Import button
+	jQuery(document).on('click', '.deleteImportButton', function(event, ui){
+		var target = event.target.closest("tr");
+		var filekey = $(target).data("filekey");
+		console.log("bind deleteImportButton", event.target, target, filekey);
+		deleteImport(filekey, true);
+	});
+	
 
 	
 });
 	
 	
 function getImportSchedulerReport() {
+	if( !timer ) {
+		return;
+	}
+	
 	$.post( "ajax.cgi", { 
 			action : "import_scheduler_report",  
 	})
@@ -89,6 +102,8 @@ function updateReportTables(data) {
 		
 		var name = status.name ? status.name : "<i>unknown</i>";
 		
+		var logbutton_html = `<a href="/admin/system/tools/logfile.cgi?logfile=${filekey}.log&header=html&format=template" class="ui-btn ui-btn-inline ui-mini" target="${filekey}">Open Logfile</a>`;
+		var deletebutton_html =`<a href="#" class="ui-btn ui-btn-inline ui-mini ui-icon-delete deleteImportButton">Delete</a>`;
 		
 		if( data.states?.running[imp.file] ) {
 		// Running
@@ -131,6 +146,9 @@ function updateReportTables(data) {
 					<span class="small grayed">Estimated end</span><br>
 					${estimatedEnd} ${estimatedTimeLeft_min}
 				</td>
+				<td>
+					${logbutton_html}
+				</td>
 			</tr>`;
 		}
 		else if ( data.states?.scheduled[imp.file] ) {
@@ -147,6 +165,10 @@ function updateReportTables(data) {
 					${status.name}<br>
 					<span class="small grayed">${imp.data.uuid}</span>
 				</td>
+				<td>
+				${deletebutton_html}
+				</td>
+				
 			</tr>
 			`;
 			
@@ -183,6 +205,9 @@ function updateReportTables(data) {
 					<span class="small grayed">Imported records</span><br>
 					${records}
 				</td>
+				<td>
+					${logbutton_html} ${deletebutton_html}
+				</td>
 			</tr>
 			`;
 		
@@ -196,7 +221,7 @@ function updateReportTables(data) {
 			
 			var current = status?.current != null ? status?.current.substr(0,4) + '/' + status?.current.substr(4,2) : "";
 			
-			var errortext = imp.data.errortext ? imp.data.errortext : "&nbsp;";
+			var errortext = status.errortext ? status.errortext : "&nbsp;";
 			
 			hE+=`
 			<tr data-filekey="${filekey}">
@@ -221,13 +246,13 @@ function updateReportTables(data) {
 					${current}
 				</td>
 				<td>
-					<a href="#" class="ui-btn ui-btn-inline ui-mini rescheduleImportButton">Retry Import</a>
+					<a href="#" class="ui-btn ui-btn-inline ui-mini rescheduleImportButton">Retry Import</a> ${logbutton_html} ${deletebutton_html}
 				</td>
 			</tr>
 			<tr data-filekey="${filekey}">
 				<td colspan="6" class="noborder">
 					<span class="small grayed">Error</span><br>
-					${errortext}
+					<span style="font-size:90%;">${errortext}</span>
 				</td>
 			</tr>
 			`;
@@ -258,6 +283,9 @@ function updateReportTables(data) {
 				<td>
 					<span class="small grayed">Error on month</span><br>
 					${current}
+				</td>
+				<td>
+					${logbutton_html} ${deletebutton_html}
 				</td>
 			</tr>
 			`;
@@ -296,13 +324,14 @@ function updateReportTables(data) {
 
 
 function rescheduleImport( importtype, filekey ) {
+	clearTimer();
 	var control = imports.find(obj => {
 		return obj.file === filekey })
 	if( !control ) {
 		console.log( "rescheduleImport control not found", filekey);
+		setTimer();
 		return;
 	}
-	clearTimer();
 	
 	console.log("rescheduleImport", importtype, filekey);
 	$(`*[data-filekey="${filekey}"]`).css("background-color", "yellow");
@@ -336,9 +365,37 @@ function rescheduleImport( importtype, filekey ) {
 
 }
 
+function deleteImport( filekey, confirmed ) {
+	
+	var control = imports.find(obj => {
+		return obj.file === filekey })
+	if( !control ) {
+		console.log( "deleteImport control not found", filekey);
+		return;
+	}
+	
+	if( confirmed == true ) {
+		$.post( "ajax.cgi", { 
+			action : "deleteimport",
+			uuid : control?.data?.uuid,
+			msno : control?.data?.msno,
+		})
+		.done(function(data){
+			console.log(data);
+		})
+		.always(function(){
+			getImportSchedulerReport();
+		});
+	}
+}
+
+
+
+
 function clearTimer() {
 	console.log("Timer cleared");
 	window.clearInterval(timer);
+	timer = false;
 }
 
 function setTimer() {

@@ -98,6 +98,7 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 
 <div class="datahidden" id="miniservers_json"><TMPL_VAR LOXONE_MINISERVERS></div>
 
+
 <!-- Hints: Loxone Import report -->
 <div id="hint_importreport" class="hintbox" style="display:none;">
 <b>Statistic Selection hint</b><br>
@@ -111,11 +112,23 @@ Changes in the Details view are applied immediately (no "Save" button).
 
 
 
-<!-- Progress popup -->
-<div data-role="popup" id="popupProgress" data-dismissible="false" style="max-width:400px">
+<!-- Delete popup -->
+<div data-role="popup" id="popupDeleteImport" data-dismissible="false" style="max-width:400px">
 	<div style="padding: 20px 20px;">
-		<h4 class="ui-title popuptitle">Progress</h4>
-		<div id="progressState"></div>
+		<h4 class="ui-title popuptitle">Delete Import Status?</h4>
+		<div id="deleteImportText">
+			<p>
+				<span id="popupDeleteImport_uid"></span><br>
+				<span id="popupDeleteImport_name"></span><br>
+			<p>
+				This will completely delete the Import <u>job</u> (if not executed yet), or the status information of a finished Import. After deletion, 
+				Stats4Lox does not remember that you have imported that statistics.
+			</p>
+			<p>
+				This does <i>not</i> touch your data in the database, the settings of activated statistic collection, and much less your statistics on your Miniserver.
+			</p>
+			
+		</div>
 	</div>
 </div>
 
