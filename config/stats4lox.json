@@ -1,0 +1,24 @@
+{
+   "influx" : {
+      "influxurl" : "https://localhost:8086",
+      "influxbasicauth" : "true",
+      "influxskiptlsverify" : "true",
+      "influxdatabase" : "stats4lox"
+   },
+   "telegraf": {
+      "udpsocket": "8085",
+      "unixsocket": "/tmp/telegraf.sock"
+   },
+   "loxone": {
+      "measurement" : "stats_loxone",
+      "active": "True"
+   },
+   "miniserver": {
+      "measurement" : "stats_miniserver",
+      "active": "True"
+   },
+   "loxberry": {
+      "measurement" : "stats_loxberry",
+      "active": "True"
+   }
+}

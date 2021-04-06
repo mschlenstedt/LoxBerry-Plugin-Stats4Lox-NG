@@ -1,11 +1,7 @@
 {
    "influx" : {
       "influxdbuser" : "stats4lox",
-      "influxdbpass" : "loxberry",
-      "influxurl" : "https://localhost:8086",
-      "influxbasicauth" : "true",
-      "influxskiptlsverify" : "true",
-      "influxdatabase" : "stats4lox"
+      "influxdbpass" : "loxberry"
    },
    "loxberry": {
       "localhost": {
