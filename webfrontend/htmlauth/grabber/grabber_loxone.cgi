@@ -23,7 +23,7 @@ my $measurement = $pcfg->{loxone}->{measurement};
 print "Content-type: text/ascii; charset=UTF-8\n\n";
 
 # Skip if not enabled
-if ( is_disabled($pcfg->{loxone}->{active}) ) {
+if ( ! is_enabled($pcfg->{loxone}->{active}) ) {
 	print STDERR "Loxone Grabber is disabled. Existing.\n" if $DEBUG;
 	exit 0;
 }
