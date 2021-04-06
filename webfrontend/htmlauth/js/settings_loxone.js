@@ -229,8 +229,14 @@ function getLoxplan() {
 	async_request.push(
 		$.post( "ajax.cgi", { action : "getstatsconfig" }, function(data){
 			
-			statsconfig = data;
-			statsconfigLoxone = Object.values( statsconfig.loxone );
+			try {
+				statsconfig = data;
+				statsconfigLoxone = Object.values( statsconfig.loxone );
+			}
+			catch(e) {
+				console.log( "statsconfigLoxone seems to be empty" );
+				statsconfigLoxone = [];
+			}
 		})
 	)
 				
