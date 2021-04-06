@@ -15,10 +15,12 @@
    },
    "miniserver": {
       "measurement" : "stats_miniserver",
+      "interval": "300",
       "active": "True"
    },
    "loxberry": {
       "measurement" : "stats_loxberry",
+      "interval": "300",
       "active": "True"
    }
 }
