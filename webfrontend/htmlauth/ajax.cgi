@@ -81,7 +81,7 @@ if( $q->{action} eq "getstatsconfig" ) {
 if( $q->{action} eq "updatestat" ) {
 	require LoxBerry::JSON;
 	my $jsonobjcfg = LoxBerry::JSON->new();
-	my $cfg = $jsonobjcfg->open(filename => $statsconfig);
+	my $cfg = $jsonobjcfg->open(filename => $statsconfig, lockexclusive => 1);
 	my @searchresult = $jsonobjcfg->find( $cfg->{loxone}, "\$_->{uuid} eq \"".$q->{uuid}."\"" );
 	my $elemKey = $searchresult[0];
 	my $element = $cfg->{loxone}[$elemKey] if( defined $elemKey );
@@ -171,7 +171,7 @@ if( $q->{action} eq "scheduleimport" and $q->{msno} and $q->{uuid} ) {
 		unlink $importfile;
 		require LoxBerry::JSON;
 		my $jsonobjimport = LoxBerry::JSON->new();
-		my $import = $jsonobjimport->open(filename => $importfile);
+		my $import = $jsonobjimport->open(filename => $importfile, lockexclusive => 1);
 		$import->{msno} = $msno;
 		$import->{uuid} = $uuid;
 		$import->{name} = $q->{name};

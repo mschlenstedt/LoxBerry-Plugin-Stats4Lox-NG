@@ -42,15 +42,10 @@ if( !defined $uuid ) {
 	LOGCRIT "uuid parameter missing";
 	exit(1);
 }
-my %miniservers = LoxBerry::System::get_miniservers();
-if( !defined $miniservers{$msno} ) {
-	LOGCRIT "Miniserver $msno not defined";
-	exit(1);
-}
+
 LOGTITLE "Import MS$msno / $uuid";
 
-LOGINF "Logfile: $log->{filename}";
-
+# Open Import status file
 eval {
 	Loxone::Import::statusgetfile( msno=>$msno, uuid=>$uuid, log=>$log );
 };
@@ -58,6 +53,22 @@ if( $@ ) {
 	LOGCRIT "Cannot lock status file - already locked";
 	exit(3);
 }
+
+my %miniservers = LoxBerry::System::get_miniservers();
+if( !defined $miniservers{$msno} ) {
+	LOGCRIT "Miniserver $msno not defined";
+	supdate( {
+		status => "error",
+		errortext => "Miniserver no. $msno not defined on your LoxBerry.",
+		msno => $msno,
+		uuid => $uuid,
+		starttime => time(),
+	} );
+	exit(1);
+}
+
+LOGINF "Logfile: $log->{filename}";
+
 # Initial status file update
 supdate( { 
 	status => "running",
@@ -71,14 +82,33 @@ supdate( {
 	finished => { },
 } );
 
-my $import = new Loxone::Import(msno => $msno, uuid=> $uuid, log => $log);
 
+my $import;
+eval {
+	$import = new Loxone::Import(msno => $msno, uuid=> $uuid, log => $log);
+};
+if( $@ ) {
+	supdate( { 
+		name => $import->{statobj}->{name},
+		status => "error",
+		errortext => "Init Import: $@",
+	} );
+	exit(4);
+}
 supdate( { name => $import->{statobj}->{name} } );
 
-my @statmonths = $import->getStatlist();
-LOGDEB "Statlist $#statmonths elements.";
-if( ! $#statmonths ) {
+my @statmonths;
+eval {
+	@statmonths = $import->getStatlist();
+	LOGDEB "Statlist $#statmonths elements.";
+};
+if( $@ or !$#statmonths ) {
 	LOGCRIT "Could not get Statistics list from Loxone Miniserver MS$msno";
+	supdate( { 
+		name => $import->{statobj}->{name},
+		status => "error",
+		errortext => "getStatList: $@",
+	} );
 	exit(2);
 }
 
@@ -93,13 +123,33 @@ foreach my $yearmonth ( @statmonths ) {
 	my $starttime = Time::HiRes::time();
 	
 	LOGINF "Fetching $import->{uuid} Month: $yearmonth";
-	
-	my $monthdata = $import->getMonthStat( yearmon => $yearmonth );
+	my $monthdata;
+	eval {
+		$monthdata = $import->getMonthStat( yearmon => $yearmonth );
+	};
+	if( $@ ) {
+		LOGCRIT "getMonthStat $yearmonth: $@";
+		supdate( { 
+			status => "error",
+			errortext => "getMonthStat $yearmonth: $@"
+		} );
+		exit(5);
+	}
 	# print STDERR Data::Dumper::Dumper( $monthdata ) . "\n";
 	LOGINF "   Datasets " . scalar @{$monthdata->{values}};
 	
-	
-	my $fullcount = $import->submitData( $monthdata );
+	my $fullcount;
+	eval {
+		$fullcount = $import->submitData( $monthdata );
+	};
+	if( $@ ) {
+		LOGCRIT "submitData $yearmonth: $@";
+		supdate( { 
+			status => "error",
+			errortext => "submitData $yearmonth: $@"
+		} );
+		exit(6);
+	}
 
 	my %finished = (
 		duration => int((Time::HiRes::time()-$starttime)*1000)/1000,

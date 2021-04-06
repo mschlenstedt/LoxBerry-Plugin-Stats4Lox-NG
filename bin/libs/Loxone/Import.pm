@@ -78,6 +78,12 @@ sub new
 	
 	$self->setMappings();
 	
+	if( ! $self->{mapping} ) {
+		$self->{importstatus}->{error} = 1;
+		$self->{importstatus}->{errortext} = "This import has no outputs selected that can be imported";
+		Carp::croak($self->{importstatus}->{errortext});
+	}
+	
 	return $self;
 }
 
@@ -128,7 +134,7 @@ sub getStatlist
 	
 		if( !$resphtml) {
 			$log->DEB("Loxone::Import->getStatlist: ERROR no response from Miniserver ($status->{status})");
-			return;
+			Carp::Croak("Loxone::Import->getStatlist: ERROR no response from Miniserver ($status->{status})");
 		}
 		$log->DEB("Loxone::Import->getStatlist: Saving response to cachefile $statlistcachefile");
 		
