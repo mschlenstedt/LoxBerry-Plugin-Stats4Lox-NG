@@ -118,16 +118,19 @@ sub updateImportStatus
 			# print STDERR "Found: MSNO $msno  UUID $uuid\n";
 		}
 		
+		my $filecontent;
 		eval {
-			$filelist{$file}{status} = from_json( LoxBerry::System::read_file($file) );
+			$filecontent = LoxBerry::System::read_file($file);
+			$filelist{$file}{status} = from_json( $filecontent );
 			
 		};
 		if($@) {
+			print STDERR "$file:\n$filecontent\n";
 			if( !$msno and !$uuid ) {
 				print STDERR "ERROR Could not read $file: $@\n";
 				next;
 			} else {
-				print STDERR "WARNING Filename is used instead of content\n";
+				print STDERR "WARNING Filename is used instead of content: $file\n";
 				delete $filelist{$file}{status};
 			}
 		}
@@ -141,13 +144,16 @@ sub updateImportStatus
 			$filelist{$file}{uuid} = $filelist{$file}{status}->{uuid};
 			$status = $statusobj->{status};
 		
-		} elsif ( $msno and $uuid ) {
+		} 
+		elsif ( $msno and $uuid ) {
 			$filelist{$file}{msno} = $msno;
 			$filelist{$file}{uuid} = $uuid;
 			$status = "scheduled";
-		} else {
+		} 
+		else {
 			$status = "error";
 		}
+		
 		
 		if( $status eq "finished" ) {
 			delete $scheduled{$file};
@@ -155,6 +161,7 @@ sub updateImportStatus
 			delete $running{$file};
 			delete $error{$file};
 			delete $dead{$file};
+			delete $filelist{$file}{schedprocessed}; 
 		} 
 		elsif( $status eq "error" ) {
 			delete $scheduled{$file};
@@ -162,6 +169,7 @@ sub updateImportStatus
 			delete $running{$file};
 			$error{$file} = 1;
 			delete $dead{$file};
+			delete $filelist{$file}{schedprocessed};
 		}
 		elsif( $status eq "running" ) {
 			delete $scheduled{$file};
@@ -169,6 +177,7 @@ sub updateImportStatus
 			$running{$file} = 1;
 			delete $error{$file};
 			delete $dead{$file};
+			delete $filelist{$file}{schedprocessed};
 		}
 		elsif( !defined $status or $status eq "scheduled" ) {
 			$scheduled{$file} = 1;
@@ -183,6 +192,7 @@ sub updateImportStatus
 			delete $running{$file};
 			delete $error{$file};
 			$dead{$file} = 1;
+			delete $filelist{$file}{schedprocessed};
 		}
 	}
 }
@@ -214,7 +224,7 @@ sub getStatusChanges
 			# New file
 			# print STDERR "ADDED file $file to internal store\n";
 			$filelist{$file}{mtime} = (stat($file))[9];
-			$filelist{$file}{schedprocessed} = 0;
+			delete $filelist{$file}{schedprocessed};
 			push @changedfiles, $file;
 		}
 		else {
@@ -270,7 +280,7 @@ sub getSlots
 	foreach my $file ( keys %scheduled_and_running ) {
 		my $msno = $filelist{$file}{msno};
 		
-		if( $scheduled{$file} and $filelist{$file}{schedprocessed} > time()-30 ) {
+		if( $scheduled{$file} and defined $filelist{$file}{schedprocessed} and (time()-$filelist{$file}{schedprocessed}) < 30 ) {
 			# Task was started in the last 30 seconds - assume it will shortly start
 			# print STDERR "Shortly started - remove from list\n";
 			$count_by_ms{$msno}++;
