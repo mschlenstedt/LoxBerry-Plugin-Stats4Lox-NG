@@ -13,7 +13,7 @@ our @EXPORT = qw (
 
 package Stats4Lox;
 
-our $DEBUG = 0;
+our $DEBUG = 1;
 if ($DEBUG) {
 	use Data::Dumper;
 }
@@ -210,9 +210,6 @@ sub lox2telegraf
 {
 	my @data = @{$_[0]};
 	my $nosend = $_[1];
-	my $timestamp;
-	my %tags = ();
-	my %fields = ();
 	my @queue;
 
 	#print Dumper @data;
@@ -225,6 +222,9 @@ sub lox2telegraf
 	}
 
 	foreach my $record (@data) {
+		my $timestamp;
+		my %tags = ();
+		my %fields = ();
 		if (! $record->{uuid}) {
 			print STDERR "UUID is needed. Skipping this dataset.";
 			next;
