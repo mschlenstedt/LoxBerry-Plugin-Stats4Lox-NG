@@ -160,13 +160,21 @@ if( $q->{action} eq "lxlquery" ) {
 
 if( $q->{action} eq "import_scheduler_report" ) {
 
+	if( ! -e $Globals::s4ltmp."/s4l_import_scheduler.json" ) {
+		system("$lbpbindir/import_scheduler.pl > ${Globals::importstatusdir}/import_scheduler.log 2>&1 &");
+	}
+	my $checktime = time();
+	while( ! -e $Globals::s4ltmp."/s4l_import_scheduler.json" and time() < ($checktime+5) ) {
+		# Wait up to 5 seconds
+	}
 	$response = LoxBerry::System::read_file( $Globals::s4ltmp."/s4l_import_scheduler.json" );
+	
 }
 
 if( $q->{action} eq "scheduleimport" and $q->{msno} and $q->{uuid} ) {
 	my $msno = $q->{msno};
 	my $uuid = $q->{uuid};
-	
+	createImportFolder();
 	my $importfile = $Globals::importstatusdir."/import_${msno}_${uuid}.json";
 	
 	if( $q->{importtype} eq "full" ) {
@@ -214,4 +222,11 @@ else {
 	print "Content-type: application/json; charset=utf-8\r\n\r\n";
 	$error = "Action ".$q->{action}." unknown";
 	print to_json( { error => $error } );
+}
+
+sub createImportFolder
+{
+	if( ! -d $Globals::importstatusdir ) {
+		`mkdir --parents "${Globals::importstatusdir}"`;
+	}
 }
