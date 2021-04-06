@@ -31,7 +31,6 @@ sub msget_value
 
 	my $msnr = shift;
 	my $block = shift;
-	my $fullurl = shift;
 	my @response;
 	my %data;
 	
@@ -44,7 +43,7 @@ sub msget_value
 	print STDERR "Querying param: $block with /all\n" if ($DEBUG);
 	my $rawdata;
 	my $status;
-	if ($fullurl) {
+	if ( $block =~ m/^\/jdev\//) { # assume this is a full url
 		($rawdata, $status) = LoxBerry::IO::mshttp_call2($msnr, $block); 
 	} else {
 		($rawdata, $status) = LoxBerry::IO::mshttp_call2($msnr, "/jdev/sps/io/" . URI::Escape::uri_escape($block) . '/all'); 
