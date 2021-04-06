@@ -90,7 +90,7 @@ eval {
 	$import = new Loxone::Import(msno => $msno, uuid=> $uuid, log => $log);
 };
 if( $@ ) {
-	my $error = "new Import: Error --> $@",
+	my $error = "new Import: Error --> $@";
 	LOGCRIT $error;
 	supdate( { 
 		name => $import->{statobj}->{name},
