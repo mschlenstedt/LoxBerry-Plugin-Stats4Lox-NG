@@ -9,6 +9,7 @@ use warnings;
 
 require "$lbpbindir/libs/Stats4Lox.pm";
 #$Stats4Lox::DEBUG = 1;
+my $DEBUG = 0;
 
 # Plugin config
 my $pcfgfile = $lbpconfigdir . "/stats4lox.json";
@@ -17,6 +18,15 @@ my $pcfg = $pjsonobj->open(filename => $pcfgfile, readonly => 1);
 
 # Measurement name for Influx
 my $measurement = $pcfg->{loxone}->{measurement};
+
+# Header
+print "Content-type: text/ascii; charset=UTF-8\n\n";
+
+# Skip if not enabled
+if ( is_disabled($pcfg->{loxone}->{active}) ) {
+	print STDERR "Loxone Grabber is disabled. Existing.\n" if $DEBUG;
+	exit 0;
+}
 
 # Stats Configuration
 my $jsonobjcfg = LoxBerry::JSON->new();
@@ -32,16 +42,16 @@ my $mem = $jsonobjcfg->open(filename => $memfile, writeonclose => 1);
 my @data;
 for my $results( @{$cfg->{loxone}} ){
 	if (! $results->{uuid} || ! $results->{msno}) {
-		print STDERR "   Data isn't complete. Skipping...\n";
+		print STDERR "   Data isn't complete. Skipping...\n" if $DEBUG;
 		next;
 	}
-	print STDERR "Grabbing " . $results->{name} . "     $results->{uuid}\n";
+	print STDERR "Grabbing " . $results->{name} . "     $results->{uuid}\n" if $DEBUG;
 	my $tag = $results->{name};
 	my $now = time();
 	# Checking if interval is reached
 	if ($mem->{$tag}) {
 		if ( $now < $mem->{$tag}->{nextrun} ) {
-			print STDERR "   Interval not reached - skipping this time\n";
+			print STDERR "   Interval not reached - skipping this time\n" if $DEBUG;
 			next;
 		}
 	}
@@ -51,7 +61,7 @@ for my $results( @{$cfg->{loxone}} ){
 	# Grab data
 	my ($code, $resp) = Stats4Lox::msget_value($results->{msno}, $results->{uuid});
 	if ( !$resp || $code ne "200" ) {
-		print STDERR "   Could not grab data from Miniserver.\n";
+		print STDERR "   Could not grab data from Miniserver.\n" if $DEBUG;
 		next;
 	}
 	
@@ -72,7 +82,7 @@ for my $results( @{$cfg->{loxone}} ){
 	if( scalar(@outputs) == 0) {
 		# use all outputs
 		@outputs = ();
-		print STDERR "   Using ALL outputs - config is empty - \n";
+		print STDERR "   Using ALL outputs - config is empty - \n" if $DEBUG;
 		foreach (@$resp) {
 			if ($_->{"Key"}) {
 				push @outputs, $_->{"Key"};
@@ -80,7 +90,7 @@ for my $results( @{$cfg->{loxone}} ){
 		}
 	}
 	else {
-		print STDERR "   Using defined outputs " . join(",", @outputs) . "\n";
+		print STDERR "   Using defined outputs " . join(",", @outputs) . "\n" if $DEBUG;
 	}
 	
 	my %fields = ();
@@ -105,7 +115,6 @@ for my $results( @{$cfg->{loxone}} ){
 #print STDERR Dumper @data;
 
 # Output
-print "Content-type: text/ascii; charset=UTF-8\n\n";
 foreach (@data) {
 	print $_ . "\n";
 }
