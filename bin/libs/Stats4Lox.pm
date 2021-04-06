@@ -21,7 +21,8 @@ if ($DEBUG) {
 #####################################################
 # Miniserver REST Call to get all values of block
 # Param 1: Miniserver number
-# Param 2: Block's name, decription or UUID
+# Param 2: Block's name, decription or UUID or full URL path (see Param 3)
+# Param 3: Set to 1 if Param 2 is a full url path
 #####################################################
 sub msget_value
 {
@@ -30,22 +31,28 @@ sub msget_value
 
 	my $msnr = shift;
 	my $block = shift;
+	my $fullurl = shift;
 	my @response;
 	my %data;
 	
 	my %ms = LoxBerry::System::get_miniservers();
 	if (! $ms{$msnr}) {
-		print STDERR "Miniserver $msnr not found or configuration not finished\n";
+		print STDERR "Miniserver $msnr not found or configuration not finished\n" if $DEBUG;
 		return (601, undef);
 	}
 	
 	print STDERR "Querying param: $block with /all\n" if ($DEBUG);
-	#my (undef, undef, $rawdata) = LoxBerry::IO::mshttp_call($msnr, "/jdev/sps/io/" . URI::Escape::uri_escape($block) . '/all'); 
-	my ($rawdata, $status) = LoxBerry::IO::mshttp_call2($msnr, "/jdev/sps/io/" . URI::Escape::uri_escape($block) . '/all'); 
+	my $rawdata;
+	my $status;
+	if ($fullurl) {
+		($rawdata, $status) = LoxBerry::IO::mshttp_call2($msnr, $block); 
+	} else {
+		($rawdata, $status) = LoxBerry::IO::mshttp_call2($msnr, "/jdev/sps/io/" . URI::Escape::uri_escape($block) . '/all'); 
+	}
 
 	
 	if ( $status->{code} ne "200" ) {
-		print STDERR "Error while getting data from Miniserver: $status->{message}. Status: $status->{status}\n";
+		print STDERR "Error while getting data from Miniserver: $status->{message}. Status: $status->{status}\n" if $DEBUG;
 		return ($status->{code}, undef);
 	}
 	
@@ -61,7 +68,7 @@ sub msget_value
 			# Not found - we require to request the value without /all
 			print STDERR "Re-Querying param: $block withOUT /all due to f*cked up analoge output\n" if ($DEBUG);
 			#(undef, undef, $rawdata) = LoxBerry::IO::mshttp_call($msnr, "/jdev/sps/io/" . URI::Escape::uri_escape($block)); 
-			my ($rawdata, $status) = LoxBerry::IO::mshttp_call2($msnr, "/jdev/sps/io/" . URI::Escape::uri_escape($block)); 
+			($rawdata, $status) = LoxBerry::IO::mshttp_call2($msnr, "/jdev/sps/io/" . URI::Escape::uri_escape($block)); 
 		} 
 	}
 	
@@ -75,7 +82,7 @@ sub msget_value
 		1;
 	};
 	if ($@) {
-		print STDERR "No valid JSON data received: $@\n";
+		print STDERR "No valid JSON data received: $@\n" if $DEBUG;
 		return (602, undef);
 	}
 
@@ -83,7 +90,7 @@ sub msget_value
 
 	my $resp_code = $respjson->{LL}->{Code};
 	if ($resp_code ne "200") {
-		print STDERR "Error from Miniserver. Code: $resp_code\n";
+		print STDERR "Error from Miniserver. Code: $resp_code\n" if $DEBUG;
 		return ($resp_code, undef);
 	}
 	$resp_code = $resp_code + 0; # Convert from string
@@ -151,12 +158,12 @@ sub influx_lineprot
 	if (!$timestamp) {$timestamp = ""};
 
 	if (!$measurement) {
-		print STDERR "Measurement is needed.";
+		print STDERR "Measurement is needed." if $DEBUG;
 		return (undef);
 	};
 
 	if (keys %fields == 0) {
-		print STDERR "At least one field is needed.";
+		print STDERR "At least one field is needed." if $DEBUG;
 		return (undef);
 	};
 
@@ -180,7 +187,7 @@ sub influx_lineprot
 
 	my $i = 0;
 	foreach  my $key (keys %fields) {
-		#Try to figure out if field must be handled as string - maybe to compolicated here - better suggestions are welcome ;-)
+		#Try to figure out if field must be handled as string - maybe to complicated here - better suggestions are welcome ;-)
 		my $stringtest = $fields{$key};
 		$stringtest =~ s/(.*)i$/$1/g; # i as last position is integer
 		if ( $stringtest =~ m/[a-zA-Z]/ ) { # still String?
@@ -217,7 +224,7 @@ sub lox2telegraf
 	my $measurement = "stats4lox";
 
 	if ( scalar @data == 0) {
-		print STDERR "Array of Hashes needed. See documentation.";
+		print STDERR "Array of Hashes needed. See documentation." if $DEBUG;
 		return (2, undef);
 	}
 
@@ -226,7 +233,7 @@ sub lox2telegraf
 		my %tags = ();
 		my %fields = ();
 		if (! $record->{uuid}) {
-			print STDERR "UUID is needed. Skipping this dataset.";
+			print STDERR "UUID is needed. Skipping this dataset." if $DEBUG;
 			next;
 		}
 		$timestamp = $record->{timestamp} + 0 if ($record->{timestamp}); # Convert to num
