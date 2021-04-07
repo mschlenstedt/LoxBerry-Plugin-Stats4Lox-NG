@@ -256,11 +256,11 @@ sub getMonthStat {
 		
 		$log->WARN("Loxone::Import->getMonthStat: ERROR No response from MS$msno ($url)");
 		$log->WARN("Loxone::Import->getMonthStat: Sleeping a bit...");
-		sleep(3);
+		sleep(5*$retries*$retries);
 	}
 	
 	if( !$respxml ) {
-		log->ERR("Loxone::Import->getMonthStat: Could not get data from MS$msno / $yearmon");
+		$log->ERR("Loxone::Import->getMonthStat: Could not get data from MS $msno / $yearmon");
 		return;
 	}
 	
