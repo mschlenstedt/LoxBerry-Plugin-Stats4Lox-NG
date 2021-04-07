@@ -300,7 +300,7 @@ sub lox2telegraf
 					}
 				}
 			}
-			$client->shutdown(SHUT_WR);
+			$client->shutdown(SHUT_RDWR);
 			return (0, \@queue);
 		} else {
 			print STDERR "Could not use unix socket (will fallback to udp): $@" if $DEBUG;
@@ -338,7 +338,7 @@ sub lox2telegraf
 					}
 				}
 			}
-			$client->shutdown(SHUT_WR);
+			$client->shutdown(SHUT_RDWR);
 			return (0, \@queue);
 		} else {
 			print STDERR "Could not use udp socket (giving up - data was NOT sent!): $@" if $DEBUG;
