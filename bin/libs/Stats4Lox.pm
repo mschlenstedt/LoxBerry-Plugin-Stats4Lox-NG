@@ -292,21 +292,25 @@ sub lox2telegraf
 					my $sent = $client->send($_ . "\n");
 					if ($sent) {
 						print STDERR "Try $i: Sent data of length: $sent\n" if $DEBUG;
-						$i = 11;
+						$i = 12;
 					} else {
 						print STDERR "Try $i: Sending failed. Retry...\n" if $DEBUG;
 						sleep ($i);
 						$i++;
 					}
+					if ($i < 12) { # All retrys failed...
+						$tryudp = 1;
+					}
 				}
 			}
 			$client->shutdown(SHUT_RDWR);
-			return (0, \@queue);
+			if ($tryudp = 0) {
+				return (0, \@queue);
+			}
 		} else {
 			print STDERR "Could not use unix socket (will fallback to udp): $@" if $DEBUG;
 			$tryudp = 1;
 		}
-	
 	} else {
 		$tryudp = 1;
 	}
@@ -323,6 +327,7 @@ sub lox2telegraf
 		};
 		if( ! $@ ) {
 			$client->autoflush(1);
+			my $retstatus = 0;
 			foreach(@queue) {
 				print STDERR "Data to sent: $_\n" if $DEBUG;
 				my $i = 1;
@@ -330,22 +335,24 @@ sub lox2telegraf
 					my $sent = $client->send($_ . "\n");
 					if ($sent) {
 						print STDERR "Try $i: Sent data of length: $sent\n" if $DEBUG;
-						$i = 11;
+						$i = 12;
 					} else {
 						print STDERR "Try $i: Sending failed. Retry...\n" if $DEBUG;
 						sleep ($i);
 						$i++;
 					}
+					if ($i < 12) { # All retrys failed...
+						$retstatus = 2;
+					}
 				}
 			}
 			$client->shutdown(SHUT_RDWR);
-			return (0, \@queue);
+			return ($retstatus, \@queue);
 		} else {
-			print STDERR "Could not use udp socket (giving up - data was NOT sent!): $@" if $DEBUG;
+			print STDERR "Could not use udp socket (giving up - data was NOT sent (but maybe partly)!): $@" if $DEBUG;
 			return (2, \@queue);
 		}
 	}
-
 }
 #####################################################
 # Finally 1; ########################################
