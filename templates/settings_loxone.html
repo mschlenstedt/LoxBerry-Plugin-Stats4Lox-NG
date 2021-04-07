@@ -32,7 +32,17 @@
 	// border-bottom: 1px solid gray;
 }
 
-tr:nth-child(even).controlstable_tr {background: #CCC}
+.controlstable tr {
+	padding: 2px 5px 2px 5px;
+}
+.controlstable td {
+	padding: 2px 5px 2px 5px;
+	border-collapse: collapse;
+	border-top: 1px solid gray;
+	/* border-bottom: 1px solid gray; */
+}
+
+tr:nth-child(even).controlstable_tr {background: #EEE}
 tr:nth-child(odd).controlstable_tr {background: #FFF}
 
 .s4l_interval_highlight {
@@ -66,6 +76,14 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 .ui-nosvg .ui-icon-import:after {
 	background-image: url("images/import_icon.png");
 }
+
+.progress-border {
+	border:1px solid #ccc;
+}
+.progress-fill {
+	background-color:#6dac20;
+}
+
 
 </style>
 

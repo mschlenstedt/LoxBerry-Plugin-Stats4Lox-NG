@@ -6,7 +6,7 @@ let hints_hide = {};
 let imports = [];
 
 let timer = false;
-
+let timer_interval = 1000;
 let getImportSchedulerReport_running = false;
 
 $(function() {
@@ -56,6 +56,9 @@ function getImportSchedulerReport() {
 	})
 	.done(function(data){
 		// console.log("import_scheduler_report done", data);
+		imports = Object.keys(data.filelist)
+		.map(key => ({file: key, data: data.filelist[key]}));
+	
 		updateReportTables(data);
 	})
 	.fail(function(data){
@@ -75,9 +78,6 @@ function updateReportTables(data) {
 	
 	// imports = Object.values(data.filelist);
 	// imports.sort( dynamicSortMultiple( "msno", "uuid" ) );
-	
-	imports = Object.keys(data.filelist)
-		.map(key => ({file: key, data: data.filelist[key]}));
 	
 	var count_running = Object.keys(data.states?.running).length;
 	var count_scheduled = Object.keys(data.states?.scheduled).length;
@@ -408,7 +408,7 @@ function clearTimer() {
 
 function setTimer() {
 	console.log("Timer set");
-	timer = window.setInterval(getImportSchedulerReport, 1000);
+	timer = window.setInterval(getImportSchedulerReport, timer_interval);
 }
 
 
