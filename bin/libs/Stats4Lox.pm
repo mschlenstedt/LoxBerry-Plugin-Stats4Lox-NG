@@ -13,7 +13,7 @@ our @EXPORT = qw (
 
 package Stats4Lox;
 
-our $DEBUG = 1;
+our $DEBUG = 0;
 if ($DEBUG) {
 	use Data::Dumper;
 }
