@@ -528,6 +528,8 @@ function popupLoxoneDetails( uid, msno ) {
 	$(".data-uidmsno").data("uid", control.UID).data("msno", control.msno);
 	$("#LoxoneDetails_s4lstatimportbutton").data("uid", control.UID).data("msno", control.msno);
 	
+	updateReportTables();
+	
 	// Fill popup title 
 	$("#LoxoneDetails_titletitle").text(control.Title);
 	$("#LoxoneDetails_titledesc").text(control.Desc);
@@ -598,8 +600,16 @@ function popupLoxoneDetails( uid, msno ) {
 	
 	// Import now button
 	if( statmatch ) {
-		$("#LoxoneDetails_s4lstatimportbutton")
+		var importobj = imports.find(obj => {
+		return obj.data?.msno == msno && obj.data?.uuid == uid && obj.data?.status?.status == "running" })
+		if( importobj ) {
+			$("#LoxoneDetails_s4lstatimportbutton")
+			.addClass("ui-disabled");
+		}
+		else {
+			$("#LoxoneDetails_s4lstatimportbutton")
 			.removeClass("ui-disabled");
+		}
 	}
 	else {
 		$("#LoxoneDetails_s4lstatimportbutton")
@@ -776,6 +786,8 @@ function scheduleImport( msno, uid ) {
 		return obj.uuid === uid && obj.msno == msno })
 	console.log("scheduleImport", msno, uid, control );
 	if( control ) {
+		$("#LoxoneDetails_s4lstatimportbutton")
+			.addClass("ui-disabled");
 		// Element found in internal data
 		$.post( "ajax.cgi", { 
 			action : "scheduleimport",
@@ -791,6 +803,9 @@ function scheduleImport( msno, uid ) {
 		})
 		.done(function(data){
 			console.log(data);
+		})
+		.always(function(data){
+			getImportSchedulerReport();
 		});
 	
 	} 
@@ -828,8 +843,12 @@ function getImportSchedulerReport() {
 
 function updateReportTables(data) {
 	
-	// updateTable();
+	// Get IDs for Detail View Import status
+	var detail_msno = $(".LoxoneDetails_table").data("msno");
+	var detail_uuid = $(".LoxoneDetails_table").data("uid");
+	$("#LoxoneDetails_importstatus").empty();
 	
+	// List view generation
 	for( imp of imports ) { 
 		var data = imp.data;
 		var status = imp.data?.status;
@@ -883,6 +902,11 @@ function updateReportTables(data) {
 			case "scheduled":
 				html+= `<img src="images/checkbox_scheduled_20.png"> <span class="small grayed">Queued</span>`;
 				break;
+		}
+		
+		// Update Detail View Import status
+		if( detail_msno == msno && detail_uuid == uuid ) {
+			$("#LoxoneDetails_importstatus").html(html);
 		}
 		
 		$(target).html(html);
