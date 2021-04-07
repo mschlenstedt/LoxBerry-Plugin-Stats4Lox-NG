@@ -122,9 +122,12 @@ sub getStatlist
 		my $retries = 0;
 		while ( $retries < $retrycount ) {
 			$retries++;
+			$log->DEB("Loxone::Import->getStatlist: Acquiring download lock for Miniserver $msno");
+			my $mslockfh = lockMiniserver( $msno );
+			
 			$log->DEB("Loxone::Import->getStatlist: Requesting stat list from Miniserver $msno (Try $retries/$retrycount)");
-		
 			($resphtml, $status) = LoxBerry::IO::mshttp_call2($msno, $url, ( timeout => $http_timeout*$retries ) );
+			close $mslockfh;
 			if( $resphtml and $status->{code} eq "200" ) {
 				last;
 			}
@@ -238,10 +241,14 @@ sub getMonthStat {
 	while ( $retries < $retrycount ) {
 		$retries++;
 	
+		$log->DEB("Loxone::Import->getMonthStat: Acquiring download lock for Miniserver $msno");
+		my $mslockfh = lockMiniserver( $msno );
+		
 		$log->DEB("Loxone::Import->getMonthStat: Querying stat for month $yearmon (Try $retries/$retrycount)");
 		$log->DEB("Loxone::Import->getMonthStat: url: $url");
 		
 		($respxml, $status) = LoxBerry::IO::mshttp_call2($msno, $url, ( timeout => ($http_timeout*$retries) ) );
+		close $mslockfh;
 		
 		if($respxml) {		
 			last;
@@ -622,6 +629,13 @@ sub supdate {
 	
 }
 
+sub lockMiniserver {
+	my $msno = shift;
+	my $mslockfile = $Globals::s4ltmp."/miniserver_${msno}_download.lock";
+	open my $fh, '>', $mslockfile or die "CRITICAL Could not open LOCK file $mslockfile: $!";
+	flock $fh, 2;
+	return $fh;
+}
 
 sub DESTROY {
 

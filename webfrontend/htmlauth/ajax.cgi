@@ -167,8 +167,9 @@ if( $q->{action} eq "import_scheduler_report" ) {
 	while( ! -e $Globals::s4ltmp."/s4l_import_scheduler.json" and time() < ($checktime+5) ) {
 		# Wait up to 5 seconds
 	}
-	$response = LoxBerry::System::read_file( $Globals::s4ltmp."/s4l_import_scheduler.json" );
-	
+	if( -e $Globals::s4ltmp."/s4l_import_scheduler.json" ) {
+		$response = LoxBerry::System::read_file( $Globals::s4ltmp."/s4l_import_scheduler.json" );
+	}
 }
 
 if( $q->{action} eq "scheduleimport" and $q->{msno} and $q->{uuid} ) {

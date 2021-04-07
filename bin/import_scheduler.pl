@@ -41,13 +41,17 @@ if( defined $q->{importlist} ) {
 #### Scheduler processing ####
 ##############################
 
+if ( ! -d $Globals::s4ltmp ) {
+	`mkdir --parents "$Globals::s4ltmp"`;
+}
+
 # Lock a file to make sure only one instance is running
-my $lockfile = $Globals::s4ltmp."/import_scheduler.lock";
-open my $fh, '>', $lockfile or die "CRITICAL Could not open LOCK file $lockfile: $!";
-flock $fh, LOCK_EX | LOCK_NB or die "CRITICAL Scheduler is already running";
+my $lockfile = "/var/lock/import_scheduler.lock";
+open my $lockfilefh, '>', $lockfile or die "CRITICAL Could not open LOCK file $lockfile: $!";
+my $lock_success = flock $lockfilefh, LOCK_EX | LOCK_NB or die "CRITICAL Scheduler is already running";
 
 # How long to wait for a new job before terminating
-my $timeout = 60; 
+my $timeout = 120; 
 my $lastchange_timestamp = time();
 
 # Check different things not so often
@@ -83,6 +87,7 @@ while(time() < $lastchange_timestamp+$timeout) {
 		$lastchange_timestamp = time();
 		my $task = shift @slots;
 		runImport( $task ) if $task;
+		@slots = getSlots();
 	}
 	
 	# Things to do not so often
@@ -260,7 +265,20 @@ sub updateSchedulerStatusfile
 sub updateDeadStatus
 {
 	foreach my $file ( keys %running ) {
-		if( $filelist{$file}{status}->{statustime} < time()-$Globals::import_time_to_dead_minutes*60 ) {
+		my $is_dead = 0;
+		my $msno = $filelist{$file}{msno};
+		my $uuid = $filelist{$file}{uuid};
+		
+		if( (time()-$filelist{$file}{status}->{statustime}) > $Globals::import_time_to_dead_minutes*60 ) {
+			print STDERR "$uuid Is dead because of statustime\n";
+			$is_dead = 1;
+		}
+		elsif( !isImportLocked( $msno, $uuid ) ) {
+			print STDERR "$uuid Is dead because not locked\n";
+			$is_dead = 1;
+		}
+			
+		if( $is_dead ) {
 			delete $running{$file};
 			$dead{$file} = 1;
 		} 
@@ -278,24 +296,40 @@ sub getSlots
 	my $count_running = 0;
 	my %count_by_ms;
 	foreach my $file ( keys %scheduled_and_running ) {
+		my $is_running = 0;
+		
 		my $msno = $filelist{$file}{msno};
+		my $uuid = $filelist{$file}{uuid};
 		
 		if( $scheduled{$file} and defined $filelist{$file}{schedprocessed} and (time()-$filelist{$file}{schedprocessed}) < 30 ) {
 			# Task was started in the last 30 seconds - assume it will shortly start
 			# print STDERR "Shortly started - remove from list\n";
-			$count_by_ms{$msno}++;
-			delete $scheduled_and_running{$file};
-			$count_running++;
-			next;
+			
+			$is_running = 1;
+			
 		} 
 		elsif( $running{$file} ) {
 			# Task IS running
 			# print STDERR "Is running - remove from list\n";
+			
+			$is_running = 1;
+			
+		} 
+		elsif( isImportLocked($msno, $uuid) ) {
+
+			$is_running = 1;
+			
+		}
+		
+		# No slot if it is running
+		if( $is_running ) {
+			$count_running++;
 			$count_by_ms{$msno}++;
 			delete $scheduled_and_running{$file};
-			$count_running++;
 			next;
-		} 
+		}
+		
+		
 		my $name = defined $filelist{$file}{status}->{name} ? $filelist{$file}{status}->{name} : "";
 		print STDERR "  Waiting: $filelist{$file}{uuid} " . $name . "\n";
 		
@@ -304,6 +338,8 @@ sub getSlots
 	# We can directly skip, when all slots are full
 	return if( $count_running >= $Globals::import_max_parallel_processes );
 	
+	print STDERR "  Left after max_parallel: " . scalar(keys %scheduled_and_running) . " elements\n";
+	
 	# Find a slot for 
 	foreach my $file ( keys %scheduled_and_running ) {
 		my $msno = $filelist{$file}{msno};
@@ -311,6 +347,8 @@ sub getSlots
 			delete $scheduled_and_running{$file};
 		}
 	}
+	
+	print STDERR "  Left after ms_max_parallel: " . scalar(keys %scheduled_and_running) . " elements\n";
 	
 	# We now have the hash %scheduled_and_running reduced to all possible slots
 	return(keys %scheduled_and_running);
@@ -352,4 +390,32 @@ sub runImport
 	# }
 	# sleep(1);
 
+}
+
+sub isImportLocked
+{
+	my ($msno, $uuid) = @_;
+	# print STDERR "isImportLocked $msno $uuid\n";
+	my $lockfile = "/var/lock/import_${msno}_${uuid}.lock";
+	if( -e $lockfile ) {
+		# Try to lock file
+		# print STDERR "   Open\n";
+		open my $lockfilefh, '<', $lockfile;
+		my $lock_success = flock($lockfilefh, 1+4); #LOCK_SH+LOCK_NB
+		close $lockfilefh;
+		if( !$lock_success ) {
+			return 1;
+		}
+	}
+	else {
+		# print STDERR "$uuid does not exist - cannot be locked\n";
+	}
+	return undef;
+}
+
+sub END {
+	if( $lock_success ) {	
+		close $lockfilefh;
+		unlink $lockfile;
+	}
 }

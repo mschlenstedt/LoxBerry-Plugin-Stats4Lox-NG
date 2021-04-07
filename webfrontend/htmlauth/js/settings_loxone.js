@@ -133,41 +133,25 @@ $(function() {
 			// Find internal key of statistic element
 			var statkey = statsconfigLoxone.findIndex(obj => {
 			return obj.uuid === control.UID && obj.msno == control.msno })
-			
-			var stattableelement;
+
+			// Enable the Import button if a stats.json entry exists now
+			$("#LoxoneDetails_s4lstatimportbutton")
+				.removeClass("ui-disabled");
 			
 			if( statkey != -1 ) {
 				// If element found in internal data
 				// Update internal statsconfigLoxone with ajax result
 				statsconfigLoxone[statkey] = data;
-				
-				// Get stats element in List
-				
-				statTableElement = $("#statskey-"+statkey);
-				console.log("statskey and element", statkey, statTableElement);
 			}
 			else {
 				// Not found in internal data - add object to array
 				statsconfigLoxone.push( data );
-				statkey = (statsconfigLoxone.length)-1;
-				statTableElement = $(`tr[data-uid="${uid}"][data-msno="${msno}"`);
-				statTableElement = statTableElement[0];
-				statTableElement = $(statTableElement).find(".statdata");
-				console.log("statTableElement", statTableElement, statkey);
 			}
 			
 			// We should have found the element in the table
-			if( statTableElement ) {
-				$(statTableElement).attr("id", "statskey-"+statkey );
 			
-				if( stat_active === "true" ) {
-					$(statTableElement).children("[name=s4l_interval]").text(stat_interval/60);
-					$(statTableElement).show();
-				}
-				else {
-					$(statTableElement).hide();
-				}
-			}
+			updateTable();
+			
 		});
 	});
 	
@@ -598,6 +582,7 @@ function popupLoxoneDetails( uid, msno ) {
 		console.log("active = false");
 		$("#LoxoneDetails_s4lstatactive")
 			.prop('checked', false)
+			.prop('disabled', true)
 			.checkboxradio('refresh');
 		$("#LoxoneDetails_s4lstatinterval")
 			.prop('disabled', true)
@@ -609,6 +594,16 @@ function popupLoxoneDetails( uid, msno ) {
 	}
 	else {
 		$("#LoxoneDetails_s4lstatinterval").val("");
+	}
+	
+	// Import now button
+	if( statmatch ) {
+		$("#LoxoneDetails_s4lstatimportbutton")
+			.removeClass("ui-disabled");
+	}
+	else {
+		$("#LoxoneDetails_s4lstatimportbutton")
+			.addClass("ui-disabled");
 	}
 	
 	// Live Data from Miniserver
@@ -685,6 +680,17 @@ function popupLoxoneDetails( uid, msno ) {
 			}
 			
 			// Table is finished
+			
+			// Finally, activate the active checkbox 
+			// Background: If active=true, you always can disable the fetching
+			//             But if active=false, we need to wait for the Loxone Outputs, otherwise we get empty outputs on save
+			if( statmatch?.active != "true" && statmatch?.active != true ) {
+				$("#LoxoneDetails_s4lstatactive")
+				.prop('disabled', false)
+				.checkboxradio('refresh');
+			}
+			
+			// Done
 			
 		}
 		else {
