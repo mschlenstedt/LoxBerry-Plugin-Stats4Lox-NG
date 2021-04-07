@@ -7,6 +7,8 @@ let imports = [];
 
 let timer = false;
 
+let getImportSchedulerReport_running = false;
+
 $(function() {
 	
 	restore_hints_hide();
@@ -45,7 +47,10 @@ function getImportSchedulerReport() {
 	if( !timer ) {
 		return;
 	}
-	
+	if( getImportSchedulerReport_running == true ) {
+		return;
+	}
+	getImportSchedulerReport_running = true;
 	$.post( "ajax.cgi", { 
 			action : "import_scheduler_report",  
 	})
@@ -55,6 +60,9 @@ function getImportSchedulerReport() {
 	})
 	.fail(function(data){
 		console.log("import_scheduler_report fail", data);
+	})
+	.always(function(data){
+		getImportSchedulerReport_running = false;
 	});
 	
 }

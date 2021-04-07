@@ -45,6 +45,16 @@ if( !defined $uuid ) {
 
 LOGTITLE "Import MS$msno / $uuid";
 
+# Lock file
+my $lockfile = "/var/lock/import_${msno}_${uuid}.lock";
+open my $lockfilefh, '>', $lockfile or die "CRITICAL Could not open LOCK file $lockfile: $!";
+my $lock_success = flock $lockfilefh, 2+4; #LOCK_EX+LOCK_NB
+if( !$lock_success) {
+	LOGCRIT "CRITICAL Lockfile is already locked - another instance running.";
+	exit(2);
+}
+print $lockfilefh $$;
+
 # Open Import status file
 eval {
 	Loxone::Import::statusgetfile( msno=>$msno, uuid=>$uuid, log=>$log );
@@ -222,4 +232,8 @@ sub END {
 	eval { 
 		LOGEND;
 	};
+	if( $lock_success ) {	
+		close $lockfilefh;
+		unlink $lockfile;
+	}
 }
