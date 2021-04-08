@@ -13,9 +13,10 @@ our @EXPORT = qw (
 
 package Stats4Lox;
 
-our $DEBUG = 0;
+our $DEBUG = 1;
+our $DUMP = 0;
 if ($DEBUG) {
-	use Data::Dumper;
+	require Data::Dumper;
 }
 
 #####################################################
@@ -85,7 +86,7 @@ sub msget_value
 		return (602, undef);
 	}
 
-	print STDERR "Received (and cleaned) json data:\n" . Data::Dumper::Dumper($respjson) . "\n" if ($DEBUG);
+	print STDERR "Received (and cleaned) json data:\n" . Data::Dumper::Dumper($respjson) . "\n" if ($DUMP);
 
 	my $resp_code = $respjson->{LL}->{Code};
 	if ($resp_code ne "200") {
@@ -135,7 +136,7 @@ sub msget_value
 		$i++;
 	}
 
-	print STDERR "Response of subroutine:\n" . Data::Dumper::Dumper(\@response) . "\n" if ($DEBUG);
+	print STDERR "Response of subroutine:\n" . Data::Dumper::Dumper(\@response) . "\n" if ($DUMP);
 
 	return ($resp_code, \@response);
 }
@@ -166,10 +167,10 @@ sub influx_lineprot
 		return (undef);
 	};
 
-	print STDERR "Submitted measurement: " . $measurement . "\n" if ($DEBUG);
-	print STDERR "Submitted timestamp: " . $timestamp . "\n" if ($DEBUG);
-	print STDERR "Submitted tags:\n" . Data::Dumper::Dumper(\%tags) . "\n" if ($DEBUG);
-	print STDERR "Submitted fields:\n" . Data::Dumper::Dumper(\%fields) . "\n" if ($DEBUG);
+	print STDERR "Submitted measurement: " . $measurement . "\n" if ($DUMP);
+	print STDERR "Submitted timestamp: " . $timestamp . "\n" if ($DUMP);
+	print STDERR "Submitted tags:\n" . Data::Dumper::Dumper(\%tags) . "\n" if ($DUMP);
+	print STDERR "Submitted fields:\n" . Data::Dumper::Dumper(\%fields) . "\n" if ($DUMP);
 
 	$measurement =~ s/([ ,])/\\$1/g;
 	my $data;
@@ -218,12 +219,12 @@ sub lox2telegraf
 	my $nosend = $_[1];
 	my @queue;
 
-	#print Dumper @data;
+	#print Data::Dumper::Dumper @data;
 	
 	my $measurement = "stats4lox";
 
 	if ( scalar @data == 0) {
-		print STDERR "Array of Hashes needed. See documentation." if $DEBUG;
+		print STDERR "Array of Hashes needed. See documentation.";
 		return (2, undef);
 	}
 
@@ -232,7 +233,7 @@ sub lox2telegraf
 		my %tags = ();
 		my %fields = ();
 		if (! $record->{uuid}) {
-			print STDERR "UUID is needed. Skipping this dataset." if $DEBUG;
+			print STDERR "UUID is needed. Skipping this dataset.";
 			next;
 		}
 		$timestamp = $record->{timestamp} + 0 if ($record->{timestamp}); # Convert to num
@@ -248,8 +249,8 @@ sub lox2telegraf
 			$fields{$valname} = $value->{value};
 		}
 
-		#print Dumper \%tags;
-		#print Dumper \%fields;
+		#print Data::Dumper::Dumper \%tags;
+		#print Data::Dumper::Dumper \%fields;
 
 		my $line = Stats4Lox::influx_lineprot( $timestamp, $measurement, \%tags, \%fields );
 		push (@queue, $line);
@@ -260,7 +261,8 @@ sub lox2telegraf
 	#	@outputs = @{$results->{outputs}};
 	#}
 
-	print STDERR "Send Queue:\n" . Dumper \@queue if $DEBUG;
+	print STDERR "Send Queue:\n" . Data::Dumper::Dumper \@queue if $DUMP;
+	print STDERR "Elements in queue: " . scalar @queue . "\n";
 	
 	# If no send
 	if ($nosend) {
@@ -274,27 +276,33 @@ sub lox2telegraf
 	my $telegraf_udp_socket = "8094";
 	my $telegraf_unix_socket = "/tmp/telegraf.sock";
 	
+	my $sockstr; 
+	
 	# Send to telegraf via Unix socket
 	if (-e $telegraf_unix_socket) { 
+		$sockstr = "UNIX";
 		eval {
 			$client = IO::Socket::UNIX->new(
 				Peer =>	"$telegraf_unix_socket",
 				Type => SOCK_STREAM,
 				Timeout => 10,
-			) or die "Unix Socket could not be created, failed with error: $!\n";;
+			) or die "$sockstr Socket could not be created, failed with error: $!\n";;
 		};
 		if( ! $@ ) {
+			print STDERR "Using $sockstr socket\n" if $DEBUG;
+			
 			$client->autoflush(1);
 			foreach(@queue) {
-				print STDERR "Data to sent: $_\n" if $DEBUG;
+				my $length_expected = length($_)+1;
+				print STDERR "$sockstr Data to sent ($length_expected bytes): $_\n" if $DUMP;
 				my $i = 1;
 				while ($i <= 10) {
 					my $sent = $client->send($_ . "\n");
-					if ($sent) {
-						print STDERR "Try $i: Sent data of length: $sent\n" if $DEBUG;
+					if ($sent == $length_expected) {
+						print STDERR "$sockstr Try $i: Sent: $sent bytes Expected: $length_expected bytes\n" if $DUMP;
 						$i = 12;
 					} else {
-						print STDERR "Try $i: Sending failed. Retry...\n" if $DEBUG;
+						print STDERR "$sockstr Try $i: FAILED sending. Sent: $sent Bytes Expected: $length_expected bytes. Retry...\n" if $DEBUG;
 						sleep ($i);
 						$i++;
 					}
@@ -308,7 +316,7 @@ sub lox2telegraf
 				return (0, \@queue);
 			}
 		} else {
-			print STDERR "Could not use unix socket (will fallback to udp): $@" if $DEBUG;
+			print STDERR "Could not use $sockstr socket (will fallback to udp): $@" if $DEBUG;
 			$tryudp = 1;
 		}
 	} else {
@@ -317,27 +325,30 @@ sub lox2telegraf
 	
 	# Send to telegraf via UDP socket
 	if ($tryudp) { 
+		$sockstr = "UDP";
 		eval {
 			$client = IO::Socket::INET->new(
 				PeerAddr    => 'localhost',
 				PeerPort => $telegraf_udp_socket,
 				Proto => 'udp',
 				Timeout => 10,
-			) or die "UDP Socket could not be created, failed with error: $!\n";;
+			) or die "$sockstr Socket could not be created, failed with error: $!\n";;
 		};
 		if( ! $@ ) {
+			print STDERR "Using $sockstr socket\n" if $DEBUG;
 			$client->autoflush(1);
 			my $retstatus = 0;
 			foreach(@queue) {
-				print STDERR "Data to sent: $_\n" if $DEBUG;
+				my $length_expected = length($_)+1;
+				print STDERR "$sockstr Data to sent ($length_expected bytes): $_\n" if $DUMP;
 				my $i = 1;
 				while ($i <= 10) {
 					my $sent = $client->send($_ . "\n");
-					if ($sent) {
-						print STDERR "Try $i: Sent data of length: $sent\n" if $DEBUG;
+					if ($sent == $length_expected) {
+						print STDERR "$sockstr Try $i: Sent: $sent bytes Expected: $length_expected bytes\n" if $DUMP;
 						$i = 12;
 					} else {
-						print STDERR "Try $i: Sending failed. Retry...\n" if $DEBUG;
+						print STDERR "$sockstr Try $i: FAILED sending. Sent: $sent Bytes Expected: $length_expected bytes. Retry...\n" if $DEBUG;
 						sleep ($i);
 						$i++;
 					}
@@ -349,7 +360,7 @@ sub lox2telegraf
 			$client->shutdown(SHUT_RDWR);
 			return ($retstatus, \@queue);
 		} else {
-			print STDERR "Could not use udp socket (giving up - data was NOT sent (but maybe partly)!): $@" if $DEBUG;
+			print STDERR "Could not use $sockstr socket (giving up - data was NOT sent (but maybe partly)!): $@" if $DEBUG;
 			return (2, \@queue);
 		}
 	}
