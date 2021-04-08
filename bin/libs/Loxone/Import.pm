@@ -36,9 +36,10 @@ our $http_timeout = 120;
 sub new 
 {
 	my $class = shift;
+	my $me = Globals::whoami();
 	
 	if (@_ % 2) {
-		Carp::croak "Loxone::Import->new: Illegal parameter list has odd number of values\n" . join("\n", @_) . "\n";
+		Carp::croak "$me Illegal parameter list has odd number of values\n" . join("\n", @_) . "\n";
 	}
 	
 	my %p = @_;
@@ -51,18 +52,18 @@ sub new
 
 	my $log = $self->{log};
 	
-	$log->DEB("Loxone::Import->new: Called");
+	$log->DEB("$me Called");
 	
 	if( !defined $self->{msno} ) {
-		Carp::croak("msno paramter missing");
+		Carp::croak("$me msno paramter missing");
 	}
 	if( !defined $self->{uuid} ) {
-		Carp::croak("uuid parameter missing");
+		Carp::croak("$me uuid parameter missing");
 	}
 
 	my %miniservers = LoxBerry::System::get_miniservers();
 	if( !defined $miniservers{$self->{msno}} ) {
-		Carp::croak("Miniserver $self->{msno} not defined");
+		Carp::croak("$me Miniserver $self->{msno} not defined");
 	}
 	
 	bless $self, $class;
@@ -81,7 +82,7 @@ sub new
 	if( ! $self->{mapping} ) {
 		$self->{importstatus}->{error} = 1;
 		$self->{importstatus}->{errortext} = "This import has no outputs selected that can be imported";
-		Carp::croak($self->{importstatus}->{errortext});
+		Carp::croak($me." ".$self->{importstatus}->{errortext});
 	}
 	
 	return $self;
@@ -90,8 +91,9 @@ sub new
 sub getStatlist
 {
 	my $self = shift;
+	my $me = Globals::whoami();
 	my $log = $self->{log};
-	$log->DEB("Loxone::Import->getStatlist: Called");
+	$log->DEB("$me Called");
 	
 	my $msno = $self->{msno};
 	my $uuid = $self->{uuid};
@@ -99,12 +101,12 @@ sub getStatlist
 	my $resphtml;
 	my $usedcachefile=0;
 	
-	$log->DEB("Loxone::Import->getStatlist: Checking for cached statlist of $msno");
+	$log->DEB("$me Checking for cached statlist of $msno");
 	my $statlistcachefile = $Globals::s4ltmp."/msstatlist_ms$msno.tmp";
 	if( -e $statlistcachefile ) {
 		my $modtime = (stat($statlistcachefile))[9];
 		if ( defined $modtime and (time()-$modtime) < 900 ) {
-			$log->DEB("Loxone::Import->getStatlist: Reading cache file $statlistcachefile");
+			$log->DEB("$me Reading cache file $statlistcachefile");
 			$resphtml = LoxBerry::System::read_file($statlistcachefile);
 			if( $resphtml ) {
 				$usedcachefile=1;
@@ -122,24 +124,24 @@ sub getStatlist
 		my $retries = 0;
 		while ( $retries < $retrycount ) {
 			$retries++;
-			$log->DEB("Loxone::Import->getStatlist: Acquiring download lock for Miniserver $msno");
+			$log->DEB("$me Acquiring download lock for Miniserver $msno");
 			my $mslockfh = lockMiniserver( $msno );
 			
-			$log->DEB("Loxone::Import->getStatlist: Requesting stat list from Miniserver $msno (Try $retries/$retrycount)");
+			$log->DEB("$me Requesting stat list from Miniserver $msno (Try $retries/$retrycount)");
 			($resphtml, $status) = LoxBerry::IO::mshttp_call2($msno, $url, ( timeout => $http_timeout*$retries ) );
 			close $mslockfh;
 			if( $resphtml and $status->{code} eq "200" ) {
 				last;
 			}
-			$log->WARN("Loxone::Import->getStatlist: Error $status->{message} - Sleeping a bit...");
+			$log->WARN("$me Error $status->{message} - Sleeping a bit...");
 			sleep(3);
 		}
 	
 		if( !$resphtml) {
-			$log->DEB("Loxone::Import->getStatlist: ERROR no response from Miniserver ($status->{status})");
+			$log->DEB("$me ERROR no response from Miniserver ($status->{status})");
 			Carp::Croak("Loxone::Import->getStatlist: ERROR no response from Miniserver ($status->{status})");
 		}
-		$log->DEB("Loxone::Import->getStatlist: Saving response to cachefile $statlistcachefile");
+		$log->DEB("$me Saving response to cachefile $statlistcachefile");
 		
 		eval {
 			open(my $fh, '>', $statlistcachefile);
@@ -150,7 +152,7 @@ sub getStatlist
 		
 	my %resultsAll;
 	
-	$log->DEB("Loxone::Import->getStatlist: Parsing response");
+	$log->DEB("$me Parsing response");
 	
 	my @resp = split( /\n/, $resphtml );
 	my $count = 0;
@@ -167,11 +169,11 @@ sub getStatlist
 			
 		}
 	}
-	$log->DEB("Loxone::Import->getStatlist: Number of lines $count");
-	$log->DEB("Loxone::Import->getStatlist: Number of different uuids ". keys(%resultsAll));
+	$log->DEB("$me Number of lines $count");
+	$log->DEB("$me Number of different uuids ". keys(%resultsAll));
 	
 	$self->{statlistAll} = \%resultsAll;
-	$log->DEB("Loxone::Import->getStatlist: Finished ok");
+	$log->DEB("$me Finished ok");
 	
 	return @{$resultsAll{$uuid}};
 	
@@ -181,31 +183,32 @@ sub getStatsjsonElement
 {
 	
 	my $self = shift;
+	my $me = Globals::whoami();
 	my $log = $self->{log};
 	
-	$log->DEB("Loxone::Import->getStatsjsonElement: Called");
+	$log->DEB("$me Called");
 	
-	$log->DEB("Loxone::Import->getStatsjsonElement: Opening stats.json ($Globals::statsconfig)");
+	$log->DEB("$me Opening stats.json ($Globals::statsconfig)");
 	
 	my $statsjsonobj = new LoxBerry::JSON;
 	my $statsjson = $statsjsonobj->open( filename => $Globals::statsconfig, readonly => 1 );
 	if (!$statsjson) {
-		$log->DEB("Loxone::Import->getStatsjsonElement: ERROR Opening stats.json (empty)");
+		$log->DEB("$me ERROR Opening stats.json (empty)");
 		return;
 	}
 	
-	$log->DEB("Loxone::Import->getStatsjsonElement: Searching for $self->{uuid} and $self->{msno}");
+	$log->DEB("$me Searching for $self->{uuid} and $self->{msno}");
 	
 	my @result = $statsjsonobj->find( $statsjson->{loxone}, "\$_->{uuid} eq '".$self->{uuid}."' and \$_->{msno} eq '".$self->{msno}."'");
 	
 	if( @result ) {
-		$log->DEB("Loxone::Import->getStatsjsonElement: Found ". scalar @result ." elements");
+		$log->DEB("$me Found ". scalar @result ." elements");
 		my $statobj = $statsjson->{loxone}[$result[0]];
-		$log->DEB("Loxone::Import->getStatsjsonElement: Found stat name $statobj->{name}");
+		$log->DEB("$me Found stat name $statobj->{name}");
 		$self->{statobj} = $statobj;
 	}
 	else {
-		$log->DEB("Loxone::Import->getStatsjsonElement: ERROR stats.json element not found");
+		$log->DEB("$me ERROR stats.json element not found");
 	}
 }
 
@@ -213,21 +216,22 @@ sub getStatsjsonElement
 sub getMonthStat {
 	
 	my $self = shift;
+	my $me = Globals::whoami();
 	my $log = $self->{log};
 	my $msno = $self->{msno};
 	my $uuid = $self->{uuid};
 	
-	$log->DEB("Loxone::Import->getMonthStat: Called");
+	$log->DEB("$me Called");
 		
 	my %args = @_;
 	my $yearmon = $args{yearmon};
 	
 	if(!$uuid) {
-		$log->DEB("Loxone::Import->getMonthStat: ERROR uuid not defined.");
+		$log->DEB("$me ERROR uuid not defined.");
 		return;
 	}
 	if(!$yearmon) {
-		$log->DEB("Loxone::Import->getMonthStat: ERROR yearmon not defined.");
+		$log->DEB("$me ERROR yearmon not defined.");
 		return;
 	}
 	
@@ -242,16 +246,16 @@ sub getMonthStat {
 	while ( $retries <= $retrycount ) {
 		$retries++;
 	
-		$log->DEB("Loxone::Import->getMonthStat: Acquiring download lock for Miniserver $msno");
+		$log->DEB("$me Acquiring download lock for Miniserver $msno");
 		my $mslockfh = lockMiniserver( $msno );
 		
-		$log->DEB("Loxone::Import->getMonthStat: Querying stat for month $yearmon (Try $retries/$retrycount)");
-		$log->DEB("Loxone::Import->getMonthStat: url: $url");
+		$log->DEB("$me Querying stat for month $yearmon (Try $retries/$retrycount)");
+		$log->DEB("$me url: $url");
 		
 		($respxml, $status) = LoxBerry::IO::mshttp_call2($msno, $url, ( timeout => ($http_timeout*$retries) ) );
 		close $mslockfh;
 		
-		my $msg = "Loxone::Import->getMonthStat: HTTP $status->{status}";
+		my $msg = "$me HTTP $status->{status}";
 		if( $status->{code} == 200 ) {
 			$log->OK($msg);
 		}
@@ -274,7 +278,7 @@ sub getMonthStat {
 				if( $retries >= $retrycount ) {
 					die $exception;
 				}
-				$log->WARN("Loxone::Import->getMonthStat: Download possibly corrupt --> $exception");
+				$log->WARN("$me Download possibly corrupt --> $exception");
 			}
 			else {
 				last;
@@ -282,17 +286,17 @@ sub getMonthStat {
 		}
 		
 		if( $status->{code} == 404 and $retries >= $retrycount ) {
-			$log->WARN("Loxone::Import->getMonthStat: ERROR This file really seems to not exist. Skipping this month");
+			$log->WARN("$me ERROR This file really seems to not exist. Skipping this month");
 			last;
 		}
 		
 		my $sleep = 5*$retries*$retries;
-		$log->WARN("Loxone::Import->getMonthStat: Sleeping $sleep seconds before retry...");
+		$log->WARN("$me Sleeping $sleep seconds before retry...");
 		sleep($sleep);
 	}
 	
 	if( !$respxml and $status->{code} != 404 ) {
-		my $errormsg = "Loxone::Import->getMonthStat: Could not get data from MS $msno / $yearmon";
+		my $errormsg = "$me Could not get data from MS $msno / $yearmon";
 		$log->ERR($errormsg);
 		die $errormsg;
 	}
@@ -308,6 +312,7 @@ sub getMonthStat {
 sub parseStatXML
 {
 	my $self = shift;
+	my $me = Globals::whoami();
 	my $log = $self->{log};
 	my $msno = $self->{msno};
 	my $uuid = $self->{uuid};
@@ -318,12 +323,12 @@ sub parseStatXML
 	
 	my $parser = XML::LibXML->new();
 	my $statsxml;
-	$log->DEB("Loxone::Import->getMonthStat: Loading XML");
+	$log->DEB("$me Loading XML");
 	eval {
 		$statsxml = XML::LibXML->load_xml( string => $respxml, no_blanks => 1);
 	};
 	if( $@ ) {
-		$log->DEB("Loxone::Import->getMonthStat: ERROR Could not load XML (month $yearmon)");
+		$log->DEB("$me ERROR Could not load XML (month $yearmon)");
 		return;
 	}
 	
@@ -363,7 +368,7 @@ sub parseStatXML
 	
 	$result{values} = \@timedata;
 	
-	$log->DEB("Loxone::Import->getMonthStat: Timestamp count found " . scalar @timedata);
+	$log->DEB("$me Timestamp count found " . scalar @timedata);
 	
 	return \%result;
 	
@@ -374,6 +379,7 @@ sub parseStatXML
 sub parseStatXML_REGEX
 {
 	my $self = shift;
+	my $me = Globals::whoami();
 	my $log = $self->{log};
 	my $msno = $self->{msno};
 	my $uuid = $self->{uuid};
@@ -385,7 +391,7 @@ sub parseStatXML_REGEX
 	my $line;
 	my %result;
 	
-	$log->DEB("Loxone::Import->getMonthStat: Loading XML (REGEX)");
+	$log->DEB("$me Reading XML (REGEX)");
 	
 	# Split file to lines
 	my @xml = split("\n", $respxml);
@@ -397,7 +403,7 @@ sub parseStatXML_REGEX
 	$line = shift @xml;
 	# print STDERR "Line1: $line\n";
 	if( index( $line, '<?xml' ) == -1 ) {
-		$log->DEB("Loxone::Import->getMonthStat: ERROR Seems not to be XML (month $yearmon)");
+		$log->DEB("$me ERROR Seems not to be XML (month $yearmon)");
 		return;
 	}
 	
@@ -407,17 +413,19 @@ sub parseStatXML_REGEX
 	($result{StatMetadata}{Name}) = $line =~ /<Statistics.*Name="(.*?)"/;
 	($result{StatMetadata}{NumOutputs}) = $line =~ /<Statistics.*NumOutputs="(.*?)"/;
 	($result{StatMetadata}{Outputs}) = $line =~ /<Statistics.*Outputs="(.*?)"/;
-	$log->DEB("Loxone::Import->getMonthStat $result{StatMetadata}{Name} ($result{StatMetadata}{Outputs}) / $result{StatMetadata}{NumOutputs}");
+	$log->DEB("$me Name:$result{StatMetadata}{Name} Outputs:($result{StatMetadata}{Outputs}) NumOutputs:$result{StatMetadata}{NumOutputs}");
 	my $NumOutputs = $result{StatMetadata}{NumOutputs};
 
 	# Loop further lines (line 3+)
 	
 	my @timedata;
+	my $bulkcount=0;
 	foreach $line ( @xml ) {
 		my %data;
-		
 		my ($data_time) = $line =~ /<S.*T="(.*?)"/;
 		next if (!$data_time);
+		$bulkcount++;
+		$log->DEB("$me Readed $bulkcount records") if( $bulkcount%2000 == 0 );
 		# print STDERR "data_time: $data_time\n";
 		$data_time = createDateTime($data_time); 
 		$data{T} =  $data_time->epoch;
@@ -435,7 +443,7 @@ sub parseStatXML_REGEX
 	
 	$result{values} = \@timedata;
 	
-	$log->DEB("Loxone::Import->getMonthStat: Timestamp count found " . scalar @timedata);
+	$log->DEB("$me Timestamp count found " . scalar @timedata);
 	
 	return \%result;
 	
@@ -444,15 +452,16 @@ sub parseStatXML_REGEX
 
 sub getLoxoneLabels {
 	my $self = shift;
+	my $me = Globals::whoami();
 	my $log = $self->{log};
 	my $msno = $self->{msno};
 	my $uuid = $self->{uuid};
 	
-	$log->INF("Querying MS$msno to get output labels");
+	$log->INF("$me Querying MS$msno to get output labels");
 	my ($code, $data) = Stats4Lox::msget_value( $msno, $uuid );
 	
 	if( $code ne "200" ) {
-		$log->ERR("Could not get live response of block for labels");
+		$log->ERR("$me Could not get live response of block for labels");
 		return;
 	}
 
@@ -464,6 +473,7 @@ sub getLoxoneLabels {
 sub setMappings {
 
 	my $self = shift;
+	my $me = Globals::whoami();
 	my $log = $self->{log};
 	my $statobj = $self->{statobj};
 	my %lxlabels = map { $_->{Key} => $_->{Name} } @{$self->{LoxoneLabels}};
@@ -473,10 +483,10 @@ sub setMappings {
 	
 	
 	
-	$log->DEB("Loxone::Import->setMappings: Called");
+	$log->DEB("$me Called");
 	my $type = $statobj->{type};
 	my $type_uc = uc($type);
-	$log->DEB("Loxone::Import->setMappings: Stat element type is $type");
+	$log->DEB("$me Stat element type is $type");
 	
 	# Default mappings for known types
 	
@@ -509,7 +519,7 @@ sub setMappings {
 	foreach my $mapping ( @filtered_mappings ) {
 		push @printmappings, "«$mapping->{statpos}»→«$mapping->{lxlabel}»";
 	}
-	$log->INF("Loxone::Import->setMappings: Used mapping is: " . join(" ", @printmappings));
+	$log->INF("$me Used mapping is: " . join(" ", @printmappings));
 		
 	$self->{mapping} = \@filtered_mappings;
 	
@@ -518,13 +528,14 @@ sub setMappings {
 sub submitData
 {
 	my $self = shift;
+	my $me = Globals::whoami();
 	my $log = $self->{log};
 	my $statobj = $self->{statobj};
 	my $mappings = $self->{mapping};
 	
 	my ($data) = @_;
 	
-	$log->DEB("Loxone::Import->submitData: Called");
+	$log->DEB("$me Called");
 	
 	my @bulkdata;
 	my $bulkcount = 0;
@@ -562,12 +573,12 @@ sub submitData
 		$bulkcount++;
 		$fullcount++;
 		
-		$log->DEB("Loxone::Import->submitData: Prepared $bulkcount records") if( $bulkcount%500 == 0 );
+		$log->DEB("$me Prepared $bulkcount records") if( $bulkcount%2000 == 0 );
 		
 		if( $bulkcount >= $bulkmax ) {
 			
 			# Bulk is full - transmit
-			$log->DEB("Loxone::Import->submitData: Transmitting $bulkcount records");
+			$log->DEB("$me Transmitting $bulkcount records");
 			eval {
 				Stats4Lox::lox2telegraf( \@bulkdata, undef );
 			};
@@ -580,7 +591,7 @@ sub submitData
 
 	# Finally, submit the rest of the bulk
 	if( @bulkdata ) {
-		$log->DEB("Loxone::Import->submitData: Transmitting $bulkcount records");
+		$log->DEB("$me Transmitting $bulkcount records");
 		eval {
 			Stats4Lox::lox2telegraf( \@bulkdata, undef );
 		};
@@ -598,6 +609,7 @@ sub submitData
 sub createDateTime
 {
 	my ($timestr) = @_;
+	my $me = Globals::whoami();
 	
 	if( $timestr =~ /(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/ ) {
 		my $ye = $1;
@@ -624,20 +636,21 @@ sub createDateTime
 sub statusgetfile {
 	
 	my %p = @_;
+	my $me = Globals::whoami();
 	my $log = $p{log};
 	my $msno = $p{msno};
 	my $uuid = $p{uuid};
 	
 	
 	# Creating state json
-	$log->DEB("Loxone::Import->new: Creating status file");
+	$log->DEB("$me Creating status file");
 	`mkdir -p $Globals::importstatusdir`;
 
 	my $statusfilename = $Globals::importstatusdir."/import_${msno}_${uuid}.json";
 	
 	$main::statusobj = new LoxBerry::JSON;
 	$main::status = $main::statusobj->open( filename => $statusfilename, writeonclose => 1 );
-	$log->INF("Status file: " . $main::statusobj->filename());
+	$log->INF("$me Status file: " . $main::statusobj->filename());
 	
 	# Lock status file
 	open($main::statusfh, ">>", $statusfilename);
@@ -646,6 +659,7 @@ sub statusgetfile {
 
 sub statuslock {
     my ($fh) = @_;
+	my $me = Globals::whoami();
     # flock($fh, 2) or die "Cannot lock - $!\n";
 }
 
@@ -653,6 +667,7 @@ sub statuslock {
 sub supdate {
 
 	my ($data) = @_;
+	my $me = Globals::whoami();
 	
 	foreach( keys %{$data} ) {
 		$main::status->{$_} = $data->{$_};
@@ -664,8 +679,9 @@ sub supdate {
 
 sub lockMiniserver {
 	my $msno = shift;
+	my $me = Globals::whoami();
 	my $mslockfile = $Globals::s4ltmp."/miniserver_${msno}_download.lock";
-	open my $fh, '>', $mslockfile or die "CRITICAL Could not open LOCK file $mslockfile: $!";
+	open my $fh, '>', $mslockfile or die "$me CRITICAL Could not open LOCK file $mslockfile: $!";
 	flock $fh, 2;
 	return $fh;
 }
@@ -673,9 +689,10 @@ sub lockMiniserver {
 sub DESTROY {
 
 		my $self = shift;
+		my $me = Globals::whoami();
 		my $log = $self->{log};
 	
-		$log->DEB("Loxone::Import->END: Called");
+		$log->DEB("$me: Called");
 		
 }
 #####################################################

@@ -10,6 +10,7 @@ our @EXPORT = qw (
 	$loxplanjsondir
 	$statsconfig
 	$influx_bulk_blocksize
+	whoami
 );
 
 # RAMDISK temporary directory
@@ -412,6 +413,12 @@ XOR
 YEAR
 /;
 
+# Returns the name of the current sub (for logfile)
+# e.g. my $me = whoami();
+# print "$me Starting import"; returns "Loxone::Import::new--> Starting import"
+sub whoami { 
+	return ( caller(1))[3] . '-->';
+}
 
 
 

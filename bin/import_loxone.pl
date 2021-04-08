@@ -9,7 +9,10 @@ use Time::HiRes qw(time);
 use FindBin qw($Bin);
 use lib "$Bin/libs";
 use Loxone::Import;
+use Globals;
 require "$lbpbindir/libs/Stats4Lox.pm";
+
+my $me = Globals::whoami();
 
 my $log = LoxBerry::Log->new (
     name => 'Import_Stats',
@@ -35,11 +38,11 @@ our $statusfh;
 
 # Validations
 if( !defined $msno ) {
-	LOGCRIT "msno parameter missing";
+	LOGCRIT "$me msno parameter missing";
 	exit(1);
 }
 if( !defined $uuid ) {
-	LOGCRIT "uuid parameter missing";
+	LOGCRIT "$me uuid parameter missing";
 	exit(1);
 }
 
@@ -47,10 +50,10 @@ LOGTITLE "Import MS$msno / $uuid";
 
 # Lock file
 my $lockfile = "/var/lock/import_${msno}_${uuid}.lock";
-open my $lockfilefh, '>', $lockfile or die "CRITICAL Could not open LOCK file $lockfile: $!";
+open my $lockfilefh, '>', $lockfile or die "$me CRITICAL Could not open LOCK file $lockfile: $!";
 my $lock_success = flock $lockfilefh, 2+4; #LOCK_EX+LOCK_NB
 if( !$lock_success) {
-	LOGCRIT "CRITICAL Lockfile is already locked - another instance running.";
+	LOGCRIT "$me CRITICAL Lockfile is already locked - another instance running.";
 	exit(2);
 }
 print $lockfilefh $$;
@@ -60,14 +63,14 @@ eval {
 	Loxone::Import::statusgetfile( msno=>$msno, uuid=>$uuid, log=>$log );
 };
 if( $@ ) {
-	my $error = "statusgetfile: Cannot lock status file - already locked --> $@";
+	my $error = "$me statusgetfile: Cannot lock status file - already locked --> $@";
 	LOGCRIT $error;
 	exit(3);
 }
 
 my %miniservers = LoxBerry::System::get_miniservers();
 if( !defined $miniservers{$msno} ) {
-	my $error = "get_miniservers: Miniserver no. $msno not defined on your LoxBerry.";
+	my $error = "$me get_miniservers: Miniserver no. $msno not defined on your LoxBerry.";
 	LOGCRIT $error;
 	supdate( {
 		status => "error",
@@ -79,7 +82,7 @@ if( !defined $miniservers{$msno} ) {
 	exit(1);
 }
 
-LOGINF "Logfile: $log->{filename}";
+LOGINF "$me Logfile: $log->{filename}";
 
 # Initial status file update
 supdate( { 
@@ -100,7 +103,7 @@ eval {
 	$import = new Loxone::Import(msno => $msno, uuid=> $uuid, log => $log);
 };
 if( $@ ) {
-	my $error = "new Import: Error --> $@";
+	my $error = "$me new Import: Error --> $@";
 	LOGCRIT $error;
 	supdate( { 
 		name => $import->{statobj}->{name},
@@ -114,10 +117,10 @@ supdate( { name => $import->{statobj}->{name} } );
 my @statmonths;
 eval {
 	@statmonths = $import->getStatlist();
-	LOGDEB "Statlist $#statmonths elements.";
+	LOGDEB "$me Statlist $#statmonths elements.";
 };
 if( $@ or !$#statmonths ) {
-	my $error = "getStatList: Could not get Statistics list from Loxone Miniserver MS$msno --> $@";
+	my $error = "$me getStatList: Could not get Statistics list from Loxone Miniserver MS$msno --> $@";
 	LOGCRIT $error;
 	supdate( { 
 		name => $import->{statobj}->{name},
@@ -137,13 +140,13 @@ foreach my $yearmonth ( @statmonths ) {
 	supdate( { current => $yearmonth } );
 	my $starttime = Time::HiRes::time();
 	
-	LOGINF "Fetching $import->{uuid} Month: $yearmonth";
+	LOGINF "$me Fetching $import->{uuid} Month: $yearmonth";
 	my $monthdata;
 	eval {
 		$monthdata = $import->getMonthStat( yearmon => $yearmonth );
 	};
 	if( $@ ) {
-		my $error = "getMonthStat $yearmonth: $@";
+		my $error = "$me getMonthStat $yearmonth: $@";
 		LOGCRIT $error;
 		supdate( { 
 			status => "error",
@@ -153,17 +156,17 @@ foreach my $yearmonth ( @statmonths ) {
 	}
 	# print STDERR Data::Dumper::Dumper( $monthdata ) . "\n";
 	if ( !$monthdata ) {
-		LOGWARN "getMonthStat $yearmonth: No data to send. Skipping";
+		LOGWARN "$me getMonthStat $yearmonth: No data to send. Skipping";
 		next;
 	}
-	LOGINF "   Datasets " . scalar @{$monthdata->{values}};
+	LOGINF "$me   Datasets " . scalar @{$monthdata->{values}};
 	
 	my $fullcount;
 	eval {
 		$fullcount = $import->submitData( $monthdata );
 	};
 	if( $@ ) {
-		my $error = "submitData $yearmonth: $@";
+		my $error = "$me submitData $yearmonth: $@";
 		LOGCRIT $error;
 		supdate( { 
 			status => "error",
@@ -217,16 +220,17 @@ foreach my $yearmonth ( @statmonths ) {
 	
 }
 
-LOGOK "All month finished.";
+LOGOK "$me All month finished.";
 supdate( { status=>"finished" });
 
 exit(0);
 
 sub END {
+	my $me = Globals::whoami();
 	if( $statusobj ) {
 		if ( $status->{status} ne "finished" ) {
 			supdate( { status => "error" } );
-			LOGCRIT "Import exited with error.";
+			LOGCRIT "$me Import exited with error.";
 		}
 		supdate( { 
 			endtime => time(), 
