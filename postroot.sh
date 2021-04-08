@@ -181,9 +181,10 @@ else
 fi
 
 # Enlarge UDP/IP receive buffer limit for import
-echo "<INFO> Enlarge UDP/IP receive buffer limit..."
+echo "<INFO> Enlarge UDP/IP and Unix receive buffer limit..."
 sysctl -w net.core.rmem_max=8388608
 sysctl -w net.core.rmem_default=8388608
+sysctl -w net.unix.max_dgram_qlen=10000
 ln -s $PCONFIG/sysctl.conf /etc/sysctl.d/96-stats4lox.conf
 
 
