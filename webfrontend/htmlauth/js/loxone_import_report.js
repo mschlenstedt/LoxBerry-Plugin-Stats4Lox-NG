@@ -214,6 +214,7 @@ function updateReportTables(data) {
 					${records}
 				</td>
 				<td>
+					<a href="#" class="ui-btn ui-btn-inline ui-mini rescheduleImportButton">Re-Import</a> 
 					${logbutton_html} ${deletebutton_html}
 				</td>
 			</tr>
@@ -293,6 +294,7 @@ function updateReportTables(data) {
 					${current}
 				</td>
 				<td>
+					<a href="#" class="ui-btn ui-btn-inline ui-mini rescheduleImportButton">Retry Import</a> 
 					${logbutton_html} ${deletebutton_html}
 				</td>
 			</tr>
