@@ -269,11 +269,13 @@ sub updateDeadStatus
 		my $msno = $filelist{$file}{msno};
 		my $uuid = $filelist{$file}{uuid};
 		
-		if( (time()-$filelist{$file}{status}->{statustime}) > $Globals::import_time_to_dead_minutes*60 ) {
+		my $statustimedelta = time()-$filelist{$file}{status}->{statustime};
+		
+		if( $statustimedelta > $Globals::import_time_to_dead_minutes*60 ) {
 			print STDERR "$uuid Is dead because of statustime\n";
 			$is_dead = 1;
 		}
-		elsif( !isImportLocked( $msno, $uuid ) ) {
+		elsif( $statustimedelta > 120 && !isImportLocked( $msno, $uuid ) ) {
 			print STDERR "$uuid Is dead because not locked\n";
 			$is_dead = 1;
 		}

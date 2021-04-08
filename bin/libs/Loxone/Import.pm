@@ -234,11 +234,12 @@ sub getMonthStat {
 	my $url = "/stats/$uuid.$yearmon.xml";
 	
 	
-	my $retrycount = 3;
+	my $retrycount = 5;
 	my $retries = 0;
 	my ($respxml, $status);
+	my $timedata;
 	
-	while ( $retries < $retrycount ) {
+	while ( $retries <= $retrycount ) {
 		$retries++;
 	
 		$log->DEB("Loxone::Import->getMonthStat: Acquiring download lock for Miniserver $msno");
@@ -250,21 +251,53 @@ sub getMonthStat {
 		($respxml, $status) = LoxBerry::IO::mshttp_call2($msno, $url, ( timeout => ($http_timeout*$retries) ) );
 		close $mslockfh;
 		
-		if($respxml) {		
+		my $msg = "Loxone::Import->getMonthStat: HTTP $status->{status}";
+		if( $status->{code} == 200 ) {
+			$log->OK($msg);
+		}
+		elsif ( $status->{code} == 404 ) {
+			$log->WARN($msg);
+		}
+		elsif ( $status->{code} == 500 ) {
+			$log->ERR($msg);
+		}
+		else {
+			$log->ERR($msg);
+		}
+		
+		if($respxml) {
+			eval{
+				$timedata = $self->parseStatXML_REGEX( yearmon=>$yearmon, xml=>\$respxml );
+			};
+			if( $@ ) {
+				my $exception = $@;
+				if( $retries >= $retrycount ) {
+					die $exception;
+				}
+				$log->WARN("Loxone::Import->getMonthStat: Download possibly corrupt --> $exception");
+			}
+			else {
+				last;
+			}
+		}
+		
+		if( $status->{code} == 404 and $retries >= $retrycount ) {
+			$log->WARN("Loxone::Import->getMonthStat: ERROR This file really seems to not exist. Skipping this month");
 			last;
 		}
 		
-		$log->WARN("Loxone::Import->getMonthStat: ERROR No response from MS$msno ($url)");
-		$log->WARN("Loxone::Import->getMonthStat: Sleeping a bit...");
-		sleep(3);
+		my $sleep = 5*$retries*$retries;
+		$log->WARN("Loxone::Import->getMonthStat: Sleeping $sleep seconds before retry...");
+		sleep($sleep);
 	}
 	
-	if( !$respxml ) {
-		log->ERR("Loxone::Import->getMonthStat: Could not get data from MS$msno / $yearmon");
-		return;
+	if( !$respxml and $status->{code} != 404 ) {
+		my $errormsg = "Loxone::Import->getMonthStat: Could not get data from MS $msno / $yearmon";
+		$log->ERR($errormsg);
+		die $errormsg;
 	}
 	
-	$self->parseStatXML_REGEX( yearmon=>$yearmon, xml=>\$respxml );
+	return $timedata;
 	
 
 }

@@ -18,6 +18,12 @@ let hints_hide = {};
 let filterSearchDelay;
 var filterSearchString = "";
 
+let timer = false;
+let timer_interval = 7000;
+let getImportSchedulerReport_running = false;
+
+let imports = [];
+
 $(function() {
 	
 	// debugger;
@@ -48,6 +54,7 @@ $(function() {
 		// After changing the filter, recreate the table
 		saveFilters();
 		updateTable();
+		updateReportTables(data);
 	});
 	
 	// Create S4L Stat change bindings (Detail View)
@@ -151,6 +158,7 @@ $(function() {
 			// We should have found the element in the table
 			
 			updateTable();
+			updateReportTables(data);
 			
 		});
 	});
@@ -163,7 +171,7 @@ $(function() {
 		filters["filter_search"] = filterSearchString;
 		saveFilters();
 		// console.log("Text filter", filterSearchString);
-		filterSearchDelay = window.setTimeout(function() { updateTable(); }, 500);
+		filterSearchDelay = window.setTimeout(function() { updateTable(); updateReportTables(data); }, 500);
 	});
 	$("#filter_search").on( "change", function(event, ui){
 		if( $(event.target).val() == "" ) {
@@ -172,6 +180,7 @@ $(function() {
 			filters["filter_search"] = filterSearchString;
 			saveFilters();
 			updateTable();
+			updateReportTables(data);
 		}
 	});
 
@@ -190,7 +199,6 @@ $(function() {
 		msno = $(target).data("msno");
 		scheduleImport(msno, uid);
 	});
-	
 	
 });
 
@@ -232,6 +240,9 @@ function getLoxplan() {
 		updateTable();
 		$("#popupProgress").popup("close");
 		$("#progressState").html("");
+		setTimer();
+		getImportSchedulerReport();
+		
 		
 	});
 }
@@ -365,8 +376,8 @@ function createTableHead() {
 		<th>MS</th>
 		<th>Name (Type)</th>
 		<th>Location</th>
-		<th>Infos</th>
 		<th>Statistics</th>
+		<th>Import</th>
 	</tr>
 	`;
 	
@@ -456,20 +467,8 @@ function createTableBody() {
 			<br>${element.Category}
 			</td>`;
 		
-		// Info section
-		controlstable += `<td>
-		<a href="#" class="ui-btn ui-icon-eye ui-btn-icon-notext ui-corner-all btnLoxoneDetails"></a>
-		
-		<span class="small">
-		DEBUGGING:<br>
-		Type ${element.Type}<br>
-		${element.UID}<br>
-		Page ${element.Page}
-		</span>
-		</td>`;
-		
 		// Statistics
-		controlstable += `<td class="center">`;
+		controlstable += `<td class="center" style="min-width:150px">`;
 		var checkedImg = `<img src="images/checkbox_checked_20.png">`;
 		var uncheckedImg = `<img src="images/checkbox_unchecked_20.png">`;
 		var statDisplay;
@@ -484,28 +483,29 @@ function createTableBody() {
 			// controlstable += "Not enabled";
 		}
 
-		controlstable += `
-			<div class="statdata" id="statskey-${statmatchkey}" style="${statDisplay}">`;
+		controlstable += `<div class="statdata" id="statskey-${statmatchkey}" style="${statDisplay}">`;
 			// controlstable += "Statistics enabled";
 			
-			controlstable += checkedImg;
-			controlstable += `&nbsp;<span name="s4l_interval">${s4l_interval}</span> minutes`;
-		
-
-
+		controlstable += checkedImg;
+		controlstable += `&nbsp;<span name="s4l_interval">${s4l_interval}</span> minutes`;
 		controlstable += `</div>`;
 		
-		// controlstable += `
-			 
-			// <label for="s4l_interval" data-mini="true">Interval (minutes)</label>
-			// <div class="ui-input-text ui-body-inherit ui-corner-all ui-shadow-inset ui-input-has-clear ${highlightclass}">
-				// <input type="number" data-clear-btn="true" name="s4l_interval" pattern="[0-9]*" value="${s4l_interval}" class="s4lchange" min="0" max="9999">
-				// <a href="#" tabindex="-1" aria-hidden="true" class="ui-input-clear ui-btn ui-icon-delete ui-btn-icon-notext ui-corner-all ui-input-clear-hidden" title="Clear text">Clear text</a>
-			// </div>`;
-		
-		
-		
 		controlstable += `</td>`;
+
+		// Import section
+		controlstable += `
+		<td class="importInfo" style="min-width:100px">
+		
+		
+		</td>`;
+
+		// Button section
+		controlstable += `
+			<td>
+			<a href="#" class="ui-btn ui-icon-eye ui-corner-all ui-mini ui-btn-inline btnLoxoneDetails">Settings</a>
+			</td>`;
+		
+		
 		
 		// End of row
 		
@@ -527,6 +527,8 @@ function popupLoxoneDetails( uid, msno ) {
 	// Set data properties to tables
 	$(".data-uidmsno").data("uid", control.UID).data("msno", control.msno);
 	$("#LoxoneDetails_s4lstatimportbutton").data("uid", control.UID).data("msno", control.msno);
+	
+	updateReportTables();
 	
 	// Fill popup title 
 	$("#LoxoneDetails_titletitle").text(control.Title);
@@ -598,8 +600,16 @@ function popupLoxoneDetails( uid, msno ) {
 	
 	// Import now button
 	if( statmatch ) {
-		$("#LoxoneDetails_s4lstatimportbutton")
+		var importobj = imports.find(obj => {
+		return obj.data?.msno == msno && obj.data?.uuid == uid && obj.data?.status?.status == "running" })
+		if( importobj ) {
+			$("#LoxoneDetails_s4lstatimportbutton")
+			.addClass("ui-disabled");
+		}
+		else {
+			$("#LoxoneDetails_s4lstatimportbutton")
 			.removeClass("ui-disabled");
+		}
 	}
 	else {
 		$("#LoxoneDetails_s4lstatimportbutton")
@@ -760,12 +770,14 @@ function restoreFilters() {
 			}
 			else if( key == "filter_search" ) {
 				$(`#${key}`).val( value );
+				filterSearchString = value;
 			}
 		}
 	} catch(e) {
 		console.log("restoreFilters Exception catched (filters possibly empty)");
 		filters = { };
 	}
+	
 }
 
 function scheduleImport( msno, uid ) {
@@ -774,6 +786,8 @@ function scheduleImport( msno, uid ) {
 		return obj.uuid === uid && obj.msno == msno })
 	console.log("scheduleImport", msno, uid, control );
 	if( control ) {
+		$("#LoxoneDetails_s4lstatimportbutton")
+			.addClass("ui-disabled");
 		// Element found in internal data
 		$.post( "ajax.cgi", { 
 			action : "scheduleimport",
@@ -789,14 +803,142 @@ function scheduleImport( msno, uid ) {
 		})
 		.done(function(data){
 			console.log(data);
+		})
+		.always(function(data){
+			getImportSchedulerReport();
 		});
 	
 	} 
 	else {
 		throw `scheduleImport: ${msno} and ${uid} not found in internal list`;
 	}
+}
+
+function getImportSchedulerReport() {
+	if( !timer ) {
+		return;
+	}
+	if( getImportSchedulerReport_running == true ) {
+		return;
+	}
+	getImportSchedulerReport_running = true;
+	$.post( "ajax.cgi", { 
+			action : "import_scheduler_report",  
+	})
+	.done(function(data){
+		// console.log("import_scheduler_report done", data);
+		imports = Object.keys(data.filelist)
+		.map(key => ({file: key, data: data.filelist[key]}));
+	
+		updateReportTables(data);
+	})
+	.fail(function(data){
+		console.log("import_scheduler_report fail", data);
+	})
+	.always(function(data){
+		getImportSchedulerReport_running = false;
+	});
+	
+}
+
+function updateReportTables(data) {
+	
+	// Get IDs for Detail View Import status
+	var detail_msno = $(".LoxoneDetails_table").data("msno");
+	var detail_uuid = $(".LoxoneDetails_table").data("uid");
+	$("#LoxoneDetails_importstatus").empty();
+	
+	// List view generation
+	for( imp of imports ) { 
+		var data = imp.data;
+		var status = imp.data?.status;
+		var state = data.status?.status;
+		
+		var msno = data.msno;
+		var uuid = data.uuid;
+		console.log("updateReportTables", msno, uuid, state, status);
+		
+		// Find 
+		var target_tr = $(`tr[data-uid=${uuid}][data-msno=${msno}]`);
+		
+		
+		var target = target_tr.find('.importInfo');
+		// console.log("target", target);
+		// $(target).html("<b>Found!</b>");
+
+		var endtime_dt = new Date(Math.round(status?.endtime*1000));
+		var endtime = endtime_dt.toLocaleString();
+		
+		var finished_percent;
+		var estimatedTimeLeft_min;
+		var progress_html;
+		
+		var html = "";
+		
+		switch(state) {
+			case "running": 
+				finished_percent = Math.round (status?.stats?.record_count_finished / (status?.stats?.record_count_finished + status?.stats?.estimate_records_left) * 100 );
+				finished_percent = !isNaN(finished_percent) ? finished_percent : 0;
+				
+				estimatedTimeLeft_min = status?.stats?.estimate_time_left_secs ? "("+Math.ceil((status?.stats?.estimate_time_left_secs/60)).toString()+" min. left)" : "Calculating...";
+		
+				progress_html = `
+				<div class="progress-border">
+					<div class="progress-fill" style="height:19px;width:${finished_percent}%">${finished_percent}%</div>
+				</div>
+				<span class="small grayed">${estimatedTimeLeft_min}</span>`;
+				
+				html+= progress_html;
+				break;
+			case "finished":
+				html+= `<img src="images/checkbox_checked_20.png"> <span class="small grayed">Finished ${endtime}</span>`;
+				break;
+				
+			case "error":
+			case "dead":
+				html+= `
+					<img src="images/checkbox_alert_20.png"> <span class="small grayed">Finished with error ${endtime}</span>`;
+				break;
+			case "scheduled":
+				html+= `<img src="images/checkbox_scheduled_20.png"> <span class="small grayed">Queued</span>`;
+				break;
+		}
+		
+		// Update Detail View Import status
+		if( detail_msno == msno && detail_uuid == uuid ) {
+			$("#LoxoneDetails_importstatus").html(html);
+		}
+		
+		$(target).html(html);
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+	}
+	
+	
+}
 
 
+
+
+function clearTimer() {
+	console.log("Timer cleared");
+	window.clearInterval(timer);
+	timer = false;
+}
+
+function setTimer() {
+	console.log("Timer set");
+	timer = window.setInterval(getImportSchedulerReport, timer_interval);
 }
 
 function restore_hints_hide() {
@@ -818,6 +960,7 @@ function hint_hide(hintid) {
 	$("#"+hintid).fadeOut();
 	localStorage.setItem("s4l_loxone_hints_hide", JSON.stringify(hints_hide)); 
 }
+
 
 // Sort function for arrays of objects
 // https://stackoverflow.com/a/4760279/3466839

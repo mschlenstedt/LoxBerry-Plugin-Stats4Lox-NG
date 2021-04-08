@@ -152,6 +152,10 @@ foreach my $yearmonth ( @statmonths ) {
 		exit(5);
 	}
 	# print STDERR Data::Dumper::Dumper( $monthdata ) . "\n";
+	if ( !$monthdata ) {
+		LOGWARN "getMonthStat $yearmonth: No data to send. Skipping";
+		next;
+	}
 	LOGINF "   Datasets " . scalar @{$monthdata->{values}};
 	
 	my $fullcount;
