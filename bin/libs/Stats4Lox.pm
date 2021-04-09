@@ -261,7 +261,7 @@ sub lox2telegraf
 	#	@outputs = @{$results->{outputs}};
 	#}
 
-	print STDERR "Send Queue:\n" . Data::Dumper::Dumper \@queue if $DUMP;
+	print STDERR "Send Queue:\n" . Data::Dumper::Dumper(\@queue) if $DUMP;
 	print STDERR "Elements in queue: " . scalar @queue . "\n";
 	
 	# If no send
