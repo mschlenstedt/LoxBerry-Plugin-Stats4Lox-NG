@@ -542,18 +542,25 @@ sub submitData
 	my $bulkmax = $Globals::influx_bulk_blocksize;
 	my $fullcount = 0;
 	
+	my $measurementname = $statobj->{measurementname};
+	if( !defined $measurementname or $measurementname eq "" ) {
+		$measurementname = defined $statobj->{description} and $statobj->{description} ne "" ? $statobj->{description} : $statobj->{name};
+	}
+	
 	# Loop all timestamps
 	foreach my $record ( @{$data->{values}} ) {
 		
 		my %influxrecord = (
-				timestamp => $record->{T}*1000*1000*1000,		# Epoch Nanoseconds
+				timestamp => $record->{T}*1000000000,		# Epoch Nanoseconds
 				msno => $statobj->{msno},					# Miniserver No. in LoxBerry
 				uuid => $statobj->{uuid},					# Loxone UUID
 				name => $statobj->{name},					# Loxone Name of the block
-				description => $statobj->{description},
+				description => $statobj->{description},		# Loxone Description (shown in Loxone visu)
 				category => $statobj->{category},			# Loxone Category name
 				room => $statobj->{room},					# Loxone Room name
 				type => $statobj->{type},					# Loxone Type of control
+				measurementname => $measurementname,		# User-defined name of the measurement, default is name
+				source => 'import',							# Tag that this data was imported
 			);
 		# Values of a timestamp are distributed according to the mapping
 		# so we walk through the mapping to get the correct values
