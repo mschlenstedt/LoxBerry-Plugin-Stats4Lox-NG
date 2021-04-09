@@ -7,7 +7,7 @@
    },
    "telegraf": {
       "udpsocket": "8085",
-      "unixsocket": "/tmp/telegraf.sock"
+      "unixsocket": "/run/telegraf.sock"
    },
    "loxone": {
       "measurement" : "stats_loxone",
