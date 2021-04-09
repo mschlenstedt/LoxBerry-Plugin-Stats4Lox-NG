@@ -274,7 +274,7 @@ sub lox2telegraf
 	my $tryudp = 0;
 	my $client;
 	my $telegraf_udp_socket = "8094";
-	my $telegraf_unix_socket = "/tmp/telegraf.sock";
+	my $telegraf_unix_socket = "/run/telegraf.sock";
 	
 	my $sockstr; 
 	
