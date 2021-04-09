@@ -54,7 +54,7 @@ $(function() {
 		// After changing the filter, recreate the table
 		saveFilters();
 		updateTable();
-		updateReportTables(data);
+		updateReportTables();
 	});
 	
 	// Create S4L Stat change bindings (Detail View)
@@ -69,6 +69,16 @@ $(function() {
 		var control = controls.find( obj => { return obj.UID === uid && obj.msno == msno })
 		
 		// Validations and changes of dependent inputs 
+		
+		if( target.id == "LoxoneDetails_s4lmeasurementname" ) {
+			// s4lmeasurementname MUST be defined
+			var measurementname = $("#LoxoneDetails_s4lmeasurementname").val().trim();
+			if( ( measurementname ) == "" ) {
+				// Fill the value with description or name
+				measurementname = control.Desc ? control.Desc : control.Title;
+			}
+			$("#LoxoneDetails_s4lmeasurementname").val( measurementname ).textinput("refresh");
+		}
 		
 		if( target.id == "LoxoneDetails_s4lstatactive" ) {
 			// Stats active checkbox was pressed
@@ -108,12 +118,15 @@ $(function() {
 		// Now collect latest data of inputs 
 		
 		var stat_active = $("#LoxoneDetails_s4lstatactive").is(":checked") ? "true" : "false";
+		var measurementname = $("#LoxoneDetails_s4lmeasurementname").val();
 		var stat_interval = parseInt($("#LoxoneDetails_s4lstatinterval").val()) * 60;
 		// Collect checkboxes
 		var stat_outputs = [];
 		$('[name="LoxoneDetails_s4loutput"]:checked').each(function(){
 			stat_outputs.push($(this).val());
 		});
+		var output_labels = [];
+		
 		
 		console.log("stat details data to send", control, stat_active, stat_interval, stat_outputs);
 
@@ -129,8 +142,10 @@ $(function() {
 			category : control.Category,
 			room: control.Place,
 			active: stat_active,
+			measurementname: measurementname,
 			interval: stat_interval,
 			outputs : stat_outputs.join(','),
+			outputlabels : control.outputlabels ? control.outputlabels.toString() : "",
 			minval : control.MinVal,
 			maxval : control.MaxVal,
 			unit : control.Unit
@@ -591,6 +606,14 @@ function popupLoxoneDetails( uid, msno ) {
 			//.removeClass("s4l_interval_highlight")
 			.textinput( "refresh" );
 	}
+	
+	if( statmatch?.measurementname ) {
+		$("#LoxoneDetails_s4lmeasurementname").val(statmatch?.measurementname);
+	}
+	else {
+		$("#LoxoneDetails_s4lmeasurementname").val( control.Desc ? control.Desc : control.Title );
+	}
+	
 	if( statmatch?.interval ) {
 		$("#LoxoneDetails_s4lstatinterval").val(statmatch?.interval / 60);
 	}
@@ -668,6 +691,7 @@ function popupLoxoneDetails( uid, msno ) {
 			// All elements now have added metadara in the array, now we loop the array again
 			
 			var LoxOutputs = data.response;
+			control.outputlabels = LoxOutputs.map( a => a.Name );
 			for( var key in LoxOutputs ) {
 				var dataStr = `
 					<tr>

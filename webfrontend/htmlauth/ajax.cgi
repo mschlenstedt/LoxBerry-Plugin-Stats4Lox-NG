@@ -97,6 +97,21 @@ if( $q->{action} eq "updatestat" ) {
 		@outputs = ();
 	}
 	
+	my @outputlabels;
+	if( $q->{outputlabels} ne "" ) {
+		@outputlabels = split(",", $q->{outputlabels});
+	} 
+	
+	my $measurementname = $q->{measurementname};
+	if( !$measurementname ) {
+		if( defined $element->{measurementname} and $element->{measurementname} ne "" ) {
+			$measurementname = $element->{measurementname};
+		}
+		else {
+			$measurementname = $q->{description} ne "" ? $q->{description} : $q->{name};
+		}
+	}
+	
 	my %updatedelement = (
 		name => $q->{name},
 		description => $q->{description},
@@ -107,9 +122,11 @@ if( $q->{action} eq "updatestat" ) {
 		interval => int($q->{interval}) ne "NaN" ? $q->{interval} : 0,
 		active => defined $q->{active} ? $q->{active} : "false",
 		msno => $q->{msno},
+		measurementname => $measurementname,
 		outputs => \@outputs,
 		# url => $q->{uuid}
 	);
+	$updatedelement{outputlabels} = \@outputlabels if(@outputlabels);
 	
 	# Validation
 	my @errors;
