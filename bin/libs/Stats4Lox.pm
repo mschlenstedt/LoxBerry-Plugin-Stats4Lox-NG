@@ -312,7 +312,7 @@ sub lox2telegraf
 				}
 			}
 			$client->shutdown(SHUT_RDWR);
-			if ($tryudp = 0) {
+			if ($tryudp == 0) {
 				return (0, \@queue);
 			}
 		} else {

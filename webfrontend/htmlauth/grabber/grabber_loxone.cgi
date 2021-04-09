@@ -6,11 +6,11 @@ use LoxBerry::IO;
 use FindBin qw($Bin);
 use lib "$Bin/../../../../../bin/plugins/stats4lox-ng/libs";
 use Globals;
+use Stats4Lox;
 use strict;
 use warnings;
 #use Data::Dumper;
 
-require "$lbpbindir/libs/Stats4Lox.pm";
 #$Stats4Lox::DEBUG = 1;
 my $DEBUG = 0;
 
