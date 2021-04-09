@@ -78,6 +78,19 @@ fi
 echo "<INFO> Set permissions for user influxdb for database folders..."
 chmod -R 775 $PDATA/influxdb
 
+# Enlarge UDP/IP receive buffer limit for import
+echo "<INFO> Enlarge UDP/IP and Unix receive buffer limit..."
+sysctl -w net.core.rmem_max=8388608
+sysctl -w net.core.rmem_default=8388608
+sysctl -w net.unix.max_dgram_qlen=10000
+ln -s $PCONFIG/sysctl.conf /etc/sysctl.d/96-stats4lox.conf
+
+# Systemd DropIn Config
+echo "<INFO> Install Drop-In for Influx and Telegraf systemd services..."
+ln -s $PCONFIG/systemd/00-stats4lox.conf /etc/systemd/system/influxd.service.d/00-stats4lox.conf
+ln -s $PCONFIG/systemd/00-stats4lox.conf /etc/systemd/system/telegraf.service.d/00-stats4lox.conf
+systemctl daemon-reload
+
 # Activate InfluxDB service and start
 echo "<INFO> Starting InfluxDB..."
 systemctl unmask influxdb.service
@@ -93,10 +106,6 @@ if [ $? -gt 0 ]; then
 else
 	echo "<OK> InfluxDB service is running. Fine."
 fi
-
-# Show current config to log
-#echo "<INFO> Current configuration of InfluxDB is as follows:"
-#$INFLUXDBIN config
 
 # Check InfluxDB user. Create it if not exists
 RESP=`$INFLUXBIN -ssl -unsafeSsl -username $INFLUXDBUSER -password $INFLUXDBPASS -execute "SHOW USERS" | grep -e "^$INFLUXDBUSER\W*true$" | wc -l`
@@ -160,10 +169,6 @@ awk -v s="PASS_INFLUXDB=\"$INFLUXDBPASS\"" '/^PASS_INFLUXDB=/{$0=s;f=1} {a[++n]=
 chown loxberry:loxberry $PCONFIG/telegraf/telegraf.env
 chmod 640 $PCONFIG/telegraf/telegraf.env
 
-# MS Credentials to Telegraf Config
-#echo "<INFO> Integrate Miniserver Credentials to Telegraf configuration..."
-#$PBIN/mscred2telegraf.pl
-
 # Telegraf mit neuer Config starten
 echo "<INFO> Starting Telegraf..."
 systemctl unmask telegraf.service
@@ -179,13 +184,5 @@ if [ $? -gt 0 ]; then
 else
 	echo "<OK> Telegraf service is running. Fine."
 fi
-
-# Enlarge UDP/IP receive buffer limit for import
-echo "<INFO> Enlarge UDP/IP and Unix receive buffer limit..."
-sysctl -w net.core.rmem_max=8388608
-sysctl -w net.core.rmem_default=8388608
-sysctl -w net.unix.max_dgram_qlen=10000
-ln -s $PCONFIG/sysctl.conf /etc/sysctl.d/96-stats4lox.conf
-
 
 exit 0
