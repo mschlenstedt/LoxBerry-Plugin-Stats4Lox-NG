@@ -9,7 +9,7 @@ $stats_json = "$lbpconfigdir/stats.json";
 $data_transferfolder = "/dev/shm/s4ltmp";
 $data_transferfile = $data_transferfolder."/mqttlive_dataspool.json";
 $perlprocessor_filename = LBPBINDIR."/lox2telegraf.pl";
-$basetopic = 's4l/mqttlive/';
+$basetopic = 's4l/mqttlive';
  
 if(!file_exists($data_transferfolder) ){
 	mkdir( $data_transferfolder );
@@ -35,7 +35,7 @@ echo "Connected to MQTT broker ".$creds['brokerhost'].":".$creds['brokerport']."
 
 
 // Define and subscribe topic
-$topics['s4llive/#'] = array('qos' => 0, 'function' => 's4llive_mqttmsg');
+$topics["$basetopic/#"] = array('qos' => 0, 'function' => 's4llive_mqttmsg');
 $mqtt->subscribe($topics, 0);
 
 // Create record queue and ui data
@@ -97,7 +97,7 @@ function s4llive_mqttmsg ($topic, $msg){
 	$timestamp_nsec = sprintf('%.0f', $timestamp_epoch*1000000000);
 	echo "Msg Recieved: timestamp: $timestamp_nsec " . date('r') . "Topic: {$topic}\t$msg\n";
 	
-	$reltopic = substr( $topic, strlen( $basetopic ) );
+	$reltopic = substr( $topic, strlen($basetopic)+1 );
 	echo "Relative Topic $reltopic\n";
 	list( $msno, $uuid, $output ) = explode( "/", $reltopic );
 	echo "MS: $msno UUID: $uuid OUTPUT: $output\n";
