@@ -5,9 +5,11 @@ require_once "loxberry_io.php";
 require_once "phpMQTT/phpMQTT.php";
  
 // Global variables
+$stats_json = "$lbpconfigdir/stats.json";
 $data_transferfolder = "/dev/shm/s4ltmp";
 $data_transferfile = $data_transferfolder."/mqttlive_dataspool.json";
 $perlprocessor_filename = LBPBINDIR."/lox2telegraf.pl";
+$basetopic = 's4l/mqttlive/';
  
 if(!file_exists($data_transferfolder) ){
 	mkdir( $data_transferfolder );
@@ -17,9 +19,8 @@ if(!file_exists($data_transferfolder) ){
 $creds = mqtt_connectiondetails();
  
 // MQTT requires a unique client id
-$client_id = uniqid(gethostname()."_s4llive");
+$client_id = uniqid(gethostname()."_s4lmqttlive");
  
-$basetopic = 's4llive/';
  
 $mqtt = new Bluerhinos\phpMQTT($creds['brokerhost'],  $creds['brokerport'], $client_id);
 if( ! $mqtt->connect(true, NULL, $creds['brokeruser'], $creds['brokerpass'] ) ) {
@@ -52,7 +53,9 @@ $cpu_usage = getrusage()["ru_utime.tv_usec"];
 
 
 // Read stats.json
+$stats_json_mtime = 0;
 readStatsjson();
+
 // Initial push file-queued data to influx
 callPerlProcessor();
 // Initial write UI data
@@ -63,7 +66,6 @@ while($mqtt->proc()) {
 	if( microtime(true)>=$runtime_1secs+1 ) {
 		// Run tasks every second
 		tasks_1secs();
-		
 		$runtime_1secs=microtime(true);
 	}
 	
@@ -237,9 +239,9 @@ function LineProtCleanStringFieldValues( $line ) {
 
 function tasks_1secs() {
 	global $uidata_update;
-	
 	echo "tasks_1secs\n";
-	readStatsjson(); // (but possibly by inotify)
+	
+	readStatsjson(); 
 	outputLinequeue();
 	
 	if( $uidata_update ) {
@@ -271,25 +273,32 @@ function tasks_5mins() {
 
 function readStatsjson() {
 	global $stats;
-	$statscfg = json_decode( file_get_contents( LBPCONFIGDIR . "/stats.json" ) );
-	// Convert Loxone array to list of objects
-	$stats = new stdClass();
-	if( !$statscfg ) {
-		return;
-	}
+	global $stats_json;
+	global $stats_json_mtime;
 	
-	//	"loxone" is an unindexed array in stats.json.
-	//	To directly access the element, create an object list with key $msno_$uuid
-	
-	foreach($statscfg->loxone as $cfg) {
-        $msno = $cfg->msno;
-		$uuid = $cfg->uuid;
-		$stats->{"${msno}_${uuid}"} = $cfg;
+	clearstatcache(true, $stats_json);
+	$newfilemtime = filemtime ( $stats_json );
+	// echo "stats.json: newfilemtime $newfilemtime stats_json_mtime $stats_json_mtime\n";
+	if( $newfilemtime != $stats_json_mtime ) {
+		echo "Reading stats.json ($newfilemtime)\n";
+		$statscfg = json_decode( file_get_contents( $stats_json ) );
+		$stats_json_mtime = $newfilemtime;
 		
-    }
-
-	// print_r( $stats );
-
+		$stats = new stdClass();
+		if( !$statscfg ) {
+			return;
+		}
+		// Convert Loxone array to list of objects
+		//	"loxone" is an unindexed array in stats.json.
+		//	To directly access the element, create an object list with key $msno_$uuid
+	
+		foreach($statscfg->loxone as $cfg) {
+			$msno = $cfg->msno;
+			$uuid = $cfg->uuid;
+			$stats->{"${msno}_${uuid}"} = $cfg;
+			
+		}
+	}
 }
 
 /*
