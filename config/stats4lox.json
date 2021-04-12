@@ -11,7 +11,8 @@
    },
    "loxone": {
       "measurement" : "stats_loxone",
-      "active": "True"
+      "active": "True",
+	  "mqttlive_basetopic": "s4l/mqttlive"
    },
    "miniserver": {
       "measurement" : "stats_miniserver",
