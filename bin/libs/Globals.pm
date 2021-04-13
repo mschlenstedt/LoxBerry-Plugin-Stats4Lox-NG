@@ -1,5 +1,38 @@
 #!/usr/bin/perl
 
+# NAVBAR definition (in scope main)
+our %navbar = (
+	10 => {
+			Name => "Loxone",
+			URL => "index.cgi"
+	},
+	15 => {
+			Name => "MQTT Live",
+			URL => "mqttlive_loxone.cgi"
+	},
+	30 => {
+			Name => "Inputs",
+			URL => "input_settings.cgi"
+	},
+	50 => {
+			Name => "Outputs",
+			URL => "output_settings.cgi"
+	},
+	90 => {
+			Name => "Logs",
+			URL => "logs.cgi"
+	}
+);
+my $relative_webpath = substr( $0, length($lbphtmlauthdir)+1 );
+foreach( keys %navbar ) {
+	if( $navbar{$_}{URL} eq $relative_webpath ) {
+		$navbar{$_}{active} = 1;
+		last;
+	}
+}
+
+#### GLOBALS ####
+
 package Globals;
 
 use base 'Exporter';
@@ -12,6 +45,7 @@ our @EXPORT = qw (
 	$influx_bulk_blocksize
 	whoami
 );
+
 
 # RAMDISK temporary directory
 our $s4ltmp = '/dev/shm/s4ltmp';
