@@ -249,6 +249,19 @@ if( $q->{action} eq "deleteimport" and $q->{msno} and $q->{uuid} ) {
 }
 
 
+if( $q->{action} eq "getmqttlivedata" ) {
+	if ( -e $s4ltmp."/mqttlive_uidata.json" ) {
+		$response = LoxBerry::System::read_file($s4ltmp."/mqttlive_uidata.json");
+		if( !$response ) {
+			$response = "{ }";
+		}
+	}
+	else {
+		$response = "{ }";
+	}
+}
+
+
 #####################################
 # Manage Response and error
 #####################################

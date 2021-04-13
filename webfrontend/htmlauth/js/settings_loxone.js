@@ -155,7 +155,7 @@ $(function() {
 			// Find internal key of statistic element
 			var statkey = statsconfigLoxone.findIndex(obj => {
 			return obj.uuid === control.UID && obj.msno == control.msno })
-
+			
 			// Enable the Import button if a stats.json entry exists now
 			$("#LoxoneDetails_s4lstatimportbutton")
 				.removeClass("ui-disabled");
