@@ -63,6 +63,10 @@ unlink $schedulerStatusfile;
 my $schedstatusobj = new LoxBerry::JSON;
 my $schedstatus = $schedstatusobj->open( filename => $schedulerStatusfile, writeonclose => 1 );
 my @slots;
+
+# Set number of parallel processes depending on cpu cores
+$Globals::import_max_parallel_processes = getCoresToUse();
+
 # Loop
 while(time() < $lastchange_timestamp+$timeout) {
 	
@@ -413,6 +417,29 @@ sub isImportLocked
 		# print STDERR "$uuid does not exist - cannot be locked\n";
 	}
 	return undef;
+}
+
+sub getCoresToUse 
+{
+	my $cores = 1;
+	my $cpuinfo = LoxBerry::System::read_file("/proc/cpuinfo");
+	if( $cpuinfo ) {
+		$cores = () = $cpuinfo =~ /^processor.*:/gm;
+	}
+	# print STDERR "Cores: $cores\n";
+	if( $cores == 0 ) {
+		print STDERR "WARNING: Could not read cpuinfo - assuming 1 core\n";
+		$cores = 1;
+	}
+
+	if( $cores > 1 ) {
+		$cores--;
+	} 
+	else {
+		$cores = 1;
+	}
+	print STDERR "Using $cores cpu cores for parallel imports\n";
+	return $cores;
 }
 
 sub END {
