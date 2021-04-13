@@ -109,24 +109,25 @@ function s4llive_mqttmsg ($topic, $msg){
 		echo "Name: $dest->name Room: $dest->room\n";
 		
 		if( empty($dest->measurementname) ) {
-			echo "ERROR No measurementname defined in stats.json for UUID $uuid\n";
-			return;
+			$error = "ERROR No measurementname defined in stats.json for UUID $uuid";
+			$item->error = $error;
+			echo $error."\n";
 		}
-	
-		$item->measurementname = $dest->measurementname;
-		$item->source = "mqttlive";
-		if( $dest->name ) $item->name = $dest->name;
-		if( $dest->description ) $item->description = $dest->description;
-		if( $dest->uuid ) $item->uuid = $dest->uuid;
-		if( $dest->type ) $item->type = $dest->type;
-		if( $dest->category ) $item->category = $dest->category;
-		if( $dest->room ) $item->room = $dest->room;
-		if( $dest->msno ) $item->msno = $dest->msno;
+		else {
+			$item->measurementname = $dest->measurementname;
+			$item->source = "mqttlive";
+			if( $dest->name ) $item->name = $dest->name;
+			if( $dest->description ) $item->description = $dest->description;
+			if( $dest->uuid ) $item->uuid = $dest->uuid;
+			if( $dest->type ) $item->type = $dest->type;
+			if( $dest->category ) $item->category = $dest->category;
+			if( $dest->room ) $item->room = $dest->room;
+			if( $dest->msno ) $item->msno = $dest->msno;
+			
+			$recordqueue[] = $item;
 		
-		$recordqueue[] = $item;
-	
-		echo "linequeue length before sending: " . count($recordqueue) . "\n";
-		
+			echo "linequeue length before sending: " . count($recordqueue) . "\n";
+		}
 	}
 	
 	// UNKNOWN Message
@@ -320,7 +321,6 @@ if( empty($perlprocessor_pid) or empty(posix_getpgid($perlprocessor_pid)) ) {
 
 function writeInfoForUI() {
 	global $uidata;
-	global $mqtt_connected;
 	global $uidata_file;
 	
 	// print_r( $uidata );
@@ -353,6 +353,9 @@ function mqttConnect() {
 	global $uidata_update;
 	
 	echo "mqttConnect $basetopic\n";
+	
+	$uidata["state"]["broker_basetopic"] = $basetopic;
+	
 	if( empty($creds) ) {
 		$error = "No MQTT credentials. MQTT Gateway not installed?";
 		print $error."\n";

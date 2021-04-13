@@ -47,15 +47,32 @@ function getMqttliveData() {
 	if( getmqttlivedata_running == true ) {
 		return;
 	}
+	
+	if (getSelectedText()) {
+		// Do nothing if text is selected
+		return; 
+	}
+	
 	getmqttlivedata_running = true;
 	$.post( "ajax.cgi", { 
 			action : "getmqttlivedata",  
 	})
 	.done(function(data){
 		// console.log("import_scheduler_report done", data);
-		mqttlivedata = Object.keys(data.topics)
-		.map(key => ({topic: key, data: data.topics[key]}));
-		mqttlivestate = data.state;
+		if( data.topics ) {
+			mqttlivedata = Object.keys(data.topics)
+			.map(key => ({topic: key, data: data.topics[key]}));
+			mqttlivedata.sort( dynamicSortMultiple("topic"));
+			
+		} else {
+			mqttlivedata = undefined;
+		}
+		
+		if( data.state ) {
+			mqttlivestate = data.state;
+		} else {
+			mqttlivestate = undefined;
+		}
 	
 		updateTables();
 	})
@@ -74,13 +91,93 @@ function updateTables() {
 				// console.log("Text is selected");
 	return; }
 	
-	// debugger;
 	
-	for( topic of mqttlivedata ) {
+	if( mqttlivestate ) {
+		// Update mqttlive state
+		$("#mqttlivestate_broker_basetopic").html(mqttlivestate?.broker_basetopic);
 		
+		if( mqttlivestate?.broker_connected == true ) {
+			broker_connected = "Connected";
+			$("#mqttlivestate_broker_connected").css( "color", "green" );
+		} 
+		else {
+			broker_connected = "Not connected";
+			$("#mqttlivestate_broker_connected").css( "color", "red" );
+		}
+		$("#mqttlivestate_broker_connected").html(broker_connected);
+		
+		if( mqttlivestate?.broker_error ) {
+			$("#mqttlivestate_broker_error").html(mqttlivestate?.broker_error).css( "color", "red" );
+		} else {
+			$("#mqttlivestate_broker_error").empty();
+		}
+			
 	
-
 	}
+	
+	// Update mqttlive topics
+	if( !mqttlivedata ) {
+		html = `<p>No data arrived yet :-(</p>`;
+	}
+	else {
+		html = ``;
+		for( topic of mqttlivedata ) {
+			
+			if( topic.data.values[0] ) {
+				valkey = Object.keys(topic.data.values[0])[0];
+				value = topic.data.values[0][valkey];
+			}
+			var arrived_dt = new Date(Math.round(topic.data.timestamp_epoch*1000));
+			var arrived = arrived_dt.toLocaleString();
+			
+			timedelta = (Date.now() - topic.data.timestamp_epoch*1000) / 1000;
+			
+			if( timedelta < 4 ) backgroundcolor="#ffff00";
+			else if( timedelta < 8 ) backgroundcolor="#ebec52";
+			else if( timedelta < 12 ) backgroundcolor="#d8d876";
+			else if ( timedelta < 20 ) backgroundcolor="#dbd880";
+			else if ( timedelta < 28 ) backgroundcolor="#ddd889";
+			else if ( timedelta < 36 ) backgroundcolor="#dfd893";
+			else if ( timedelta < 44 ) backgroundcolor="#e1d89d";
+			else if ( timedelta < 52 ) backgroundcolor="#e2d9a6";
+			else if ( timedelta < 62 ) backgroundcolor="#e2d9b0";
+			else if ( timedelta < 120 ) backgroundcolor="#e1dac3";
+			else if ( timedelta < 240 ) backgroundcolor="#e0dbcd";
+			else if ( timedelta < 300 ) backgroundcolor="#dedcd7";
+			else backgroundcolor = "#efefef";
+			
+			
+			html+= `<div style="display:flex;justify-content:center;margin:5px 0 5px 0;border: 1px solid #dedede;background-color:${backgroundcolor};">`;
+			html+= `	<div style="flex:5 5 60%;padding:5px;">`;
+			html+= `		<span class="bitsmall">${topic.data.originaltopic}</span><br>`;
+			html+= `		<span class="small grayed">Value &raquo;</span><span class="bitsmall"><b>${value}</b></span><span class="small grayed">&laquo;</span>`;
+			html+= `	</div>`;
+			
+			if( !topic.data?.error) {
+			
+				
+				html+= `	<div style="flex:2 2 50%;padding:5px;">`;
+				html+= `		<span class="bitsmall">${topic.data.name}</span><br>`;
+				html+= `		<span class="small grayed">${topic.data.room}/${topic.data.category}</span>`;
+				html+= `	</div>`;
+			}
+			else
+			{
+				html+= `	<div style="flex:2 2 50%;padding:5px;color:red;" class="bitsmall">`;
+				html+= `		${topic.data.error}`;
+				html+= `	</div>`;
+			}	
+			
+			html+= `	<div style="flex:3 2 15%;padding:5px;" class="bitsmall">`;
+			html+= `		${arrived}`;
+			html+= `	</div>`;
+		
+			
+			html+= `</div>`;
+
+		}
+	}
+	$("#mqttlivediv").html(html);
 }
 
 function clearTimer() {

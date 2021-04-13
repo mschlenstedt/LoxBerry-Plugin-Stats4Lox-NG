@@ -9,10 +9,11 @@ use lib "$Bin/../../../../bin/plugins/stats4lox-ng/libs/";
 use Globals;
 
 our $htmlhead="";
-# our $htmlhead = '<script type="application/javascript" src="js/patch_navigation.js"></script>';
-our $htmlhead .= '<script type="application/javascript" src="js/mqttlive_loxone.js"></script>';
-LoxBerry::Web::lbheader("Stats4Lox", undef, undef);
+# our $htmlhead = '<script type="application/javascript" src="js/menu_structure.js"></script>';
+$htmlhead .= '<script type="application/javascript" src="js/mqttlive_loxone.js"></script>';
 
+
+LoxBerry::Web::lbheader("Stats4Lox", undef, undef);
 my $template = HTML::Template->new(
     filename => "$lbptemplatedir/mqttlive_loxone.html",
     global_vars => 1,

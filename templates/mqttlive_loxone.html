@@ -7,6 +7,10 @@
 	font-size:70%;
 }
 
+.bitsmall {
+	font-size:86%;
+}
+
 .grayed {
 	color: gray;
 }
@@ -88,13 +92,16 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 	background-color:#6dac20;
 }
 
+.mqttlivestate {
+	padding: 4px;
+}
 
 </style>
 
 <div class="datahidden" id="mqttlivedata_json"><TMPL_VAR MQTTLIVEDATA></div>
 
 
-<h4>MQTT LiveUpdate Data</h4>
+<h3>MQTT LiveUpdate Data</h3>
 <p>
 	This table shows, what data you are submitting by MQTT LiveUpdate to your Loxone Statistics, and also, if your publishes might miss the correct topic.<br>
 	To send an MQTT LiveUpdate, install MQTT Gateway and send data in this way:<br>
@@ -111,9 +118,29 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 <a href="#" class="ui-btn ui-btn-inline ui-mini" onclick="hint_hide('hint_mqttliveupdate_intro');">Hide</a>
 </div>
 
+<h3 class="popuptitle" style="margin:10px 0 0 0;">MQTT Live State</h4>
 
+<div style="display:flex; flex-wrap:wrap; justify-content:space-evenly; border:1px solid gray;background-color:#f4f4f4;margin:0 0 10 0;">
+	<div class="mqttlivestate">
+		<span class="small grayed">Topic</span><br>
+		<span id="mqttlivestate_broker_basetopic">&nbsp;</span>
+	</div>
+	<div class="mqttlivestate">
+		<span class="small grayed">Connected</span><br>
+		<span id="mqttlivestate_broker_connected">&nbsp;</span>
+	</div>
+	<div class="mqttlivestate">
+		<span class="small grayed">Errors</span><br>
+		<span id="mqttlivestate_broker_error">&nbsp;</span>
+	</div>
+</div>
 
+<h3 class="popuptitle" style="margin:10px 0 0 0;">Received updates</h3>
 <!-- Table -->
-<div class="datahidden" id="mqttlivetablediv">
+<div id="mqttlivediv" style="margin: auto">
+	
 
+</div>
+<div style="margin:auto;width:95%">
+<p class="bitsmall grayed"><i>The color gives you advice when the last message arrived ("the louder the latter")</i></p>
 </div>
