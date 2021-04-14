@@ -102,6 +102,12 @@ if( $q->{action} eq "updatestat" ) {
 		@outputlabels = split(",", $q->{outputlabels});
 	} 
 	
+	my @outputkeys;
+	if( $q->{outputkeys} ne "" ) {
+		@outputkeys = split(",", $q->{outputkeys});
+	} 
+	
+	
 	my $measurementname = $q->{measurementname};
 	if( !$measurementname ) {
 		if( defined $element->{measurementname} and $element->{measurementname} ne "" ) {
@@ -127,6 +133,8 @@ if( $q->{action} eq "updatestat" ) {
 		# url => $q->{uuid}
 	);
 	$updatedelement{outputlabels} = \@outputlabels if(@outputlabels);
+	$updatedelement{outputkeys} = \@outputkeys if(@outputkeys);
+	
 	
 	# Validation
 	my @errors;

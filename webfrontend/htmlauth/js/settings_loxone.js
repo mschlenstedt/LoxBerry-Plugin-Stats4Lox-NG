@@ -146,6 +146,7 @@ $(function() {
 			interval: stat_interval,
 			outputs : stat_outputs.join(','),
 			outputlabels : control.outputlabels ? control.outputlabels.toString() : "",
+			outputkeys : control.outputkeys ? control.outputkeys.toString() : "",
 			minval : control.MinVal,
 			maxval : control.MaxVal,
 			unit : control.Unit
@@ -660,6 +661,7 @@ function popupLoxoneDetails( uid, msno ) {
 			var typeMappings = typeof data.mappings[control.Type.toUpperCase()] != "undefined" ? data.mappings[control.Type.toUpperCase()] : data.mappings["Default"];
 			console.log("Mappings for "+control.Type, typeMappings); 
 			
+			
 			for( var key in data.response ) {
 				console.log("Output loop", key, data.response[key]);
 				var outputKey = data.response[key].Key;
@@ -692,6 +694,8 @@ function popupLoxoneDetails( uid, msno ) {
 			
 			var LoxOutputs = data.response;
 			control.outputlabels = LoxOutputs.map( a => a.Name );
+			control.outputkeys = LoxOutputs.map( a => a.Key );
+			
 			for( var key in LoxOutputs ) {
 				var dataStr = `
 					<tr>
