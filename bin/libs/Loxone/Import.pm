@@ -57,9 +57,9 @@ sub new
 	if( !defined $self->{msno} ) {
 		Carp::croak("$me msno paramter missing");
 	}
-	if( !defined $self->{uuid} ) {
-		Carp::croak("$me uuid parameter missing");
-	}
+	# if( !defined $self->{uuid} ) {
+		# Carp::croak("$me uuid parameter missing");
+	# }
 
 	my %miniservers = LoxBerry::System::get_miniservers();
 	if( !defined $miniservers{$self->{msno}} ) {
@@ -68,21 +68,24 @@ sub new
 	
 	bless $self, $class;
 	
-	$self->getStatsjsonElement();
-	if(!defined $self->{statobj}) {
-		$self->{importstatus}->{error} = 1;
-		$self->{importstatus}->{errortext} = "Statobj with msno=$self->{msno} and uuid=$self->{uuid} not found";
-		Carp::croak("Statobj with msno=$self->{msno} and uuid=$self->{uuid} not found");
-	}
-	
-	$self->getLoxoneLabels();
-	
-	$self->setMappings();
-	
-	if( ! $self->{mapping} ) {
-		$self->{importstatus}->{error} = 1;
-		$self->{importstatus}->{errortext} = "This import has no outputs selected that can be imported";
-		Carp::croak($me." ".$self->{importstatus}->{errortext});
+	if( $self->{uuid} ) {
+		
+		$self->getStatsjsonElement();
+		if(!defined $self->{statobj}) {
+			$self->{importstatus}->{error} = 1;
+			$self->{importstatus}->{errortext} = "Statobj with msno=$self->{msno} and uuid=$self->{uuid} not found";
+			Carp::croak("Statobj with msno=$self->{msno} and uuid=$self->{uuid} not found");
+		}
+		
+		$self->getLoxoneLabels();
+		
+		$self->setMappings();
+		
+		if( ! $self->{mapping} ) {
+			$self->{importstatus}->{error} = 1;
+			$self->{importstatus}->{errortext} = "This import has no outputs selected that can be imported";
+			Carp::croak($me." ".$self->{importstatus}->{errortext});
+		}
 	}
 	
 	return $self;
