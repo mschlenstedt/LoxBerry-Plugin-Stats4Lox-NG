@@ -1,6 +1,8 @@
 let mqttlivedata = [];
 let mqttlivestate = {};
 let mqttliveobjlist;
+let statsconfig;
+let statsconfigLoxone;
 
 let hints_hide = {};
 
@@ -20,14 +22,20 @@ $(function() {
 
 	setTimer();
 	getMqttliveData();
+	createStatsjsonTable();
 	
-	// // Bind Import Now button
-	// jQuery(document).on('click', '.rescheduleImportButton', function(event, ui){
-		// var target = event.target.closest("tr");
-		// var filekey = $(target).data("filekey");
-		// console.log("bind rescheduleImportButton", event.target, target, filekey);
-		// rescheduleImport("full", filekey);
-	// });
+	// Bind Copy Clipboard button
+	jQuery(document).on('click', '.copyClipboard', function(event, ui){
+		var target = $(this).next('input');
+		$(target).removeClass("datahidden");
+		target[0].select();
+		document.execCommand("copy");
+		$(target).addClass("datahidden");
+		
+		return;
+		console.log("Copy target", target[0]);
+		copyToClipboard(target[0]);
+	});
 	
 	// // Bind Delete Import button
 	// jQuery(document).on('click', '.deleteImportButton', function(event, ui){
@@ -179,6 +187,130 @@ function updateTables() {
 	}
 	$("#mqttlivediv").html(html);
 }
+
+function createStatsjsonTable()
+{
+	
+	// Read stats.json from hidden div
+	try {
+		statsconfig = JSON.parse( $("#statsjson_json").text() );
+	} 
+	catch(e) {
+		console.log("stats.json not parsable");
+		return;
+	}
+	console.log("stats.json", statsconfig);
+	
+	try {
+		statsconfigLoxone = Object.values( statsconfig.loxone );
+	}
+	catch(e) {
+		console.log( "statsconfigLoxone seems to be empty" );
+		statsconfigLoxone = [];
+	}
+	
+	// Sort statsconfigLoxone by Name
+	statsconfigLoxone.sort( dynamicSortMultiple( "Name" ) );
+	
+	console.log("statsconfigLoxone", statsconfigLoxone);
+	
+	// Read mqttlive data from hidden div to get basetopic
+	try {
+		liveconfig = JSON.parse( $("#mqttlivedata_json").text() );
+	}
+	catch(e) {
+		console.log("mqtt live data not parsable");
+		return;
+	}
+	
+	console.log("mqtt live", liveconfig);
+	
+	var basetopic = liveconfig.state.broker_basetopic;
+	
+	
+	// Available Topics HTML
+	var html = "";
+	
+	for( element of statsconfigLoxone ) {
+		
+		// If no outputs are defined, skip
+		if( element["outputs"].length == 0)
+			continue;
+		
+		// Create Flexbox container
+		html+= `<div style="display:flex;flex-wrap:wrap;justify-content:center;margin:5px 0 5px 0;border: 1px solid #dedede;">`;
+		
+		// Name / Description
+		description = element.description ? element.description : "";
+		html+= `	<div style="flex:5 5 10%;padding:3px;">`;
+		html+= `	<span class="small grayed">Name</span><br>	
+					${element.name}<br>
+					<i>${description}</i>`;
+		html+= `	</div>`;
+		
+		// Miniserver name
+		html+= `	<div style="flex:1 10 2%;padding:3px;">`;
+		html+= `	<span class="small grayed">Miniserver</span><br>	
+					${element.msno}`;
+		html+= `	</div>`;
+		
+		// Measurement name
+		html+= `	<div style="flex:1 10 10%;padding:3px;">`;
+		html+= `	<span class="small grayed">Measurement Name</span><br>	
+					${element.measurementname}`;
+		html+= `	</div>`;
+		
+		// Room/Category name
+		html+= `	<div style="flex:1 10 10%;padding:3px;">`;
+		html+= `	<span class="small grayed">Room/Category</span><br>	
+					${element.room} / ${element.category}`;
+		html+= `	</div>`;
+		
+		// Topics
+		html+= `	<div style="flex:5 1 30%;padding:3px;">`;
+		html+= `	<span class="small grayed">Available Topics</span><br>`;
+		html+= `	<span class="bitsmall">`;
+		
+		if( !element.outputkeys || !element.outputlabels )
+			html+= `<span style="color:red">stats.json misses outputkeys and/or outputlabels</span>`;
+		else {
+			
+			for( output of element.outputs ) {
+				console.log("output loop", output );
+				// Get the index of output out of outputkeys
+				labelindex = element.outputkeys.indexOf( output );
+				// Get the label of that index of outputlabels
+				label = element.outputlabels[labelindex];
+				
+				livetopic = `${basetopic}/${element.msno}/${element.uuid}/${label}`;
+				valconstant = `&lt;v.8&gt;`;
+				html += `<div style="white-space: nowrap;">`
+				html += `<b>${label}</b>: publish ${livetopic} <i>${valconstant}</i>`;
+				html += `<a href="#" class="ui-mini ui-btn ui-shadow ui-icon-clipboard ui-btn-inline copyClipboard" style="padding:1px;font-size:86%;height:15px;width:32px;">Copy</a>`;
+				html += `<input type="text" value="publish ${livetopic} ${valconstant}" class="datahidden">`;
+				
+				// html += `&nbsp;<a href="#" data-inline="true" class="ui-btn ui-shadow ui-mini ui-btn-inline">Clipboard</a>`;
+				html += `</div>`
+				
+			}
+		}
+
+		html+= `	</span>`;
+		
+		html+= `	</div>`;
+		
+		
+		
+		// Close flexbox container
+		html+= `</div>`;
+		
+		
+	}
+
+	$("#availabletopicsdiv").html(html);
+	
+}
+
 
 function clearTimer() {
 	console.log("Timer cleared");

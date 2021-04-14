@@ -96,16 +96,23 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 	padding: 4px;
 }
 
+
+.ui-icon-clipboard:after {
+	background-image: url("images/clipboard_18.svg");
+}
+
 </style>
 
 <div class="datahidden" id="mqttlivedata_json"><TMPL_VAR MQTTLIVEDATA></div>
+<div class="datahidden" id="statsjson_json"><TMPL_VAR STATSJSON></div>
 
 
 <h3>MQTT LiveUpdate Data</h3>
 <p>
-	This table shows, what data you are submitting by MQTT LiveUpdate to your Loxone Statistics, and also, if your publishes might miss the correct topic.<br>
-	To send an MQTT LiveUpdate, install MQTT Gateway and send data in this way:<br>
-	<span class="mono">publish s4l/mqttlive/<span style="color:red;font-weight:bold;">&laquo;msno&raquo;</span>/<span style="color:green;font-weight:bold;">&laquo;UID&raquo;</span>/<span style="color:blue;font-weight:bold;">&laquo;Output&raquo;</span> &lt;v.3&gt;</span>
+	This first listing shows, what data you have already submitted via MQTT LiveUpdate to your Loxone Statistics, and also, if your publishes might miss the correct topic.
+</p>
+<p>
+	Below, you'll find <i>all available outputs</i> of Loxone blocks that you have enabled, to directly copy/paste. An output gets enabled by enabling it in the Detail View of the Statistics configuration.
 </p>
 
 
@@ -137,10 +144,16 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 
 <h3 class="popuptitle" style="margin:10px 0 0 0;">Received updates</h3>
 <!-- Table -->
-<div id="mqttlivediv" style="margin: auto">
+<div id="mqttlivediv" style="margin:auto;">
 	
 
 </div>
 <div style="margin:auto;width:95%">
 <p class="bitsmall grayed"><i>The color gives you advice when the last message arrived ("the louder the latter")</i></p>
+</div>
+
+<h3 class="popuptitle" style="margin:10px 0 0 0;">MQTT Live All Available Update Topics</h4>
+<div id="availabletopicsdiv" style="margin:auto;">
+
+
 </div>
