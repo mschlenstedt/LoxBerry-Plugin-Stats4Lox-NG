@@ -156,28 +156,42 @@ function updateTables() {
 			
 			
 			html+= `<div style="display:flex;justify-content:center;margin:5px 0 5px 0;border: 1px solid #dedede;background-color:${backgroundcolor};">`;
-			html+= `	<div style="flex:5 5 60%;padding:5px;">`;
+			html+= `	<div style="flex:5 5 40%;padding:5px;">`;
+			html+= `		<span class="small grayed">Received Topic / Value</span><br>`;
 			html+= `		<span class="bitsmall">${topic.data.originaltopic}</span><br>`;
-			html+= `		<span class="small grayed">Value &raquo;</span><span class="bitsmall"><b>${value}</b></span><span class="small grayed">&laquo;</span>`;
+			html+= `		<span class="small grayed">&raquo;</span><span class="bitsmall"><b>${value}</b></span><span class="small grayed">&laquo;</span>`;
 			html+= `	</div>`;
 			
 			if( !topic.data?.error) {
-			
+				// No error
+				html+= `	<div style="flex:1 10 2%;padding:5px;">`;
+				html+= `		<span class="small grayed">Miniserver</span><br>
+								<span class="bitsmall">${topic.data.msno}</span>`;
+				html+= `	</div>`;
 				
-				html+= `	<div style="flex:2 2 50%;padding:5px;">`;
+				
+				html+= `	<div style="flex:3 5 15%;padding:5px;">`;
+				html+= `		<span class="small grayed">Measurement Name</span><br>`;
+				html+= `		<span class="bitsmall">${topic.data.measurementname}</span><br>`;
+				html+= `	</div>`;
+				
+				
+				html+= `	<div style="flex:2 2 15%;padding:5px;">`;
+				html+= `		<span class="small grayed">Name / Room / Category</span><br>`;
 				html+= `		<span class="bitsmall">${topic.data.name}</span><br>`;
-				html+= `		<span class="small grayed">${topic.data.room}/${topic.data.category}</span>`;
+				html+= `		<span class="small">${topic.data.room} / ${topic.data.category}</span>`;
 				html+= `	</div>`;
 			}
-			else
-			{
+			else {
+				// Error 
 				html+= `	<div style="flex:2 2 50%;padding:5px;color:red;" class="bitsmall">`;
 				html+= `		${topic.data.error}`;
 				html+= `	</div>`;
 			}	
 			
-			html+= `	<div style="flex:3 2 15%;padding:5px;" class="bitsmall">`;
-			html+= `		${arrived}`;
+			html+= `	<div style="flex:3 2 15%;padding:5px;">`;
+			html+= `		<span class="small grayed">Last arrived</span><br>`;
+				html+= `	<span class="bitsmall">${arrived}</span>`;
 			html+= `	</div>`;
 		
 			
@@ -262,7 +276,7 @@ function createStatsjsonTable()
 		
 		// Room/Category name
 		html+= `	<div style="flex:1 10 10%;padding:3px;">`;
-		html+= `	<span class="small grayed">Room/Category</span><br>	
+		html+= `	<span class="small grayed">Room / Category</span><br>	
 					${element.room} / ${element.category}`;
 		html+= `	</div>`;
 		
@@ -282,7 +296,7 @@ function createStatsjsonTable()
 				// Get the label of that index of outputlabels
 				label = element.outputlabels[labelindex];
 				
-				livetopic = `${basetopic}/${element.msno}/${element.uuid}/${label}`;
+				livetopic = `${basetopic}/${element.msno}/${element.measurementname}/${label}`;
 				valconstant = `&lt;v.8&gt;`;
 				html += `<div style="white-space: nowrap;">`
 				html += `<b>${label}</b>: publish ${livetopic} <i>${valconstant}</i>`;

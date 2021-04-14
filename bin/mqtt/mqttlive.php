@@ -75,6 +75,7 @@ function s4llive_mqttmsg ($topic, $msg){
 	global $basetopic;
 	global $lwt_topic;
 	global $stats;
+	global $statsByMeasurement;
 	global $recordqueue;
 	global $uidata;
 	global $uidata_update;
@@ -102,7 +103,15 @@ function s4llive_mqttmsg ($topic, $msg){
 	$item->originaltopic = $topic;
 	$item->relativetopic = $reltopic;
 	$item->values = array( array( $output => $msg ) );
-		
+	
+	if( !property_exists ( $stats, $id ) ) {
+		// msno_uuid combination not found - fallback to search for measurementname
+		if( property_exists( $statsByMeasurement, $id ) ) {
+			$id = $statsByMeasurement->$id;
+			echo "New id is $id\n";
+		}
+	}
+	
 	// Message validated
 	if( property_exists ( $stats, $id ) ) {
 		$dest = $stats->$id;
@@ -210,6 +219,7 @@ function readStats4loxjson( $stats4lox_json, $mtime ) {
 
 function readStatsjson( $stats_json, $mtime ) {
 	global $stats;
+	global $statsByMeasurement;
 
 	if( $mtime == false ) {
 		return;
@@ -217,9 +227,12 @@ function readStatsjson( $stats_json, $mtime ) {
 	$statscfg = json_decode( file_get_contents( $stats_json ) );
 		
 	$stats = new stdClass();
+	$statsByMeasurement = new stdClass();
+	
 	if( !$statscfg ) {
 		return;
 	}
+	
 
 	// Convert Loxone array to list of objects
 	//	"loxone" is an unindexed array in stats.json.
@@ -227,7 +240,12 @@ function readStatsjson( $stats_json, $mtime ) {
 	foreach($statscfg->loxone as $cfg) {
 		$msno = $cfg->msno;
 		$uuid = $cfg->uuid;
+		$measurementname = isset($cfg->measurementname) ? $cfg->measurementname : false ;
 		$stats->{"${msno}_${uuid}"} = $cfg;
+		// Create a pointer to the msno_uuid object
+		if( $measurementname ) {
+			$statsByMeasurement->{"${msno}_${measurementname}"} = "${msno}_${uuid}";
+		}
 	}
 }
 
