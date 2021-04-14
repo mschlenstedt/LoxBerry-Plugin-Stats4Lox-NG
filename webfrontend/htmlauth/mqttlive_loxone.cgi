@@ -9,8 +9,10 @@ use lib "$Bin/../../../../bin/plugins/stats4lox-ng/libs/";
 use Globals;
 
 our $htmlhead="";
-# our $htmlhead = '<script type="application/javascript" src="js/menu_structure.js"></script>';
+$htmlhead .= '<script type="application/javascript" src="js/loxone_sub_navbar.js"></script>';
 $htmlhead .= '<script type="application/javascript" src="js/mqttlive_loxone.js"></script>';
+
+$main::navbar{10}{active} = 1;
 
 
 LoxBerry::Web::lbheader("Stats4Lox", undef, undef);

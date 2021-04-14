@@ -8,7 +8,11 @@ use FindBin qw($Bin);
 use lib "$Bin/../../../../bin/plugins/stats4lox-ng/libs/";
 use Globals;
 
-our $htmlhead = '<script type="application/javascript" src="js/settings_loxone.js"></script>';
+our $htmlhead="";
+$htmlhead .= '<script type="application/javascript" src="js/loxone_sub_navbar.js"></script>';
+$htmlhead .= '<script type="application/javascript" src="js/settings_loxone.js"></script>';
+
+
 LoxBerry::Web::lbheader("Stats4Lox", undef, undef);
 
 my $template = HTML::Template->new(

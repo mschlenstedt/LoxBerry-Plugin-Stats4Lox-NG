@@ -6,10 +6,6 @@ our %navbar = (
 			Name => "Loxone",
 			URL => "index.cgi"
 	},
-	15 => {
-			Name => "MQTT Live",
-			URL => "mqttlive_loxone.cgi"
-	},
 	30 => {
 			Name => "Inputs",
 			URL => "input_settings.cgi"
