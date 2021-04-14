@@ -175,7 +175,13 @@ sub getStatlist
 	$self->{statlistAll} = \%resultsAll;
 	$log->DEB("$me Finished ok");
 	
-	return @{$resultsAll{$uuid}};
+	if ( defined $uuid ) {
+		return @{$resultsAll{$uuid}};
+	}
+	else {
+		return \%resultsAll;
+	}
+		
 	
 }
 
@@ -544,7 +550,12 @@ sub submitData
 	
 	my $measurementname = $statobj->{measurementname};
 	if( !defined $measurementname or $measurementname eq "" ) {
-		$measurementname = defined $statobj->{description} and $statobj->{description} ne "" ? $statobj->{description} : $statobj->{name};
+		if( defined $statobj->{description} and $statobj->{description} ne "" ) {
+			$measurementname = $statobj->{description};
+		} 
+		else {
+			$measurementname = $statobj->{name};
+		}
 	}
 	
 	# Loop all timestamps
