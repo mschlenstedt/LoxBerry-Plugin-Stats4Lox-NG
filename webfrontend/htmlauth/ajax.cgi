@@ -320,7 +320,10 @@ sub provisionDashboard {
 	undef $dashboard;
 	
 	### Update the panels
-	my %known_panel_uids = %{$element->{grafana}->{panels}};
+	my %known_panel_uids;
+	if( defined $element->{grafana}->{panels} ) {
+		%known_panel_uids = %{$element->{grafana}->{panels}};
+	}
 	delete $element->{grafana}->{panels};
 	# As we don't know, if outputs got added or deleted, first we clear all panels of this stat
 	use Data::Dumper;
