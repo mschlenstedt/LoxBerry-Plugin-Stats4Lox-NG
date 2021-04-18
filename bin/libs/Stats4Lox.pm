@@ -221,7 +221,7 @@ sub lox2telegraf
 
 	#print Data::Dumper::Dumper @data;
 	
-	my $measurement = "stats4lox";
+	# my $measurement = "stats4lox";
 
 	if ( scalar @data == 0) {
 		print STDERR "Array of Hashes needed. See documentation.";
@@ -235,6 +235,10 @@ sub lox2telegraf
 		if (! $record->{uuid}) {
 			print STDERR "UUID is needed. Skipping this dataset.";
 			next;
+		}
+		my $measurement = $record->{measurementname};
+		if( !$measurement ) {
+			die "measurementname missing (mandatory data field)\n";
 		}
 		$timestamp = $record->{timestamp} + 0 if ($record->{timestamp}); # Convert to num
 		$tags{"name"} =	$record->{name} if ($record->{name});

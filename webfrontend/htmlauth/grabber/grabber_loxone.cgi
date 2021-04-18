@@ -19,8 +19,8 @@ my $pcfgfile = $lbpconfigdir . "/stats4lox.json";
 my $pjsonobj = LoxBerry::JSON->new();
 my $pcfg = $pjsonobj->open(filename => $pcfgfile, readonly => 1);
 
-# Measurement name for Influx
-my $measurement = $pcfg->{loxone}->{measurement};
+# # Measurement name for Influx
+# my $measurement = $pcfg->{loxone}->{measurement};
 
 # Header
 print "Content-type: text/ascii; charset=UTF-8\n\n";
@@ -44,7 +44,7 @@ my $mem = $jsonobjcfg->open(filename => $memfile, writeonclose => 1);
 # Loop through stats
 my @data;
 for my $results( @{$cfg->{loxone}} ){
-	if (! $results->{uuid} || ! $results->{msno}) {
+	if (! $results->{uuid} || ! $results->{msno} || ! $results->{measurementname} ) {
 		print STDERR "   Data isn't complete. Skipping...\n" if $DEBUG;
 		next;
 	}
@@ -69,6 +69,7 @@ for my $results( @{$cfg->{loxone}} ){
 	}
 	
 	# Collect data and create Influx lineformat
+	my $measurement = $results->{measurementname};
 	my %tags = ();
 	$tags{"name"} =	$results->{name} if ($results->{name});
 	$tags{"description"} = $results->{description} if ($results->{description});
