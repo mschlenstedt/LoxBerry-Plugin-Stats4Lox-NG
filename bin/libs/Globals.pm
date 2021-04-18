@@ -38,6 +38,8 @@ our @EXPORT = qw (
 	$importstatusdir
 	$loxplanjsondir
 	$statsconfig
+	$stats4loxconfig
+	$stats4loxcredentials
 	$influx_bulk_blocksize
 	whoami
 );
@@ -47,7 +49,8 @@ our @EXPORT = qw (
 our $s4ltmp = '/dev/shm/s4ltmp';
 our $loxplanjsondir = $LoxBerry::System::lbpdatadir;
 our $statsconfig = "$LoxBerry::System::lbpconfigdir/stats.json";
-
+our $stats4loxconfig = "$LoxBerry::System::lbpconfigdir/stats4lox.json";
+our $stats4loxcredentials = "$LoxBerry::System::lbpconfigdir/cred.json";
 
 # IMPORT SETTINGS
 our $influx_bulk_blocksize = 5000;
@@ -58,6 +61,10 @@ our $importstatusdir = $LoxBerry::System::lbpdatadir.'/import';
 our $influx_measurement = 'stats_loxone';
 our $telegraf_unix_socket = '/tmp/telegraf.sock';
 our $telegraf_udp_socket = '8094';
+
+# GRAFANA PROVISIONING
+our $graf_provisioning_dir = "/etc/grafana/provisioning";
+our $s4l_provisioning_dir = "$LoxBerry::System::lbpdatadir/provisioning";
 
 
 # IMPORT MAPPINGS

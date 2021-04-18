@@ -130,6 +130,7 @@ if( $q->{action} eq "updatestat" ) {
 		msno => $q->{msno},
 		measurementname => $measurementname,
 		outputs => \@outputs,
+		grafana => $element->{grafana}, 
 		# url => $q->{uuid}
 	);
 	$updatedelement{outputlabels} = \@outputlabels if(@outputlabels);
@@ -144,6 +145,10 @@ if( $q->{action} eq "updatestat" ) {
 	# push @errors, "url must be defined" if( ! $updatedelement{url} );
 	push @errors, "active must be defined" if( ! $updatedelement{active} );
 
+	if( ! @errors ) {
+		provisionDashboard( \%updatedelement );
+	}
+	
 	
 	# Insert/Update element in stats array
 	if( defined $element ) {
@@ -296,4 +301,84 @@ sub createImportFolder
 	if( ! -d $Globals::importstatusdir ) {
 		`mkdir --parents "${Globals::importstatusdir}"`;
 	}
+}
+
+###########################
+#### Provisioning Grafana
+###########################
+sub provisionDashboard {
+	require Grafana;
+	my $element = shift;
+	
+	### Update the dashboard
+	my $dashboard = DashboardFromTemplate Grafana( 
+		"$Globals::s4l_provisioning_dir/dashboards/defaultDashboard.json",
+		"$Globals::s4l_provisioning_dir/templates/template_defaultDashboard.json"
+	);
+	$dashboard->{title} = "LoxBerry Stats4Lox";
+	my $dashboard_uid = Grafana->save( $dashboard );
+	undef $dashboard;
+	
+	### Update the panels
+	my %known_panel_uids = %{$element->{grafana}->{panels}};
+	delete $element->{grafana}->{panels};
+	# As we don't know, if outputs got added or deleted, first we clear all panels of this stat
+	use Data::Dumper;
+	$LoxBerry::JSON::DEBUG=1;
+	print STDERR Dumper( \%known_panel_uids );
+	
+	my @uids_to_delete = values %known_panel_uids;
+	print STDERR Dumper( \@uids_to_delete );
+	deletePanelFromDashboard Grafana( 
+		"$Globals::s4l_provisioning_dir/dashboards/defaultDashboard.json",
+		\@uids_to_delete
+	);
+	
+	# Now, we recreate the panels from selected outputs and known lables, with known panel uid's
+	
+	my %outputkeys_labels;
+	
+	
+	
+	@outputkeys_labels{ @{$element->{outputkeys}} } = @{$element->{outputlabels}};
+	
+	
+	foreach my $output ( @{ $element->{outputs} } ) {
+		my $panel_uid;
+		# Get index of output from outputkeys 
+		my $label = $outputkeys_labels{$output};
+		next if(!$label); 
+		
+		if( defined $known_panel_uids{$label} ) {
+			$panel_uid = $known_panel_uids{$label};
+		}
+		my $panel = PanelFromTemplate Grafana( 
+			"$Globals::s4l_provisioning_dir/dashboards/defaultDashboard.json",
+			"$Globals::s4l_provisioning_dir/templates/template_panel_graph.json"
+		);
+		$panel->{uid} = $panel_uid if($panel_uid);
+		
+		my $paneltitle = defined $element->{description} ? $element->{description} : $element->{name};
+		$paneltitle .= " $label";
+	
+		if( $element->{room} or $element->{category} ) {
+			$paneltitle .= ' (';
+			$paneltitle .= $element->{room} if $element->{room};
+			$paneltitle .= ' / ' if( $element->{room} and $element->{category} );
+			$paneltitle .= $element->{category} if $element->{category};
+			$paneltitle .= ')';
+		}	
+		$panel->{title} = $paneltitle;
+		
+		# 
+		# Here all the Influx query stuff needs to be specified 
+		# 
+		
+		
+		# Save the panel
+		$panel_uid = Grafana->save( $panel );
+		$element->{grafana}->{panels}{$label} = $panel_uid;
+		
+	}
+	
 }

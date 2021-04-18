@@ -185,4 +185,12 @@ else
 	echo "<OK> Telegraf service is running. Fine."
 fi
 
+# Give grafana user permissions to data/provisioning
+chmod 770 $PDATA/provisioning
+
+if [ -d "$LBPHTMLAUTH/grafana" ]; then
+	$PBIN/provisioning/set_datasource_influx.pl
+	$PBIN/provisioning/set_dashboard_provider.pl
+fi
+
 exit 0
