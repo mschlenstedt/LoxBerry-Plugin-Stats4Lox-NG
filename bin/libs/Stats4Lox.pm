@@ -13,7 +13,7 @@ our @EXPORT = qw (
 
 package Stats4Lox;
 
-our $DEBUG = 1;
+our $DEBUG = 0;
 our $DUMP = 0;
 if ($DEBUG) {
 	require Data::Dumper;
@@ -221,8 +221,6 @@ sub lox2telegraf
 
 	#print Data::Dumper::Dumper @data;
 	
-	# my $measurement = "stats4lox";
-
 	if ( scalar @data == 0) {
 		print STDERR "Array of Hashes needed. See documentation.";
 		return (2, undef);
@@ -232,13 +230,15 @@ sub lox2telegraf
 		my $timestamp;
 		my %tags = ();
 		my %fields = ();
-		if (! $record->{uuid}) {
-			print STDERR "UUID is needed. Skipping this dataset.";
-			next;
-		}
+		#if (! $record->{uuid}) {
+		#	print STDERR "UUID is needed. Skipping this dataset.";
+		#	next;
+		#}
 		my $measurement = $record->{measurementname};
 		if( !$measurement ) {
-			die "measurementname missing (mandatory data field)\n";
+			#die "measurementname missing (mandatory data field)\n";
+			print STDERR  "Measurementname missing (mandatory data field). Skipping this dataset.\n";
+			next;
 		}
 		$timestamp = $record->{timestamp} + 0 if ($record->{timestamp}); # Convert to num
 		$tags{"name"} =	$record->{name} if ($record->{name});
@@ -248,8 +248,10 @@ sub lox2telegraf
 		$tags{"category"} = $record->{category} if($record->{category});
 		$tags{"room"} = $record->{room} if ($record->{room});
 		$tags{"msno"} = $record->{msno} if ($record->{msno});
+		$tags{"source"} = $record->{source} if ($record->{source});
 		foreach my $value ( @{$record->{values}} ) {
-			my $valname = $tags{uuid} . "_" . $value->{key};
+			#my $valname = $tags{uuid} . "_" . $value->{key};
+			my $valname = $value->{key};
 			$fields{$valname} = $value->{value};
 		}
 
