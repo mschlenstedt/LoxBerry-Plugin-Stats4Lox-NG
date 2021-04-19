@@ -53,7 +53,9 @@ our $stats4loxconfig = "$LoxBerry::System::lbpconfigdir/stats4lox.json";
 our $stats4loxcredentials = "$LoxBerry::System::lbpconfigdir/cred.json";
 
 # IMPORT SETTINGS
-our $influx_bulk_blocksize = 5000;
+our $influx_bulk_blocksize = 1000;
+our $influx_bulk_delay_secs = 1;
+
 our $import_time_to_dead_minutes = 60;
 our $import_max_parallel_processes = 4;
 our $import_max_parallel_per_ms = 4;

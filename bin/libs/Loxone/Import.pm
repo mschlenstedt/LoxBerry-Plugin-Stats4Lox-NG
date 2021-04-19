@@ -603,6 +603,7 @@ sub submitData
 			eval {
 				Stats4Lox::lox2telegraf( \@bulkdata, undef );
 			};
+			Time::HiRes::sleep( $Globals::influx_bulk_delay_secs );
 			$bulkcount = 0;
 			@bulkdata = ();
 			
