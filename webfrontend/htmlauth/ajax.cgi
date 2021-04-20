@@ -151,7 +151,7 @@ if( $q->{action} eq "updatestat" ) {
 	
 	
 	# Insert/Update element in stats array
-	if( defined $element ) {
+	if( defined $elemKey ) {
 		# This is an update of an existing element
 		$cfg->{loxone}[$elemKey] = \%updatedelement;
 	} 
