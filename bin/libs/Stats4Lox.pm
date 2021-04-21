@@ -284,6 +284,8 @@ sub lox2telegraf
 	
 	my $sockstr; 
 	
+	my $socketlockfh = lockTelegrafSocket();
+	
 	# Send to telegraf via Unix socket
 	if (-e $telegraf_unix_socket) { 
 		$sockstr = "UNIX";
@@ -370,6 +372,15 @@ sub lox2telegraf
 			return (2, \@queue);
 		}
 	}
+}
+
+sub lockTelegrafSocket {
+	my $socketlockfile = $Globals::s4ltmp."/socket_telegraf.lock";
+	open my $fh, '>', $socketlockfile or die "CRITICAL Could not open LOCK file $socketlockfile: $!";
+	print STDERR "Aquiring Telegraf socket LOCK...\n" if $DEBUG;
+	flock $fh, 2;
+	print STDERR "Telegraf socket locked\n" if $DEBUG;
+	return $fh;
 }
 #####################################################
 # Finally 1; ########################################
