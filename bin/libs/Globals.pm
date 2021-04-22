@@ -62,7 +62,7 @@ our $import_time_to_dead_minutes = 60;
 our $import_max_parallel_processes = 4;
 our $import_max_parallel_per_ms = 4;
 our $importstatusdir = $LoxBerry::System::lbpdatadir.'/import';
-our $telegraf_unix_socket = "$s4ltmp/telegraf.sock";
+our $telegraf_unix_socket = "/tmp/telegraf.sock";
 our $telegraf_udp_socket = '8094';
 
 # GRAFANA PROVISIONING
