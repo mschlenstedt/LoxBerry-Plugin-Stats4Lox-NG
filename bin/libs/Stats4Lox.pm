@@ -4,6 +4,8 @@ use warnings;
 use JSON;
 use LoxBerry::IO;
 
+require "./Globals.pm";
+
 use base 'Exporter';
 our @EXPORT = qw (
 	msget_value
@@ -279,8 +281,8 @@ sub lox2telegraf
 	#use IO::Socket qw(AF_INET AF_UNIX SOCK_STREAM SHUT_WR);
 	my $tryudp = 0;
 	my $client;
-	my $telegraf_udp_socket = "8094";
-	my $telegraf_unix_socket = "/tmp/telegraf.sock";
+	my $telegraf_udp_socket = $Globals:$telegraf_udp_socket;
+	my $telegraf_unix_socket = $Globals:$telegraf_unix_socket;
 	
 	my $sockstr; 
 	
