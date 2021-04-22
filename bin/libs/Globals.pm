@@ -42,6 +42,8 @@ our @EXPORT = qw (
 	$stats4loxcredentials
 	$influx_bulk_blocksize
 	whoami
+	$telegraf_unix_socket
+	$telegraf_udp_socket
 );
 
 
