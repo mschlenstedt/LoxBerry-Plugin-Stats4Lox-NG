@@ -201,4 +201,9 @@ if [ -d "$LBPHTMLAUTH/grafana" ]; then
 	$PBIN/provisioning/set_dashboard_provider.pl
 fi
 
+# Start/Stop MQTT Live Service
+echo "<INFO> Starting MQTTLive Service..."
+pkill -f mqttlive.php > /dev/null 2>&1
+su loxberry -c "$PBIN/mqtt/mqttlive.php >> $PLOG/mqttlive.log 2>&1 &"
+
 exit 0
