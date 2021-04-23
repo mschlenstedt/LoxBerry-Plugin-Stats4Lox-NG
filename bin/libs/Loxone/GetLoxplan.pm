@@ -195,7 +195,7 @@ sub checkLoxplanUpdate
 	my $me = whoami();
 	if (! $log) {
 		$log = LoxBerry::Log->new (
-			name => 'getFile',
+			name => 'checkLoxplanUpdate',
 			stderr => 1,
 			loglevel => 7
 		);
