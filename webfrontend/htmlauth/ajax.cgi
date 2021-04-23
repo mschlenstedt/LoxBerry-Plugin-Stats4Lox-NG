@@ -20,6 +20,7 @@ my $log = LoxBerry::Log->new (
 	loglevel => 7
 );
 
+LOGSTART "Request $q->{action}";
 
 if( $q->{action} eq "getloxplan" ) {
 	require Loxone::GetLoxplan;
@@ -32,11 +33,13 @@ if( $q->{action} eq "getloxplan" ) {
 	}
 	else {
 		my $msno = $q->{msno};
+		LOGTITLE "getloxplan Miniserver $msno";
+		
 		my $Loxplanfile = "$s4ltmp/s4l_loxplan_ms$msno.Loxone";		
 		my $loxplanjson = "$loxplanjsondir/ms".$msno.".json";
 		my $remoteTimestamp;
 		eval {
-			$remoteTimestamp = Loxone::GetLoxplan::checkLoxplanUpdate( $msno, $loxplanjson );
+			$remoteTimestamp = Loxone::GetLoxplan::checkLoxplanUpdate( $msno, $loxplanjson, $log );
 		};
 		if( $@ or $remoteTimestamp ne "" ) {
 			LOGINF "Loxplan file not up-to-date. Fetching from Miniserver\n";
