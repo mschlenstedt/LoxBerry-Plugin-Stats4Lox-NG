@@ -55,6 +55,10 @@ if [ "$INFLUXDBUSER" = "" ]; then
 	INFLUXDBPASS="loxberry"
 fi
 
+# Debug
+echo "Influx User: $INFLUXDBUSER"
+echo "Influx Pass: $INFLUXDBPASS"
+
 # Activate own config delivered with plugin
 echo "<INFO> Activating my own InfluxDB configuration."
 if [ -d /etc/influxdb ] && [ ! -L /etc/influxdb ]; then
@@ -83,11 +87,16 @@ echo "<INFO> Enlarge UDP/IP and Unix receive buffer limit..."
 sysctl -w net.core.rmem_max=8388608
 sysctl -w net.core.rmem_default=8388608
 sysctl -w net.unix.max_dgram_qlen=10000
+rm -f /etc/sysctl.d/96-stats4lox.conf
 ln -s $PCONFIG/sysctl.conf /etc/sysctl.d/96-stats4lox.conf
 
 # Systemd DropIn Config
 echo "<INFO> Install Drop-In for Influx and Telegraf systemd services..."
-ln -s $PCONFIG/systemd/00-stats4lox.conf /etc/systemd/system/influxd.service.d/00-stats4lox.conf
+rm -f /etc/systemd/system/influxdb.service.d/00-stats4lox.conf
+rm -f /etc/systemd/system/telegraf.service.d/00-stats4lox.conf
+mkdir /etc/systemd/system/influxdb.service.d
+mkdir /etc/systemd/system/telegraf.service.d
+ln -s $PCONFIG/systemd/00-stats4lox.conf /etc/systemd/system/influxdb.service.d/00-stats4lox.conf
 ln -s $PCONFIG/systemd/00-stats4lox.conf /etc/systemd/system/telegraf.service.d/00-stats4lox.conf
 systemctl daemon-reload
 
@@ -187,10 +196,14 @@ fi
 
 # Give grafana user permissions to data/provisioning
 chmod 770 $PDATA/provisioning
-
 if [ -d "$LBPHTMLAUTH/grafana" ]; then
 	$PBIN/provisioning/set_datasource_influx.pl
 	$PBIN/provisioning/set_dashboard_provider.pl
 fi
+
+# Start/Stop MQTT Live Service
+echo "<INFO> Starting MQTTLive Service..."
+pkill -f mqttlive.php > /dev/null 2>&1
+su loxberry -c "$PBIN/mqtt/mqttlive.php >> $PLOG/mqttlive.log 2>&1 &"
 
 exit 0
