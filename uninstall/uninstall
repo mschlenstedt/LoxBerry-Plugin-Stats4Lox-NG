@@ -49,7 +49,7 @@ echo "<INFO> Removing sysctl config."
 rm -f /etc/sysctl.d/96-stats4lox.conf
 
 echo "<INFO> Removing sytemd config."
-rm -f /etc/systemd/system/influxd.service.d/00-stats4lox.conf
+rm -f /etc/systemd/system/influxdb.service.d/00-stats4lox.conf
 rm -f /etc/systemd/system/telegraf.service.d/00-stats4lox.conf
 systemctl daemon-reload
 

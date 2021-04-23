@@ -92,11 +92,11 @@ ln -s $PCONFIG/sysctl.conf /etc/sysctl.d/96-stats4lox.conf
 
 # Systemd DropIn Config
 echo "<INFO> Install Drop-In for Influx and Telegraf systemd services..."
-rm -f /etc/systemd/system/influxd.service.d/00-stats4lox.conf
+rm -f /etc/systemd/system/influxdb.service.d/00-stats4lox.conf
 rm -f /etc/systemd/system/telegraf.service.d/00-stats4lox.conf
-mkdir /etc/systemd/system/influxd.service.d
+mkdir /etc/systemd/system/influxdb.service.d
 mkdir /etc/systemd/system/telegraf.service.d
-ln -s $PCONFIG/systemd/00-stats4lox.conf /etc/systemd/system/influxd.service.d/00-stats4lox.conf
+ln -s $PCONFIG/systemd/00-stats4lox.conf /etc/systemd/system/influxdb.service.d/00-stats4lox.conf
 ln -s $PCONFIG/systemd/00-stats4lox.conf /etc/systemd/system/telegraf.service.d/00-stats4lox.conf
 systemctl daemon-reload
 
