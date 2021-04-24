@@ -281,100 +281,48 @@ sub lox2telegraf
 
 	use IO::Socket;
 	#use IO::Socket qw(AF_INET AF_UNIX SOCK_STREAM SHUT_WR);
-	my $tryudp = 0;
 	my $client;
 	my $telegraf_udp_socket = $Globals::telegraf_udp_socket;
 	my $telegraf_unix_socket = $Globals::telegraf_unix_socket;
 	
-	my $sockstr; 
-	
 	my $socketlockfh = lockTelegrafSocket();
 	
 	# Send to telegraf via Unix socket
-	if (-e $telegraf_unix_socket) { 
-		$sockstr = "UNIX";
-		eval {
-			$client = IO::Socket::UNIX->new(
-				Peer =>	"$telegraf_unix_socket",
-				Type => SOCK_STREAM,
-				Timeout => 10,
-			) or die "$sockstr Socket could not be created, failed with error: $!\n";;
-		};
-		if( ! $@ ) {
-			print STDERR "Using $sockstr socket\n" if $DEBUG;
-			
-			$client->autoflush(1);
-			foreach(@queue) {
-				my $length_expected = length($_)+1;
-				print STDERR "$sockstr Data to sent ($length_expected bytes): $_\n" if $DUMP;
-				my $i = 1;
-				while ($i <= 10) {
-					my $sent = $client->send($_ . "\n");
-					if ($sent == $length_expected) {
-						print STDERR "$sockstr Try $i: Sent: $sent bytes Expected: $length_expected bytes\n" if $DUMP;
-						$i = 12;
-					} else {
-						print STDERR "$sockstr Try $i: FAILED sending. Sent: $sent Bytes Expected: $length_expected bytes. Retry...\n" if $DEBUG;
-						sleep ($i);
-						$i++;
-					}
-					if ($i < 12) { # All retrys failed...
-						$tryudp = 1;
-					}
+	eval {
+		$client = IO::Socket::UNIX->new(
+			Peer =>	"$telegraf_unix_socket",
+			Type => SOCK_STREAM,
+			Timeout => 10,
+		) or die "Socket could not be created, failed with error: $!\n";;
+	};
+	if( ! $@ ) {
+		print STDERR "Using Unix socket\n" if $DEBUG;
+		$client->autoflush(1);
+		foreach(@queue) {
+			my $length_expected = length($_)+1;
+			print STDERR "Data to sent ($length_expected bytes): $_\n" if $DUMP;
+			my $i = 1;
+			while ($i <= 10) {
+				my $sent = $client->send($_ . "\n");
+				if ($sent == $length_expected) {
+					print STDERR "Try $i: Sent: $sent bytes Expected: $length_expected bytes\n" if $DUMP;
+					$i = 12;
+				} else {
+					print STDERR "Try $i: FAILED sending. Sent: $sent Bytes Expected: $length_expected bytes. Retry...\n" if $DEBUG;
+					sleep ($i);
+					$i++;
 				}
 			}
-			$client->shutdown(SHUT_RDWR);
-			if ($tryudp == 0) {
-				return (0, \@queue);
+			if ($i < 12) { # All retrys failed...
+				print STDERR "Sending to Unix Socket failed finally (giving up - data was NOT sent (but maybe partly)!)" if $DEBUG;
+				return (2, \@queue);
 			}
-		} else {
-			print STDERR "Could not use $sockstr socket (will fallback to udp): $@" if $DEBUG;
-			$tryudp = 1;
 		}
+		$client->shutdown(SHUT_RDWR);
+		return (0, \@queue);
 	} else {
-		$tryudp = 1;
-	}
-	
-	# Send to telegraf via UDP socket
-	if ($tryudp) { 
-		$sockstr = "UDP";
-		eval {
-			$client = IO::Socket::INET->new(
-				PeerAddr    => 'localhost',
-				PeerPort => $telegraf_udp_socket,
-				Proto => 'udp',
-				Timeout => 10,
-			) or die "$sockstr Socket could not be created, failed with error: $!\n";;
-		};
-		if( ! $@ ) {
-			print STDERR "Using $sockstr socket\n" if $DEBUG;
-			$client->autoflush(1);
-			my $retstatus = 0;
-			foreach(@queue) {
-				my $length_expected = length($_)+1;
-				print STDERR "$sockstr Data to sent ($length_expected bytes): $_\n" if $DUMP;
-				my $i = 1;
-				while ($i <= 10) {
-					my $sent = $client->send($_ . "\n");
-					if ($sent == $length_expected) {
-						print STDERR "$sockstr Try $i: Sent: $sent bytes Expected: $length_expected bytes\n" if $DUMP;
-						$i = 12;
-					} else {
-						print STDERR "$sockstr Try $i: FAILED sending. Sent: $sent Bytes Expected: $length_expected bytes. Retry...\n" if $DEBUG;
-						sleep ($i);
-						$i++;
-					}
-					if ($i < 12) { # All retrys failed...
-						$retstatus = 2;
-					}
-				}
-			}
-			$client->shutdown(SHUT_RDWR);
-			return ($retstatus, \@queue);
-		} else {
-			print STDERR "Could not use $sockstr socket (giving up - data was NOT sent (but maybe partly)!): $@" if $DEBUG;
-			return (2, \@queue);
-		}
+		print STDERR "Could not use $sockstr socket (giving up - data was NOT sent (but maybe partly)!): $@" if $DEBUG;
+		return (2, \@queue);
 	}
 }
 
