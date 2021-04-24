@@ -14,7 +14,7 @@ our @EXPORT = qw (
 
 package Stats4Lox;
 
-our $DEBUG = 1;
+our $DEBUG = 0;
 our $DUMP = 0;
 if ($DEBUG || $DUMP) {
 	require Data::Dumper;
