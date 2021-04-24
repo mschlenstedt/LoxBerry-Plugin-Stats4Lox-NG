@@ -14,7 +14,7 @@ our @EXPORT = qw (
 
 package Stats4Lox;
 
-our $DEBUG = 0;
+our $DEBUG = 1;
 our $DUMP = 0;
 if ($DEBUG || $DUMP) {
 	require Data::Dumper;
@@ -287,6 +287,24 @@ sub lox2telegraf
 	
 	my $socketlockfh = lockTelegrafSocket();
 	
+	# Wait until Telegraf buffer fullness is below 75%
+	foreach (@Globals::telegraf_buffer_checks) {
+		my $buffer = 1;
+		my $check = $_;
+		while ( $buffer > $Globals::telegraf_max_buffer_fullness ) {
+			my $internals = telegrafinternals();
+			if (!$internals) {
+				print STDERR "Cannot get Telegraf internal stats. Ommitting buffer checks\n" if $DEBUG;
+				$buffer = 0;
+				last;
+			}
+			$buffer = $internals->{write}->{$check}->{buffer_size} / $internals->{write}->{$check}->{buffer_limit};
+			print STDERR "Telegraf $check buffer: " . $internals->{write}->{$check}->{buffer_size} . "/" . $internals->{write}->{$check}->{buffer_limit} if $DEBUG;
+			print STDERR " --> " . $buffer * 100 . "%\n" if $DEBUG;
+			sleep 1 if $buffer > $Globals::telegraf_max_buffer_fullness;
+		}
+	}
+
 	# Send to telegraf via Unix socket
 	eval {
 		$client = IO::Socket::UNIX->new(
@@ -305,10 +323,10 @@ sub lox2telegraf
 			while ($i <= 10) {
 				my $sent = $client->send($_ . "\n");
 				if ($sent == $length_expected) {
-					print STDERR "Try $i: Sent: $sent bytes Expected: $length_expected bytes\n" if $DUMP;
+					print STDERR "Try $i/10: Sent: $sent bytes Expected: $length_expected bytes\n" if $DEBUG;
 					$i = 12;
 				} else {
-					print STDERR "Try $i: FAILED sending. Sent: $sent Bytes Expected: $length_expected bytes. Retry...\n" if $DEBUG;
+					print STDERR "Try $i/10: FAILED sending. Sent: $sent Bytes Expected: $length_expected bytes. Retry...\n" if $DEBUG;
 					sleep ($i);
 					$i++;
 				}
@@ -321,7 +339,7 @@ sub lox2telegraf
 		$client->shutdown(SHUT_RDWR);
 		return (0, \@queue);
 	} else {
-		print STDERR "Could not use $sockstr socket (giving up - data was NOT sent (but maybe partly)!): $@" if $DEBUG;
+		print STDERR "Could not use unix socket (giving up - data was NOT sent (but maybe partly)!): $@" if $DEBUG;
 		return (2, \@queue);
 	}
 }
