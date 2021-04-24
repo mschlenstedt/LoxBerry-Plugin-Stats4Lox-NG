@@ -4,7 +4,6 @@ use warnings;
 use JSON;
 use LoxBerry::IO;
 
-require "./Globals.pm";
 
 use base 'Exporter';
 our @EXPORT = qw (
@@ -17,7 +16,7 @@ package Stats4Lox;
 
 our $DEBUG = 0;
 our $DUMP = 0;
-if ($DEBUG) {
+if ($DEBUG || $DUMP) {
 	require Data::Dumper;
 }
 
@@ -217,6 +216,9 @@ sub influx_lineprot
 #####################################################
 sub lox2telegraf
 {
+
+	require "$LoxBerry::System::lbpbindir/libs/Globals.pm";
+
 	my @data = @{$_[0]};
 	my $nosend = $_[1];
 	my @queue;
@@ -281,8 +283,8 @@ sub lox2telegraf
 	#use IO::Socket qw(AF_INET AF_UNIX SOCK_STREAM SHUT_WR);
 	my $tryudp = 0;
 	my $client;
-	my $telegraf_udp_socket = $Globals:$telegraf_udp_socket;
-	my $telegraf_unix_socket = $Globals:$telegraf_unix_socket;
+	my $telegraf_udp_socket = $Globals::telegraf_udp_socket;
+	my $telegraf_unix_socket = $Globals::telegraf_unix_socket;
 	
 	my $sockstr; 
 	
@@ -376,6 +378,138 @@ sub lox2telegraf
 	}
 }
 
+#####################################################
+# Get internal statistics from Telegraf
+#####################################################
+sub telegrafinternals
+{
+	require "$LoxBerry::System::lbpbindir/libs/Globals.pm";
+
+	my @files = glob( $Globals::telegraf_internal_files );
+	@files = sort @files; # Oldest first
+	my @data;
+	my $result;
+
+	foreach (@files) {
+		open (F, '<', $_);
+			print STDERR "Read file $_\n" if $DEBUG;
+			my @lines = <F>;
+		close (F);
+		push (@data, @lines);
+	}
+	@data = reverse(@data); # Newest first
+	print STDERR "Data read:\n" . Data::Dumper::Dumper(\@data) if $DUMP;
+
+	foreach (@data) {
+		my ($firstblock, $secondblock, $thirdblock) = split (/(?<!\\)\s/); # Split at 'non-escaped' spaces (look-behind)
+		my ($measurement, $tags) = split (/(?<!\\),/, $firstblock, 2);
+		# Inputs
+		if ($measurement eq 'internal_gather') {
+			$tags =~ /input=(.*),/;
+			my $tag = $1;
+			my $section="gather";
+			if (!$result->{$section}->{$tag}) { # only first match
+				$secondblock =~ /metrics_gathered=(.*?)[,i\s]/;
+				$result->{$section}->{$tag}->{metrics_gathered} = $1;
+				$secondblock =~ /gather_time_ns=(.*?)[,i\s]/;
+				$result->{$section}->{$tag}->{gather_time_ns} = $1;
+				$secondblock =~ /errors=(.*?)[,i\s]/;
+				$result->{$section}->{$tag}->{errors} = $1;
+				$result->{$section}->{$tag}->{timestamp} = $thirdblock;
+			}
+		}
+		# Outputs
+		if ($measurement eq 'internal_write') {
+			$tags =~ /output=(.*),/;
+			my $tag = $1;
+			my $section="write";
+			if (!$result->{$section}->{$tag}) { # only first match
+				$secondblock =~ /metrics_filtered=(.*?)[,i\s]/;
+				$result->{$section}->{$tag}->{metrics_filtered} = $1;
+				$secondblock =~ /write_time_ns=(.*?)[,i\s]/;
+				$result->{$section}->{$tag}->{write_time_ns} = $1;
+				$secondblock =~ /errors=(.*?)[,i\s]/;
+				$result->{$section}->{$tag}->{errors} = $1;
+				$secondblock =~ /metrics_added=(.*?)[,i\s]/;
+				$result->{$section}->{$tag}->{metrics_added} = $1;
+				$secondblock =~ /metrics_written=(.*?)[,i\s]/;
+				$result->{$section}->{$tag}->{metrics_written} = $1;
+				$secondblock =~ /metrics_dropped=(.*?)[,i\s]/;
+				$result->{$section}->{$tag}->{metrics_dropped} = $1;
+				$secondblock =~ /buffer_size=(.*?)[,i\s]/;
+				$result->{$section}->{$tag}->{buffer_size} = $1;
+				$secondblock =~ /buffer_limit=(.*?)[,i\s]/;
+				$result->{$section}->{$tag}->{buffer_limit} = $1;
+				$result->{$section}->{$tag}->{timestamp} = $thirdblock;
+			}
+		}
+		# Agent
+		if ($measurement eq 'internal_agent') {
+			my $tag = "agent";
+			if (!$result->{$tag}) { # only first match
+				$secondblock =~ /metrics_written=(.*?)[,i\s]/;
+				$result->{$tag}->{metrics_written} = $1;
+				$secondblock =~ /metrics_dropped=(.*?)[,i\s]/;
+				$result->{$tag}->{metrics_dropped} = $1;
+				$secondblock =~ /metrics_gathered=(.*?)[,i\s]/;
+				$result->{$tag}->{metrics_gathered} = $1;
+				$secondblock =~ /gather_errors=(.*?)[,i\s]/;
+				$result->{$tag}->{gather_errors} = $1;
+				$result->{$tag}->{timestamp} = $thirdblock;
+			}
+		}
+		# Process
+		if ($measurement eq 'internal_process') {
+			my $tag = "process";
+			if (!$result->{$tag}) { # only first match
+				$secondblock =~ /errors=(.*?)[,i\s]/;
+				$result->{$tag}->{errors} = $1;
+				$result->{$tag}->{timestamp} = $thirdblock;
+			}
+		}
+		# Memstats
+		if ($measurement eq 'internal_memstats') {
+			my $tag = "memstats";
+			if (!$result->{$tag}) { # only first match
+				$secondblock =~ /mallocs=(.*?)[,i\s]/;
+				$result->{$tag}->{mallocs} = $1;
+				$secondblock =~ /pointer_lookups=(.*?)[,i\s]/;
+				$result->{$tag}->{pointer_lookups} = $1;
+				$secondblock =~ /heap_objects=(.*?)[,i\s]/;
+				$result->{$tag}->{heap_objects} = $1;
+				$secondblock =~ /num_gc=(.*?)[,i\s]/;
+				$result->{$tag}->{num_gc} = $1;
+				$secondblock =~ /frees=(.*?)[,i\s]/;
+				$result->{$tag}->{frees} = $1;
+				$secondblock =~ /alloc_bytes=(.*?)[,i\s]/;
+				$result->{$tag}->{alloc_bytes} = $1;
+				$secondblock =~ /heap_alloc_bytes=(.*?)[,i\s]/;
+				$result->{$tag}->{heap_alloc_bytes} = $1;
+				$secondblock =~ /heap_released_bytes=(.*?)[,i\s]/;
+				$result->{$tag}->{heap_released_bytes} = $1;
+				$secondblock =~ /sys_bytes=(.*?)[,i\s]/;
+				$result->{$tag}->{sys_bytes} = $1;
+				$secondblock =~ /heap_sys_bytes=(.*?)[,i\s]/;
+				$result->{$tag}->{heap_sys_bytes} = $1;
+				$secondblock =~ /heap_idle_bytes=(.*?)[,i\s]/;
+				$result->{$tag}->{heap_idle_bytes} = $1;
+				$secondblock =~ /total_alloc_bytes=(.*?)[,i\s]/;
+				$result->{$tag}->{total_alloc_bytes} = $1;
+				$secondblock =~ /heap_in_use_bytes=(.*?)[,i\s]/;
+				$result->{$tag}->{heap_in_use_bytes} = $1;
+				$result->{$tag}->{timestamp} = $thirdblock;
+			}
+		}
+	}
+	print STDERR "Result:\n" . Data::Dumper::Dumper(\$result) if $DUMP;
+
+	return ($result);
+}
+
+#####################################################
+# Internal Subroutines
+#####################################################
+
 sub lockTelegrafSocket {
 	my $socketlockfile = $Globals::s4ltmp."/socket_telegraf.lock";
 	open my $fh, '>', $socketlockfile or die "CRITICAL Could not open LOCK file $socketlockfile: $!";
@@ -384,6 +518,7 @@ sub lockTelegrafSocket {
 	print STDERR "Telegraf socket locked\n" if $DEBUG;
 	return $fh;
 }
+
 #####################################################
 # Finally 1; ########################################
 #####################################################
