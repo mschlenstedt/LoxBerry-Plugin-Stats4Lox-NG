@@ -13,41 +13,52 @@ package Loxone::GetLoxplan;
 sub getLoxplan
 {
 	my %args = @_;
+	my $me = whoami();
 	my $log = $args{log};
 	my $msno = $args{ms};
 	
+	if (! $log) {
+		$log = LoxBerry::Log->new (
+			name => 'getLoxplan',
+			stderr => 1,
+			loglevel => 7
+		);
+		$log->LOGSTART("$me");
+	}
+	
 	if( ! $msno) {
-		print STDERR "No Miniserver number defined.\n";
+		$log->CRIT("$me No Miniserver number defined.");
 		return;
 	}
 	
 	# Create temporary storage
 	if(!$main::s4ltmp) {
-		print STDERR "Missing variable s4ltmp.\n";
+		$log->CRIT("$me Missing variable s4ltmp.");
 		return;
 	}
 	if( ! -e $main::s4ltmp ) {
+		$log->INF("$me Creating directory $main::s4ltmp");
 		my $mkrc = mkdir ($main::s4ltmp, 0770);
 		if( !$mkrc ) {
-			print STDERR "Could not create temporary folder $main::s4ltmp.\n";
+			$log->CRIT("$me Could not create temporary folder $main::s4ltmp.");
 			return;
 		}
 	}
 	
 	# Get file list
-	my @files = getFilelist( $msno, "prog/" );
+	my @files = getFilelist( $msno, "prog/", $log );
 	if( !@files ) {
-		print STDERR "getFilelist: No files found.\n";
+		$log->CRIT("$me getFilelist: No files found.");
 		return;
 	}
 	
 	# Download file
 	my $localfile = getFile( $msno, "prog/$files[0]" );
 	if( !$localfile ) {
-		print STDERR "getFile. File download not successfull.\n";
+		$log->CRIT("$me getFile. File download not successful.");
 		return;
 	}
-	print STDERR "Local file: $localfile\n";
+	$log->INF("$me Local file: $localfile");
 	
 	my $LoxCCsource = "$main::s4ltmp/s4l_loxplan_ms$msno/sps0.LoxCC";
 	my $Loxplansource = "$main::s4ltmp/s4l_loxplan_ms$msno/sps0.Loxone";
@@ -59,11 +70,11 @@ sub getLoxplan
 	
 	my ($name, $ext) = split(/.([^.]+)$/, $localfile);
 	if( lc($ext) eq "zip" ) {
-		$log->INF("Unzipping zip");
+		$log->INF("$me Unzipping zip");
 		`unzip $localfile -d "$main::s4ltmp/s4l_loxplan_ms$msno/"`;
 	} 
 	elsif ( lc($ext) eq "loxcc" ) {
-		$log->INF("File already is a LoxCC file");
+		$log->INF("$me File already is a LoxCC file");
 		$LoxCCsource = $localfile;
 	}
 	
@@ -71,37 +82,47 @@ sub getLoxplan
 	
 	if( -e $Loxplansource ) {
 		# If exists, copy to $main::s4ltmp
-		print STDERR "Copying Loxplan from zip\n";
+		$log->INF("$me Copying Loxplan from zip");
 		require File::Copy;
 		File::Copy::copy( $Loxplansource, $Loxplandest );
 	}
 	elsif( -e $LoxCCsource ) {
 		# Unpack LoxCC file
-		print STDERR "Calling unpack_loxcc.py\n";
+		$log->INF("$me Calling unpack_loxcc.py");
 		`${LoxBerry::System::lbpbindir}/libs/Loxone/unpack_loxcc.py "$LoxCCsource" "$Loxplandest"`;
 	} 
 	else {
-		print STDERR "Could not find project file.\n";
+		$log->CRIT("$me Could not find project file.");
 	}
-	
+	$log->OK("$me Finished");
 }
 
 sub getFilelist
 {
-	my ($msno, $dir) = @_;
+	my ($msno, $dir, $log) = @_;
+	
+	my $me = whoami();
+	if (! $log) {
+		$log = LoxBerry::Log->new (
+			name => 'getFilelist',
+			stderr => 1,
+			loglevel => 7
+		);
+		$log->LOGSTART("$me");
+	}
 	
 	my $query = "/dev/fslist/$dir";
 	
 	my (undef, undef, $fileresp) = LoxBerry::IO::mshttp_call( $msno, $query );
 	if( !$fileresp ) {
-		print STDERR "getFilelist: Could not get file list from MS$msno\n";
+		$log->CRIT("$me Could not get file list from MS$msno");
 		return;
 	}
 	
 	my @files_raw = split( "\n", $fileresp);
 	my @files;
 	foreach my $file_raw ( @files_raw ) {
-		# print STDERR $file_raw."\n";
+		$log->DEB("$me Checking $file_raw");
 		my @parts = split( " ", $file_raw );
 		my $filesize = $parts[1];
 		my $filename = $parts[5];
@@ -111,38 +132,55 @@ sub getFilelist
 		next if ( $parts[0] ne "-" );
 		next if ( !LoxBerry::System::begins_with( lc($filename), 'sps_' ) );
 		next if ( lc($ext) ne "zip" and lc($ext) ne "loxcc" );
+		$log->DEB("$me $filename added to filelist");
 		push @files, $filename;
 		
 	}
 	
 	@files = sort {lc($b) cmp lc($a)} @files;
+	$log->OK("$me Final sorted filelist:\n" . join( "\n", @files) );
 	
+		
 	return @files;
 	
 }
 
 sub getFile
 {
-	my ($msno, $filename) = @_;
+	my ($msno, $filename, $log) = @_;
+	
+	my $me = whoami();
+	if (! $log) {
+		$log = LoxBerry::Log->new (
+			name => 'getFile',
+			stderr => 1,
+			loglevel => 7
+		);
+		$log->LOGSTART("$me");
+	}
+	
 	require LWP::Simple;
 	
 	my %miniservers = LoxBerry::System::get_miniservers();
 	my $msuri = $miniservers{$msno}{FullURI};
 	if (!$msuri) {
+		$log->CRIT("$me Cannot get FullURI from Miniserver $msno");
 		return;
 	}
 	
 	my ($name, $ext) = split(/.([^.]+)$/, $filename);
 	
-	my $fulluri = "$msuri/dev/fsget/$filename";
+	my $uripart = "/dev/fsget/$filename";
 	my $localfile = "$main::s4ltmp/s4l_loxplan_ms$msno.$ext";
-	print STDERR "Fulluri: $fulluri Localfile: $localfile\n";
+	$log->INF("$me Uripart: $uripart Localfile: $localfile");
 	
-	my $rc = LWP::Simple::getstore( $fulluri, $localfile);
+	my $rc = LWP::Simple::getstore( $msuri.$uripart, $localfile);
 	if( LWP::Simple::is_error($rc) ) {
+		$log->CRIT("$me LWP::Simple::getstore Download error (is_error)");
 		return;
 	}
 	
+	$log->OK("$me Download successful");
 	return( $localfile );
 }
 
@@ -153,9 +191,19 @@ sub getFile
 
 sub checkLoxplanUpdate
 {
-	my ($msno, $loxplanjson) = @_;
-	
+	my ($msno, $loxplanjson, $log) = @_;
+	my $me = whoami();
+	if (! $log) {
+		$log = LoxBerry::Log->new (
+			name => 'checkLoxplanUpdate',
+			stderr => 1,
+			loglevel => 7
+		);
+		$log->LOGSTART("$me");
+	}
+
 	if (! -e $loxplanjson) {
+		$log->CRIT("$me Json does not exist ($loxplanjson)");
 		die "checkLoxplanUpdate: Json does not exist ($loxplanjson)\n";
 	}
 	
@@ -171,9 +219,10 @@ sub checkLoxplanUpdate
 		$loxplanobj = LoxBerry::JSON->new();
 		$loxplan = $loxplanobj->open( filename => $loxplanjson, writeonclose => 1 );
 		$localTimestamp = defined $loxplan->{documentInfo}->{LoxAPPversion3timestamp} ? $loxplan->{documentInfo}->{LoxAPPversion3timestamp} : "0";
-		print STDERR "checkLoxplanUpdate: localTimestamp : $localTimestamp\n";
+		$log->DEB("$me localTimestamp : $localTimestamp");
 	};
 	if( $@ ) {
+		$log->CRIT("$me Could not fetch local version info");
 		die "checkLoxplanUpdate: Could not fetch local version info\n";
 	}
 	
@@ -181,6 +230,7 @@ sub checkLoxplanUpdate
 	
 	if( $localTimestamp > 0 && $lastCheck > time()-90 ) {
 		# Prevent checking for 90 seconds
+		log->INF("$me Skipping check (already done in the past 90 seconds)");
 		return;
 	}
 	
@@ -188,19 +238,21 @@ sub checkLoxplanUpdate
 	my $respraw;
 	my $respobj;
 	eval {
+		$log->INF("$me Checking LoxAPPversion3 on Miniserver $msno");
 		(undef, undef, $respraw) = LoxBerry::IO::mshttp_call( $msno, "/jdev/sps/LoxAPPversion3" );
 		$respobj = JSON::decode_json( $respraw );
 		$remoteTimestamp = defined $respobj->{LL}->{value} ? $respobj->{LL}->{value} : "1";
-		print STDERR "checkLoxplanUpdate: remoteTimestamp: $remoteTimestamp\n";
+		$log->INF("$me remoteTimestamp: $remoteTimestamp");
 	};
 	if( $@ ) {
+		$log->CRIT("$me Could not fetch remote version info");
 		die "checkLoxplanUpdate: Could not fetch remote version info\n";
 	}
 	
 	$loxplan->{documentInfo}->{S4L_LastChecked} = time();
 	
 	if( $localTimestamp ne "0" and $localTimestamp eq $remoteTimestamp ) {
-		print STDERR "checkLoxplanUpdate: Timestamps are equal, no need to update\n";
+		$log->INF("$me Timestamps are equal, no need to update");
 		return;
 	}
 	
@@ -208,6 +260,12 @@ sub checkLoxplanUpdate
 	
 }
 
+# Returns the name of the current sub (for logfile)
+# e.g. my $me = whoami();
+# print "$me Starting import"; returns "Loxone::Import::new--> Starting import"
+sub whoami { 
+	return ( caller(1))[3] . '-->';
+}
 
 
 

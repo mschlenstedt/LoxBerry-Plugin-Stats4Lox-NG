@@ -20,6 +20,7 @@ my $log = LoxBerry::Log->new (
 	loglevel => 7
 );
 
+LOGSTART "Request $q->{action}";
 
 if( $q->{action} eq "getloxplan" ) {
 	require Loxone::GetLoxplan;
@@ -32,21 +33,23 @@ if( $q->{action} eq "getloxplan" ) {
 	}
 	else {
 		my $msno = $q->{msno};
+		LOGTITLE "getloxplan Miniserver $msno";
+		
 		my $Loxplanfile = "$s4ltmp/s4l_loxplan_ms$msno.Loxone";		
 		my $loxplanjson = "$loxplanjsondir/ms".$msno.".json";
 		my $remoteTimestamp;
 		eval {
-			$remoteTimestamp = Loxone::GetLoxplan::checkLoxplanUpdate( $msno, $loxplanjson );
+			$remoteTimestamp = Loxone::GetLoxplan::checkLoxplanUpdate( $msno, $loxplanjson, $log );
 		};
 		if( $@ or $remoteTimestamp ne "" ) {
-			print STDERR "Loxplan file not up-to-date. Fetching from Miniserver\n";
+			LOGINF "Loxplan file not up-to-date. Fetching from Miniserver\n";
 			Loxone::GetLoxplan::getLoxplan( 
 				ms => $msno, 
 				log => $log 
 			);
 			
 			if( -e $Loxplanfile ) {
-				print STDERR "Loxplan for MS$msno found, parsing now...\n";
+				LOGOK "Loxplan for MS$msno found, parsing now...\n";
 				my $loxplan = Loxone::ParseXML::loxplan2json( 
 					filename => $Loxplanfile,
 					output => $loxplanjson,
@@ -56,7 +59,7 @@ if( $q->{action} eq "getloxplan" ) {
 			}
 			
 		} else {
-			print STDERR "Loxplan file is up-to-date. Using local copy\n";
+			LOGINF "Loxplan file is up-to-date. Using local copy\n";
 		}
 		
 		if( -e $loxplanjson) { 
@@ -283,16 +286,19 @@ if( defined $response and !defined $error ) {
 	print "Status: 200 OK\r\n";
 	print "Content-type: application/json; charset=utf-8\r\n\r\n";
 	print $response;
+	LOGOK "Parameters ok - responding with HTTP 200";
 }
 elsif ( defined $error and $error ne "" ) {
 	print "Status: 500 Internal Server Error\r\n";
 	print "Content-type: application/json; charset=utf-8\r\n\r\n";
 	print to_json( { error => $error } );
+	LOGCRIT "$error - responding with HTTP 500";
 }
 else {
 	print "Status: 501 Not implemented\r\n";
 	print "Content-type: application/json; charset=utf-8\r\n\r\n";
 	$error = "Action ".$q->{action}." unknown";
+	LOGCRIT "Method not implemented - responding with HTTP 501";
 	print to_json( { error => $error } );
 }
 
@@ -326,12 +332,12 @@ sub provisionDashboard {
 	}
 	delete $element->{grafana}->{panels};
 	# As we don't know, if outputs got added or deleted, first we clear all panels of this stat
-	use Data::Dumper;
-	$LoxBerry::JSON::DEBUG=1;
-	print STDERR Dumper( \%known_panel_uids );
+	# use Data::Dumper;
+	# $LoxBerry::JSON::DEBUG=1;
+	# print STDERR Dumper( \%known_panel_uids );
 	
 	my @uids_to_delete = values %known_panel_uids;
-	print STDERR Dumper( \@uids_to_delete );
+	# print STDERR Dumper( \@uids_to_delete );
 	deletePanelFromDashboard Grafana( 
 		"$Globals::s4l_provisioning_dir/dashboards/defaultDashboard.json",
 		\@uids_to_delete
