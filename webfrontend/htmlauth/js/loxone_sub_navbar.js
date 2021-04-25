@@ -2,6 +2,7 @@ $(function() {
 	
 	navbarHtml = "";
 	navbarHtml += `
+	<br>
 	<div data-role="navbar" class="ui-navbar" role="navigation" id="s4l_sub_nav">
 		<ul class="ui-grid-d">
 			<li class="ui-block-a"><a href="index.cgi" id="submenu1" class="ui-link ui-btn">Statistic Selection</a></li>

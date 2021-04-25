@@ -2,9 +2,13 @@
 
 # NAVBAR definition (in scope main)
 our %navbar = (
-	10 => {
-			Name => "Loxone",
+	1 => {
+			Name => "Home",
 			URL => "index.cgi"
+	},
+	10 => {
+			Name => "Loxone/Import",
+			URL => "main_loxone.cgi"
 	},
 	30 => {
 			Name => "Inputs",
