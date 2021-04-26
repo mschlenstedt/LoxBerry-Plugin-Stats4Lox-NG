@@ -102,7 +102,12 @@ function s4llive_mqttmsg ($topic, $msg){
 	$item->timestamp_epoch = $timestamp_epoch;
 	$item->originaltopic = $topic;
 	$item->relativetopic = $reltopic;
-	$item->values = array( array( $output => $msg ) );
+	$item->values = array( 
+		array( 
+			'key' => $output,
+			'value' => $msg 
+		) 
+	);
 	
 	if( !property_exists ( $stats, $id ) ) {
 		// msno_uuid combination not found - fallback to search for measurementname
@@ -326,11 +331,12 @@ function callPerlProcessor() {
 	global $perlprocessor_filename;
 	global $perlprocessor_pid;
 	global $data_transferfile;
+	global $lbplogdir;
 	
 	echo "PID running? " . posix_getpgid($perlprocessor_pid) . "\n";
 if( empty($perlprocessor_pid) or empty(posix_getpgid($perlprocessor_pid)) ) {
 		echo "RUN PERL PROCESSOR";
-		exec("$perlprocessor_filename \"$data_transferfile\" >/dev/null 2>&1 & echo $!; ", $perlprocessor_pid);
+		exec("$perlprocessor_filename \"$data_transferfile\" >>$lbplogdir/mqttlive_lox2telegraf.log 1>&2 & echo $!; ", $perlprocessor_pid);
 		$perlprocessor_pid = $perlprocessor_pid[0];
 		echo " PID: $perlprocessor_pid\n";
 	}
