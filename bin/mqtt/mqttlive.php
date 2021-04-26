@@ -242,9 +242,11 @@ function readStatsjson( $stats_json, $mtime ) {
 		$uuid = $cfg->uuid;
 		$measurementname = isset($cfg->measurementname) ? $cfg->measurementname : false ;
 		$stats->{"${msno}_${uuid}"} = $cfg;
-		// Create a pointer to the msno_uuid object
+		// Also create a pointer from measurementname to the msno_uuid object
 		if( $measurementname ) {
-			$statsByMeasurement->{"${msno}_${measurementname}"} = "${msno}_${uuid}";
+			// For MQTT Gateway publishes, measurementname topic isn't allowed to have whitespaces
+			$measurementname_safe = str_replace( [' ','/','#'], '_', $measurementname );
+			$statsByMeasurement->{"${msno}_${measurementname_safe}"} = "${msno}_${uuid}";
 		}
 	}
 }

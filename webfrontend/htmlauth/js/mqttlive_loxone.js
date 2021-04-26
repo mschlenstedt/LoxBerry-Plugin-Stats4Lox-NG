@@ -296,7 +296,8 @@ function createStatsjsonTable()
 				// Get the label of that index of outputlabels
 				label = element.outputlabels[labelindex];
 				
-				livetopic = `${basetopic}/${element.msno}/${element.measurementname}/${label}`;
+				var measurementname_safe = element.measurementname.replaceAll( /[ \/#]/g, '_');
+				livetopic = `${basetopic}/${element.msno}/${measurementname_safe}/${label}`;
 				valconstant = `&lt;v.8&gt;`;
 				html += `<div style="white-space: nowrap;">`
 				html += `<b>${label}</b>: publish ${livetopic} <i>${valconstant}</i>`;
