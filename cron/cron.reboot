@@ -1,5 +1,3 @@
 #!/bin/bash
-importstatusdir=REPLACELBPDATADIR
-REPLACELBPBINDIR/import_scheduler.pl > $importstatusdir/import_scheduler.log 2>&1 &
-
+REPLACELBPBINDIR/import_scheduler.pl > REPLACELBPLOGDIR/import_scheduler.log 2>&1 &
 REPLACELBPBINDIR/mqtt/mqttlive.php >> REPLACELBPLOGDIR/mqttlive.log 2>&1 &

@@ -194,7 +194,7 @@ if( $q->{action} eq "lxlquery" ) {
 if( $q->{action} eq "import_scheduler_report" ) {
 
 	if( ! -e $Globals::s4ltmp."/s4l_import_scheduler.json" ) {
-		system("$lbpbindir/import_scheduler.pl > ${Globals::importstatusdir}/import_scheduler.log 2>&1 &");
+		system("$lbpbindir/import_scheduler.pl > $lbplogdir/import_scheduler.log 2>&1 &");
 	}
 	my $checktime = time();
 	while( ! -e $Globals::s4ltmp."/s4l_import_scheduler.json" and time() < ($checktime+5) ) {
@@ -226,7 +226,7 @@ if( $q->{action} eq "scheduleimport" and $q->{msno} and $q->{uuid} ) {
 	}
 	
 	# Start the Import Scheduler
-	system("$lbpbindir/import_scheduler.pl > ${Globals::importstatusdir}/import_scheduler.log 2>&1 &");
+	system("$lbpbindir/import_scheduler.pl > $lbplogdir/import_scheduler.log 2>&1 &");
 	
 	sleep 1;
 	
@@ -244,7 +244,7 @@ if( $q->{action} eq "deleteimport" and $q->{msno} and $q->{uuid} ) {
 	if( ! -e $importfile ) {
 		unlink "$importfile.log";
 		$response = "{ }";
-		system("$lbpbindir/import_scheduler.pl > ${Globals::importstatusdir}/import_scheduler.log 2>&1 &");
+		system("$lbpbindir/import_scheduler.pl > $lbplogdir/import_scheduler.log 2>&1 &");
 		sleep 1;
 	}
 	else {
@@ -258,7 +258,7 @@ if( $q->{action} eq "deleteimport" and $q->{msno} and $q->{uuid} ) {
 			unlink $importfile;
 			unlink "$importfile.log";
 			$response = "{ }";
-			system("$lbpbindir/import_scheduler.pl > ${Globals::importstatusdir}/import_scheduler.log 2>&1 &");
+			system("$lbpbindir/import_scheduler.pl > $lbplogdir/import_scheduler.log 2>&1 &");
 			sleep 1;
 		}
 	}
