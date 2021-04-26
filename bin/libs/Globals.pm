@@ -2,9 +2,13 @@
 
 # NAVBAR definition (in scope main)
 our %navbar = (
-	10 => {
-			Name => "Loxone",
+	1 => {
+			Name => "Home",
 			URL => "index.cgi"
+	},
+	10 => {
+			Name => "Loxone/Import",
+			URL => "main_loxone.cgi"
 	},
 	30 => {
 			Name => "Inputs",
@@ -42,8 +46,11 @@ our @EXPORT = qw (
 	$stats4loxcredentials
 	$influx_bulk_blocksize
 	whoami
+	$telegraf_internal_files
 	$telegraf_unix_socket
-	$telegraf_udp_socket
+	$telegraf_max_buffer_fullness
+	@telegraf_buffer_checks
+	telegraf_internal_files
 );
 
 
@@ -63,7 +70,9 @@ our $import_max_parallel_processes = 4;
 our $import_max_parallel_per_ms = 4;
 our $importstatusdir = $LoxBerry::System::lbpdatadir.'/import';
 our $telegraf_unix_socket = "/tmp/telegraf.sock";
-our $telegraf_udp_socket = '8094';
+our $telegraf_max_buffer_fullness = "0.75";
+our @telegraf_buffer_checks = ("influxdb");
+our $telegraf_internal_files = "/tmp/telegraf_internals*.out";
 
 # GRAFANA PROVISIONING
 our $graf_provisioning_dir = "/etc/grafana/provisioning";

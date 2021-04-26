@@ -110,7 +110,7 @@ function updateReportTables(data) {
 		
 		var name = status.name ? status.name : "<i>unknown</i>";
 		
-		var logbutton_html = `<a href="/admin/system/tools/logfile.cgi?logfile=${filekey}.log&header=html&format=template" class="ui-btn ui-btn-inline ui-mini" target="${filekey}">Open Logfile</a>`;
+		var logbutton_html = `<a href="/admin/system/tools/logfile.cgi?logfile=${filekey}.log&header=html&format=template&only=once" class="ui-btn ui-btn-inline ui-mini" target="${filekey}">Open Logfile</a>`;
 		var deletebutton_html =`<a href="#" class="ui-btn ui-btn-inline ui-mini ui-icon-delete deleteImportButton">Delete</a>`;
 		
 		if( data.states?.running[imp.file] ) {

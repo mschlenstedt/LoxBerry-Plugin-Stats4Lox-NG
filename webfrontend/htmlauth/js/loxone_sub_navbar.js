@@ -2,6 +2,7 @@ $(function() {
 	
 	navbarHtml = "";
 	navbarHtml += `
+	<br>
 	<div data-role="navbar" class="ui-navbar" role="navigation" id="s4l_sub_nav">
 		<ul class="ui-grid-d">
 			<li class="ui-block-a"><a href="index.cgi" id="submenu1" class="ui-link ui-btn">Statistic Selection</a></li>
@@ -14,7 +15,7 @@ $(function() {
 	// $(`[data-role="header"]`).after(navbarHtml);
 	$("[data-role=navbar]").after(navbarHtml);
 	console.log("window.location.pathname", window.location.pathname)
-	if( window.location.pathname.lastIndexOf("index.cgi") != -1 ) {
+	if( window.location.pathname.lastIndexOf("main_loxone.cgi") != -1 ) {
 		console.log("submenu1");
 		$("#submenu1").addClass("ui-btn-active");
 	}
