@@ -7,7 +7,7 @@ our %navbar = (
 			URL => "index.cgi"
 	},
 	10 => {
-			Name => "Loxone/Import",
+			Name => "Loxone and Import",
 			URL => "main_loxone.cgi"
 	},
 	30 => {
