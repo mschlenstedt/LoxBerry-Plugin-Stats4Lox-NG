@@ -102,7 +102,7 @@ for my $results( @{$cfg->{loxone}} ){
 		my $key = $_;
 		foreach (@$resp) {
 			if ($_->{"Key"} eq $key) {
-				my $valname = $tags{"uuid"} . "_" . $_->{"Name"};
+				my $valname = $_->{"Name"};
 				my $val = $_->{"Value"};
 				$fields{"$valname"} = $val;
 			}
