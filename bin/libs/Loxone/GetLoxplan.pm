@@ -53,7 +53,7 @@ sub getLoxplan
 	}
 	
 	# Download file
-	my $localfile = getFile( $msno, "prog/$files[0]" );
+	my $localfile = getFile( $msno, "prog/$files[0]", $log );
 	if( !$localfile ) {
 		$log->CRIT("$me getFile. File download not successful.");
 		return;
