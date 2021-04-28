@@ -1,4 +1,7 @@
 {
+   "stats4lox" : {
+      "s4ltmp" : "/dev/shm/s4ltmp"
+   },
    "influx" : {
       "influxurl" : "https://localhost:8086",
       "influxbasicauth" : "true",
@@ -6,8 +9,8 @@
       "influxdatabase" : "stats4lox"
    },
    "telegraf": {
-      "udpsocket": "8085",
-      "unixsocket": "/tmp/telegraf.sock"
+      "unixsocket": "/tmp/telegraf.sock",
+      "internal_statfiles": "/tmp/telegraf_internals*.out"
    },
    "loxone": {
       "measurement" : "stats_loxone",
