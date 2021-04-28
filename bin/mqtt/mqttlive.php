@@ -2,8 +2,21 @@
 <?php
 require_once "loxberry_system.php";
 require_once "loxberry_io.php";
+require_once "loxberry_log.php";
 require_once "phpMQTT/phpMQTT.php";
 require_once LBPBINDIR . "/libs/filechangeTracker.php";
+
+register_shutdown_function('shutdown');
+set_exception_handler ('shutdown');
+
+// Create logfile
+$log = LBLog::newLog( [ 
+	"name" => "MQTTLive",
+	"addtime" => 1,
+	"append" => 1,
+	"filename" => LBPLOGDIR."/mqttlive.log"
+] );
+LOGSTART("Stats4Lox MQTT Live");
  
 // Global variables
 $stats_json = "$lbpconfigdir/stats.json";
@@ -59,12 +72,12 @@ while(1) {
 		// Calculate CPU usage
 		$cpu_usage_now = getrusage()["ru_utime.tv_usec"];
 		$newruntime=microtime(true);
-		echo "CPU time: " . round( ($cpu_usage_now-$cpu_usage)/($newruntime-$runtime_1mins)/1000000*100, 2) ." %\n";
+		LOGINF("CPU time: " . round( ($cpu_usage_now-$cpu_usage)/($newruntime-$runtime_1mins)/1000000*100, 2) ." %");
 		$cpu_usage = $cpu_usage_now;
 		
 		// Run 1 Min. task
 		tasks_1mins();
-		
+		$mqtt->ping();
 		$runtime_1mins=$newruntime;
 	}
 }
@@ -86,12 +99,12 @@ function s4llive_mqttmsg ($topic, $msg){
 	
 	$timestamp_epoch = microtime(true);
 	$timestamp_nsec = sprintf('%.0f', $timestamp_epoch*1000000000);
-	echo date('H:i:s')." {$topic}-->$msg ($timestamp_nsec)\n";
+	LOGOK(date('H:i:s')." {$topic}-->$msg ($timestamp_nsec)");
 	
 	$reltopic = substr( $topic, strlen($basetopic)+1 );
-	echo "Relative Topic $reltopic\n";
+	LOGDEB("Relative Topic $reltopic");
 	list( $msno, $uuid, $output ) = explode( "/", $reltopic );
-	echo "MS: $msno UUID: $uuid OUTPUT: $output\n";
+	LOGINF("MS: $msno UUID: $uuid OUTPUT: $output");
 	
 	$id = "${msno}_${uuid}";
 	
@@ -113,19 +126,19 @@ function s4llive_mqttmsg ($topic, $msg){
 		// msno_uuid combination not found - fallback to search for measurementname
 		if( property_exists( $statsByMeasurement, $id ) ) {
 			$id = $statsByMeasurement->$id;
-			echo "New id is $id\n";
+			LOGOK("Using measurementname, new id is $id");
 		}
 	}
 	
 	// Message validated
 	if( property_exists ( $stats, $id ) ) {
 		$dest = $stats->$id;
-		echo "Name: $dest->name Room: $dest->room\n";
+		LOGINF("Name: $dest->name Room: $dest->room");
 		
 		if( empty($dest->measurementname) ) {
 			$error = "ERROR No measurementname defined in stats.json for UUID $uuid";
 			$item->error = $error;
-			echo $error."\n";
+			LOGWARN($error);
 		}
 		else {
 			$item->measurementname = $dest->measurementname;
@@ -140,14 +153,14 @@ function s4llive_mqttmsg ($topic, $msg){
 			
 			$recordqueue[] = $item;
 		
-			echo "linequeue length before sending: " . count($recordqueue) . "\n";
+			LOGDEB("linequeue length before sending: " . count($recordqueue));
 		}
 	}
 	
 	// UNKNOWN Message
 	else {
 		$item->error = "UNKNOWN: $msno/$uuid not found";
-		echo "UNKNOWN $msno/$uuid\n";
+		LOGWARN("UNKNOWN $msno/$uuid");
 	}
 	
 	unset($uidata["topics"]["$reltopic"]);
@@ -178,7 +191,7 @@ function tasks_1mins() {
 	global $mqtt;
 	global $lwt_topic;
 	
-	echo date("y-m-d H:i:s") . " tasks_1mins\n";
+	LOGINF("tasks_1mins");
 	// get_miniservers (but possibly by inotify)
 	
 	// Update LWT
@@ -187,10 +200,11 @@ function tasks_1mins() {
 	outputLinequeue();
 	
 	$queue_size = count($recordqueue);
-	echo "Cleanup: Current linequeue length: $queue_size\n";
+	LOGINF("Cleanup: Current linequeue length: $queue_size");
 		
 	// Cleanup queue if queue is too big
 	if( $queue_size > 1000 ) {
+		LOGWARN("Cleanup: Reducing linequeue to 900");
 		usort($recordqueue, function($a, $b) {
 			return $a->timestamp < $b->timestamp ? -1 : 1; });
 		
@@ -203,9 +217,9 @@ function readStats4loxjson( $stats4lox_json, $mtime ) {
 	global $basetopic;
 	global $mqtt;
 	
-	echo "READ Stats4Lox.json\n";
+	LOGINF("READ Stats4Lox.json");
 	if( $mtime == false ) {
-		echo "   File does not exist\n";
+		LOGWARN("   File does not exist");
 	} else {
 		$stats4loxcfg = json_decode( file_get_contents( $stats4lox_json ) );
 	}
@@ -213,8 +227,8 @@ function readStats4loxjson( $stats4lox_json, $mtime ) {
 	$newbasetopic = !empty( $stats4loxcfg->loxone->mqttlive_basetopic ) ? trim( $stats4loxcfg->loxone->mqttlive_basetopic ) : 's4l/mqttlive';
 	$newbasetopic = rtrim( $newbasetopic, "#/" );
 	if( $newbasetopic != $basetopic) {
-		echo "Basetopic $basetopic\n";
 		$basetopic = $newbasetopic;
+		LOGOK("Using Base topic $basetopic");
 		if( $mqtt ) {
 			mqttConnect();
 		}
@@ -269,12 +283,12 @@ function outputLinequeue() {
 		return;
 	}
 	else {
-		print "Queue size: $queue_size elements "; 
+		LOGINF("Queue size: $queue_size elements"); 
 		if( $mqtt_connected ) {
-			print "(MQTT connected)\n";
+			LOGOK("MQTT connected");
 		}
 		else {
-			print "(MQTT not connected)\n";
+			LOGWARN("MQTT not connected");
 		}
 	}
 
@@ -282,7 +296,7 @@ function outputLinequeue() {
 	
 	//Lock File, error if unable to lock
 	if( !flock($outputfh, LOCK_EX | LOCK_NB) ) {
-		echo "Data Transferfile could not be locked. Trying again in a second. ($data_transferfile)\n";
+		LOGINF("Data Transferfile could not be locked. Trying it again in a second. ($data_transferfile)");
 		fclose($outputfh);
 		return;
 	}
@@ -318,7 +332,7 @@ function outputLinequeue() {
 		fclose($outputfh);
 	}
 	catch( Exception $e ) {
-		echo "EXCEPTION on writing file - linequeue not truncated. ".$e->getMessage()."\n";
+		LOGERR("EXCEPTION on writing file - linequeue not truncated. ".$e->getMessage());
 		return;
 	}
 	
@@ -333,15 +347,15 @@ function callPerlProcessor() {
 	global $data_transferfile;
 	global $lbplogdir;
 	
-	echo "PID running? " . posix_getpgid($perlprocessor_pid) . "\n";
-if( empty($perlprocessor_pid) or empty(posix_getpgid($perlprocessor_pid)) ) {
-		echo "RUN PERL PROCESSOR";
+	LOGINF("PID running? " . posix_getpgid($perlprocessor_pid));
+	if( empty($perlprocessor_pid) or empty(posix_getpgid($perlprocessor_pid)) ) {
+		LOGINF("RUNNING PERL PROCESSOR");
 		exec("$perlprocessor_filename \"$data_transferfile\" >>$lbplogdir/mqttlive_lox2telegraf.log 1>&2 & echo $!; ", $perlprocessor_pid);
 		$perlprocessor_pid = $perlprocessor_pid[0];
-		echo " PID: $perlprocessor_pid\n";
+		LOGOK("PID: $perlprocessor_pid");
 	}
 	else { 
-		echo " seems to be running. Skipping this round.\n";
+		LOGINF("Seems to be running. Skipping this round.");
 	}
 }
 
@@ -364,7 +378,7 @@ function readMqttCredentials() {
 
 	if( $oldcreds !== $creds ) {
 		// MQTT credentials changed, reconnect
-		echo "MQTT credentials changed, reconnecting\n";
+		LOGINF("MQTT credentials changed, reconnecting");
 		mqttConnect();
 	}
 }
@@ -378,13 +392,13 @@ function mqttConnect() {
 	global $uidata;
 	global $uidata_update;
 	
-	echo "mqttConnect $basetopic\n";
+	LOGINF("mqttConnect $basetopic");
 	
 	$uidata["state"]["broker_basetopic"] = $basetopic;
 	
 	if( empty($creds) ) {
 		$error = "No MQTT credentials. MQTT Gateway not installed?";
-		print $error."\n";
+		LOGERR($error);
 		$uidata["state"]["broker_connected"] = false;
 		$uidata["state"]["broker_error"] = $error;
 		$uidata_update = true;
@@ -396,25 +410,27 @@ function mqttConnect() {
 	
 	// Create mqtt connection
 	if( $mqtt ) {
-		echo "Closing MQTT connection\n";
+		LOGINF("Closing MQTT connection");
 		$mqtt->disconnect();
 		sleep(1);
 		$mqtt = null;
 	}
 		
-	echo "Creating new mqtt connection\n";
+	LOGINF("Creating new mqtt connection");
 	$mqtt = new Bluerhinos\phpMQTT($creds['brokerhost'],  $creds['brokerport'], $client_id);
 	
 	$mqtt_connected = $mqtt->connect(true, [ "topic" => "$lwt_topic", "content" => "false", "qos" => 0, "retain" => true ] , $creds['brokeruser'], $creds['brokerpass'] );
 	if( !$mqtt_connected ) {
 		$error = "MQTT connection to broker ".$creds['brokerhost'].":".$creds['brokerport']." failed";
-		print $error."\n";
+		LOGERR($error);
 		$uidata["state"]["broker_connected"] = false;
 		$uidata["state"]["broker_error"] = $error;
 		$uidata_update = true;
+		LOGTITLE("MQTT connection offline");
 		return;
 	}
-	echo "Connected to MQTT broker ".$creds['brokerhost'].":".$creds['brokerport']." (Topic $basetopic)\n";
+	LOGOK("Connected to MQTT broker ".$creds['brokerhost'].":".$creds['brokerport']." (Topic $basetopic)");
+	LOGTITLE("Base topic $basetopic");
 	$uidata["state"]["broker_connected"] = true;
 	$uidata["state"]["broker_error"] = "";
 	$uidata_update = true;
@@ -430,112 +446,11 @@ function mqttConnect() {
 } 
 
 
-// Wastebasket ;-)
-
-		/* 
-		// Socket send - not required anymore
-		foreach( $recordqueue as $linekey => $lineobj) {
-			$expectedbytes = strlen($lineobj->line);
-			$sentbytes = false;
-			if( $socket ) {
-				$sentbytes = fwrite( $socket, $lineobj->line );
-				if( $sentbytes != false && $sentbytes == $expectedbytes ) {
-					unset( $recordqueue[$linekey] );
-				}
-				else { 
-					echo "ERROR sending line: Sent: $sentbytes Expected: $expectedbytes\n";
-				}
-			}
-		}
-		
-		*/
-		
-
-/*
-// Create Influx lineprot - not necessary anymore
-function getLineprot( $timestamp, $value, $dest, $output ) {
-	
-	$measurement = "stats4lox";
-	$tags = array();
-	$fields = array();
-	
-	$measurement = LineProtCleanMeasurements($measurement);
-	
-	
-	if( $dest->category ) $tags["category"] = LineProtCleanTags($dest->category);
-	if( $dest->description ) $tags["description"] = LineProtCleanTags($dest->description);
-	if( $dest->msno ) $tags["msno"] = LineProtCleanTags($dest->msno);
-	if( $dest->name ) $tags["name"] = LineProtCleanTags($dest->name);
-	if( $dest->uuid ) $tags["uuid"] = LineProtCleanTags($dest->uuid);
-	if( $dest->room ) $tags["room"] = LineProtCleanTags($dest->room);
-	if( $dest->type ) $tags["type"] = LineProtCleanTags($dest->type);
-	
-	$valname = $dest->uuid."_".$output;
-	$fields["$valname"] = $value;
-	
-	$line = "$measurement";
-	
-	foreach( $tags as $tagkey => $tagvalue ) {
-		$line .= ",$tagkey=$tagvalue";
+function shutdown( $ex ) {
+	global $log;
+	if( $ex ) {
+		LOGCRIT("PHP EXCEPTION: " . $ex->getMessage());
 	}
-	
-	$line .= ' ';
-	
-	foreach( $fields as $fieldkey => $fieldvalue ) {
-		$line .= "$fieldkey=$fieldvalue,";
-	}
-	$line = rtrim($line, ',');
-	
-	$line .= ' ';
-	
-	$line .= $timestamp;
-	
-	$line .= "\n";
-	
-	return $line;
-	
+	echo "Shutdown\n";
+	LOGEND("MQTT Live: Shutdown");
 }
-
-*/
-
-/*
-// UNIX socket - not required anymore
-
-function openUnixSocket() {
-	
-	// Read S4L config
-	$s4lcfg = json_decode( file_get_contents( LBPCONFIGDIR . "/stats4lox.json" ) );
-	
-	$unixsocketfile = "unix://" . $s4lcfg->telegraf->unixsocket;
-	
-	if( empty( $unixsocketfile ) ) {
-		echo "ERROR Reading stats4lox.json telegraf unix socket\n";
-		return;
-	}
-	
-	$socket = stream_socket_client ( $unixsocketfile , $errno , $errstr, 10, STREAM_CLIENT_CONNECT );
-
-	if( !$socket ) {
-		echo "ERROR opening telegraf unix socket $unixsocketfile\n";
-		return;
-	}
-	
-	return $socket;
-}
-*/
-
-
-/*
-// Tag keys, tag values, field keys
-function LineProtCleanTags( $line ) {
-	return str_replace( [',', '=', ' '], [ '\,', '\=', '\ '], $line );
-}
-// Measurements
-function LineProtCleanMeasurements( $line ) {
-	return str_replace( [',', ' '], [ '\,', '\ '], $line );
-}
-// String field values
-function LineProtCleanStringFieldValues( $line ) {
-	return str_replace( ['"'], [ '\"'], $line );
-}
-*/
