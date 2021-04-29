@@ -57,4 +57,14 @@ echo "<INFO> Starting influxdb and telegraf services."
 systemctl start influxdb
 systemctl start telegraf
 
+echo "<INFO> Stopping internal services for upgrade."
+pkill -f mqttlive.php > /dev/null 2>&1
+pkill -f import_scheduler.pl > /dev/null 2>&1
+pkill -f import_loxone.pl> /dev/null 2>&1
+
+# Clean up old installation
+echo "<INFO> Cleaning old temporary files"
+S4LTMP=`jq -r '.stats4lox.s4ltmp' $PCONFIG/stats4lox.json`
+rm -fr $S4LTMP
+
 exit 0
