@@ -136,7 +136,7 @@ if [ $RESP -eq 0 ] || [ $? -eq 127 ]; then # If user does not exist or if no adm
 		chmod 640 $PCONFIG/cred.json
 	fi
 else
-	echo "<OK> InfluxDB user $INFLUXDBUSER already exists. I will use this exisating account and leave it untouched."
+	echo "<OK> InfluxDB user $INFLUXDBUSER already exists. I will use this existing account and leave it untouched."
 fi
 
 # Check for stats4lox database. Create it if not exists
