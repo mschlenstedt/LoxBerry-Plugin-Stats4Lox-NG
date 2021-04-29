@@ -90,13 +90,16 @@ rm -f /etc/sysctl.d/96-stats4lox.conf
 ln -s $PCONFIG/sysctl.conf /etc/sysctl.d/96-stats4lox.conf
 
 # Systemd DropIn Config
-echo "<INFO> Install Drop-In for Influx and Telegraf systemd services..."
+echo "<INFO> Install Drop-In for Influx and Telegraf and Grafana systemd services..."
 rm -f /etc/systemd/system/influxdb.service.d/00-stats4lox.conf
 rm -f /etc/systemd/system/telegraf.service.d/00-stats4lox.conf
+rm -f /etc/systemd/system/grafana-server.service.d/00-stats4lox.conf
 mkdir -p /etc/systemd/system/influxdb.service.d
 mkdir -p /etc/systemd/system/telegraf.service.d
+mkdir -p /etc/systemd/system/grafana-server.service.d
 ln -s $PCONFIG/systemd/00-stats4lox.conf /etc/systemd/system/influxdb.service.d/00-stats4lox.conf
 ln -s $PCONFIG/systemd/00-stats4lox.conf /etc/systemd/system/telegraf.service.d/00-stats4lox.conf
+ln -s $PCONFIG/systemd/00-stats4lox.conf /etc/systemd/system/grafana-server.service.d/00-stats4lox.conf
 systemctl daemon-reload
 
 # Activate InfluxDB service and start
@@ -201,6 +204,7 @@ if [ -d /etc/grafana ] && [ ! -L /etc/grafana ]; then
 fi
 rm -rf /etc/grafana > /dev/null 2>&1
 ln -s $PCONFIG/grafana /etc/grafana
+chmod 770 $PDATA/grafana
 
 # Give grafana user permissions to data/provisioning
 chmod 770 $PDATA/provisioning
