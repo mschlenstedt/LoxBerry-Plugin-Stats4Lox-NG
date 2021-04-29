@@ -1,24 +1,11 @@
 #!/bin/sh
 
-# To use important variables from command line use the following code:
-COMMAND=$0    # Zero argument is shell command
-PTEMPDIR=$1   # First argument is temp folder during install
-PSHNAME=$2    # Second argument is Plugin-Name for scipts etc.
-PDIR=$3       # Third argument is Plugin installation folder
-PVERSION=$4   # Forth argument is Plugin version
-#LBHOMEDIR=$5 # Comes from /etc/environment now. Fifth argument is
-              # Base folder of LoxBerry
-PTEMPPATH=$6  # Sixth argument is full temp path during install (see also $1)
-
-# Combine them with /etc/environment
-PCGI=$LBPCGI/$PDIR
-PHTML=$LBPHTML/$PDIR
-PTEMPL=$LBPTEMPL/$PDIR
-PDATA=$LBPDATA/$PDIR
-PLOG=$LBPLOG/$PDIR # Note! This is stored on a Ramdisk now!
-PCONFIG=$LBPCONFIG/$PDIR
-PSBIN=$LBPSBIN/$PDIR
-PBIN=$LBPBIN/$PDIR
+ARGV0=$0 # Zero argument is shell command
+ARGV1=$1 # First argument is temp folder during install
+ARGV2=$2 # Second argument is Plugin-Name for scipts etc.
+ARGV3=$3 # Third argument is Plugin installation folder
+ARGV4=$4 # Forth argument is Plugin version
+ARGV5=$5 # Fifth argument is Base folder of LoxBerry
 
 echo "<INFO> Stopping services influxdb and telegraf for upgrade."
 sudo /bin/systemctl stop influxdb
@@ -46,7 +33,7 @@ cp -a $ARGV5/data/plugins/$ARGV3/ /tmp/$ARGV1\_upgrade/data
 
 # Clean up old installation
 echo "<INFO> Cleaning old temporary files"
-S4LTMP=`jq -r '.stats4lox.s4ltmp' $PCONFIG/stats4lox.json`
+S4LTMP=`jq -r '.stats4lox.s4ltmp' $ARGV5/config/plugins/$ARGV3/stats4lox.json`
 rm -fr $S4LTMP
 
 # Exit with Status 0
