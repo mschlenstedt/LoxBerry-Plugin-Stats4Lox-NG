@@ -80,8 +80,8 @@ else
 fi
 
 # Correct permissions - influxdb must have write permissions to database folders
-echo "<INFO> Set permissions for user influxdb for database folders..."
-chmod -R 775 $PDATA/influxdb
+#echo "<INFO> Set permissions for user influxdb for database folders..."
+#chmod -R 775 $PDATA/influxdb
 
 # Enlarge UDP/IP receive buffer limit for import
 echo "<INFO> Enlarge Unix receive buffer limit..."
@@ -201,7 +201,7 @@ if [ -d "$LBPHTMLAUTH/grafana" ]; then
 fi
 
 # Activate Grafana
-echo "<INFO> Starting InfluxDB..."
+echo "<INFO> Starting Grafana..."
 systemctl enable --now grafana-server
 systemctl start grafana-server
 sleep 5
