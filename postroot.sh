@@ -40,11 +40,13 @@ fi
 echo "<INFO> Stopping InfluxDB and Telegraf."
 systemctl stop influxdb
 systemctl stop telegraf
+systemctl stop grafana-server
 
 # Set permissions
 echo "<INFO> Adding user influxdb and telegraf to loxberry group."
 usermod -a -G loxberry telegraf
 usermod -a -G loxberry influxdb
+usermod -a -G loxberry grafana
 
 # Get InfluxDB credentials
 INFLUXDBUSER=`jq -r '.influx.influxdbuser' $PCONFIG/cred.json`
@@ -197,6 +199,12 @@ if [ -d "$LBPHTMLAUTH/grafana" ]; then
 	$PBIN/provisioning/set_datasource_influx.pl
 	$PBIN/provisioning/set_dashboard_provider.pl
 fi
+
+# Activate Grafana
+echo "<INFO> Starting InfluxDB..."
+systemctl enable --now grafana-server
+systemctl start grafana-server
+sleep 5
 
 # Start/Stop MQTT Live Service
 echo "<INFO> Starting MQTTLive Service..."
