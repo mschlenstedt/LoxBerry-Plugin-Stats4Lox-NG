@@ -193,12 +193,19 @@ else
 	echo "<OK> Telegraf service is running."
 fi
 
+# Activate own config delivered with plugin
+echo "<INFO> Activating my own Grafana configuration."
+if [ -d /etc/grafana ] && [ ! -L /etc/grafana ]; then
+	rm -rf /etc/grafana.orig
+	mv /etc/grafana /etc/grafana.orig
+fi
+rm -rf /etc/grafana > /dev/null 2>&1
+ln -s $PCONFIG/grafana /etc/grafana
+
 # Give grafana user permissions to data/provisioning
 chmod 770 $PDATA/provisioning
-if [ -d "$LBPHTMLAUTH/grafana" ]; then
-	$PBIN/provisioning/set_datasource_influx.pl
-	$PBIN/provisioning/set_dashboard_provider.pl
-fi
+$PBIN/provisioning/set_datasource_influx.pl
+$PBIN/provisioning/set_dashboard_provider.pl
 
 # Activate Grafana
 echo "<INFO> Starting Grafana..."
