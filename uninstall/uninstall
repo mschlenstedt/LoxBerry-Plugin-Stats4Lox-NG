@@ -40,6 +40,12 @@ if [ -L /etc/telegraf ]; then
 	mv /etc/default/telegraf.orig /etc/default/telegraf
 fi
 
+echo "<INFO> Deactivating my own Grafana configuration."
+if [ -L /etc/grafana ]; then
+	rm /etc/grafana
+	mv /etc/grafana.orig /etc/grafana
+fi
+
 echo "<INFO> Backing up Stats4Lox databases - just in case you forgot to make a backup..."
 rm -r $PDATA\.backup
 mv $PDATA $PDATA\.backup
@@ -56,5 +62,15 @@ systemctl daemon-reload
 echo "<INFO> Starting influxdb and telegraf services."
 systemctl start influxdb
 systemctl start telegraf
+
+echo "<INFO> Stopping internal services for upgrade."
+pkill -f mqttlive.php > /dev/null 2>&1
+pkill -f import_scheduler.pl > /dev/null 2>&1
+pkill -f import_loxone.pl> /dev/null 2>&1
+
+# Clean up old installation
+echo "<INFO> Cleaning old temporary files"
+S4LTMP=`jq -r '.stats4lox.s4ltmp' $PCONFIG/stats4lox.json`
+rm -fr $S4LTMP
 
 exit 0

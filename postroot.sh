@@ -40,24 +40,25 @@ fi
 echo "<INFO> Stopping InfluxDB and Telegraf."
 systemctl stop influxdb
 systemctl stop telegraf
+systemctl stop grafana-server
 
 # Set permissions
 echo "<INFO> Adding user influxdb and telegraf to loxberry group."
 usermod -a -G loxberry telegraf
 usermod -a -G loxberry influxdb
+usermod -a -G loxberry grafana
 
 # Get InfluxDB credentials
 INFLUXDBUSER=`jq -r '.influx.influxdbuser' $PCONFIG/cred.json`
 INFLUXDBPASS=`jq -r '.influx.influxdbpass' $PCONFIG/cred.json`
 if [ "$INFLUXDBUSER" = "" ]; then
-	echo "<WARNING> Could not find credentials for InfluxDB. This may be an error, but I will try to continue. Using default ones: stats4lox/loxberry"
 	INFLUXDBUSER="stats4lox"
 	INFLUXDBPASS="loxberry"
 fi
 
 # Debug
-echo "Influx User: $INFLUXDBUSER"
-echo "Influx Pass: $INFLUXDBPASS"
+#echo "Influx User: $INFLUXDBUSER"
+#echo "Influx Pass: $INFLUXDBPASS"
 
 # Activate own config delivered with plugin
 echo "<INFO> Activating my own InfluxDB configuration."
@@ -79,25 +80,26 @@ else
 fi
 
 # Correct permissions - influxdb must have write permissions to database folders
-echo "<INFO> Set permissions for user influxdb for database folders..."
-chmod -R 775 $PDATA/influxdb
+#echo "<INFO> Set permissions for user influxdb for database folders..."
+#chmod -R 775 $PDATA/influxdb
 
 # Enlarge UDP/IP receive buffer limit for import
-echo "<INFO> Enlarge UDP/IP and Unix receive buffer limit..."
-sysctl -w net.core.rmem_max=8388608
-sysctl -w net.core.rmem_default=8388608
+echo "<INFO> Enlarge Unix receive buffer limit..."
 sysctl -w net.unix.max_dgram_qlen=10000
 rm -f /etc/sysctl.d/96-stats4lox.conf
 ln -s $PCONFIG/sysctl.conf /etc/sysctl.d/96-stats4lox.conf
 
 # Systemd DropIn Config
-echo "<INFO> Install Drop-In for Influx and Telegraf systemd services..."
+echo "<INFO> Install Drop-In for Influx and Telegraf and Grafana systemd services..."
 rm -f /etc/systemd/system/influxdb.service.d/00-stats4lox.conf
 rm -f /etc/systemd/system/telegraf.service.d/00-stats4lox.conf
-mkdir /etc/systemd/system/influxdb.service.d
-mkdir /etc/systemd/system/telegraf.service.d
+rm -f /etc/systemd/system/grafana-server.service.d/00-stats4lox.conf
+mkdir -p /etc/systemd/system/influxdb.service.d
+mkdir -p /etc/systemd/system/telegraf.service.d
+mkdir -p /etc/systemd/system/grafana-server.service.d
 ln -s $PCONFIG/systemd/00-stats4lox.conf /etc/systemd/system/influxdb.service.d/00-stats4lox.conf
 ln -s $PCONFIG/systemd/00-stats4lox.conf /etc/systemd/system/telegraf.service.d/00-stats4lox.conf
+ln -s $PCONFIG/systemd/00-stats4lox.conf /etc/systemd/system/grafana-server.service.d/00-stats4lox.conf
 systemctl daemon-reload
 
 # Activate InfluxDB service and start
@@ -113,13 +115,13 @@ if [ $? -gt 0 ]; then
 	echo "<FAIL> Seems that InfluxDB could not be started. Giving up."
 	exit 2
 else
-	echo "<OK> InfluxDB service is running. Fine."
+	echo "<OK> InfluxDB service is running."
 fi
 
 # Check InfluxDB user. Create it if not exists
 RESP=`$INFLUXBIN -ssl -unsafeSsl -username $INFLUXDBUSER -password $INFLUXDBPASS -execute "SHOW USERS" | grep -e "^$INFLUXDBUSER\W*true$" | wc -l`
 if [ $RESP -eq 0 ] || [ $? -eq 127 ]; then # If user does not exist or if no admin user at all exists in a fresh installation:
-	echo "<INFO> Creating default InfluxDB user 'stats4lox' as dadmin."
+	echo "<INFO> Creating default InfluxDB user 'stats4lox' as admin user."
 	INFLUXDBUSER="stats4lox"
 	INFLUXDBPASS=`head /dev/urandom | tr -dc A-Za-z0-9 | head -c16`
 	$INFLUXBIN -ssl -unsafeSsl -execute "CREATE USER $INFLUXDBUSER WITH PASSWORD '$INFLUXDBPASS' WITH ALL PRIVILEGES"
@@ -127,7 +129,7 @@ if [ $RESP -eq 0 ] || [ $? -eq 127 ]; then # If user does not exist or if no adm
 		echo "<ERROR> Could not create default InfluxDB user. Giving up."
 		exit 2
 	else
-		echo "<OK> Default InfluxDB user 'stats4lox' created successfully. Fine."
+		echo "<OK> Default InfluxDB user '$INFLUXDBUSER' created successfully."
 		echo "<INFO> Saving credentials in cred.json."
 		jq ".influx.influxdbuser = \"$INFLUXDBUSER\"" $PCONFIG/cred.json > $PCONFIG/cred.json.new
 		mv $PCONFIG/cred.json.new $PCONFIG/cred.json
@@ -137,11 +139,11 @@ if [ $RESP -eq 0 ] || [ $? -eq 127 ]; then # If user does not exist or if no adm
 		chmod 640 $PCONFIG/cred.json
 	fi
 else
-	echo "<OK> InfluxDB user $INFLUXDBUSER already exists. Fine, I will use this account and leave it untouched."
+	echo "<OK> InfluxDB user $INFLUXDBUSER already exists. I will use this existing account and leave it untouched."
 fi
 
 # Check for stats4lox database. Create it if not exists
-RESP=`$INFLUXBIN -ssl -unsafeSsl -username $INFLUXDBUSER -password $INFLUXDBPASS -execute "SHOW DATABASES" | grep -e "^stats4lox$" | wc -l`
+RESP=`$PBIN/s4linflux -execute "SHOW DATABASES" | grep -e "^stats4lox$" | wc -l`
 if [ $RESP -eq 0 ]; then
 	echo "<INFO> Creating default InfluxDB database 'stats4lox'."
 	$INFLUXBIN -ssl -unsafeSsl -username $INFLUXDBUSER -password $INFLUXDBPASS -execute "CREATE DATABASE stats4lox"
@@ -149,11 +151,8 @@ if [ $RESP -eq 0 ]; then
 		echo "<ERROR> Could not create default InfluxDB database. Giving up."
 		exit 2
 	else
-		echo "<OK> InfluxDB database 'stat4lox' created successfully. Fine."
+		echo "<OK> InfluxDB database 'stats4lox' created successfully."
 	fi
-
-	#echo "<INFO> Current available InfluxDB databases are as follows:"
-	#$INFLUXBIN -username loxberry -password loxberry -execute "SHOW DATABASES"
 fi
 
 # Activating own telegraf config which is delivered with the plugin
@@ -172,6 +171,9 @@ ln -s $PCONFIG/telegraf /etc/telegraf
 ln -s $PCONFIG/telegraf/telegraf.env /etc/default/telegraf
 
 # Saving InfluxDB credentials in Telegraf config and set restrictive permissions to that file
+#
+# REPLACE THIS WITH CONFIG-HANDLER LATER ON
+#
 echo "<INFO> Saving credentials in Telegraf configuration (telegraf.env) and restart Telegraf afterwards."
 awk -v s="USER_INFLUXDB=\"$INFLUXDBUSER\"" '/^USER_INFLUXDB=/{$0=s;f=1} {a[++n]=$0} END{if(!f)a[++n]=s;for(i=1;i<=n;i++)print a[i]>ARGV[1]}' $PCONFIG/telegraf/telegraf.env
 awk -v s="PASS_INFLUXDB=\"$INFLUXDBPASS\"" '/^PASS_INFLUXDB=/{$0=s;f=1} {a[++n]=$0} END{if(!f)a[++n]=s;for(i=1;i<=n;i++)print a[i]>ARGV[1]}' $PCONFIG/telegraf/telegraf.env
@@ -191,15 +193,29 @@ if [ $? -gt 0 ]; then
 	echo "<FAIL> Seems that Telegraf could not be started. Giving up."
 	exit 2
 else
-	echo "<OK> Telegraf service is running. Fine."
+	echo "<OK> Telegraf service is running."
 fi
+
+# Activate own config delivered with plugin
+echo "<INFO> Activating my own Grafana configuration."
+if [ -d /etc/grafana ] && [ ! -L /etc/grafana ]; then
+	rm -rf /etc/grafana.orig
+	mv /etc/grafana /etc/grafana.orig
+fi
+rm -rf /etc/grafana > /dev/null 2>&1
+ln -s $PCONFIG/grafana /etc/grafana
+chmod 770 $PDATA/grafana
 
 # Give grafana user permissions to data/provisioning
 chmod 770 $PDATA/provisioning
-if [ -d "$LBPHTMLAUTH/grafana" ]; then
-	$PBIN/provisioning/set_datasource_influx.pl
-	$PBIN/provisioning/set_dashboard_provider.pl
-fi
+$PBIN/provisioning/set_datasource_influx.pl
+$PBIN/provisioning/set_dashboard_provider.pl
+
+# Activate Grafana
+echo "<INFO> Starting Grafana..."
+systemctl enable --now grafana-server
+systemctl start grafana-server
+sleep 5
 
 # Start/Stop MQTT Live Service
 echo "<INFO> Starting MQTTLive Service..."

@@ -23,17 +23,17 @@ mkdir -p /tmp/$ARGV1\_upgrade/log
 mkdir -p /tmp/$ARGV1\_upgrade/data
 
 echo "<INFO> Backing up existing config files"
-cp -p -v -r $ARGV5/config/plugins/$ARGV3/ /tmp/$ARGV1\_upgrade/config
+cp -a $ARGV5/config/plugins/$ARGV3/ /tmp/$ARGV1\_upgrade/config
 
 echo "<INFO> Backing up existing log files"
-cp -p -v -r $ARGV5/log/plugins/$ARGV3/ /tmp/$ARGV1\_upgrade/log
+cp -a $ARGV5/log/plugins/$ARGV3/ /tmp/$ARGV1\_upgrade/log
 
 echo "<INFO> Backing up existing data files"
-cp -p -v -r $ARGV5/data/plugins/$ARGV3/ /tmp/$ARGV1\_upgrade/data
+cp -a $ARGV5/data/plugins/$ARGV3/ /tmp/$ARGV1\_upgrade/data
 
 # Clean up old installation
 echo "<INFO> Cleaning old temporary files"
-S4LTMP=`jq -r '.stats4lox.s4ltmp' $PCONFIG/stats4lox.json`
+S4LTMP=`jq -r '.stats4lox.s4ltmp' $ARGV5/config/plugins/$ARGV3/stats4lox.json`
 rm -fr $S4LTMP
 
 # Exit with Status 0

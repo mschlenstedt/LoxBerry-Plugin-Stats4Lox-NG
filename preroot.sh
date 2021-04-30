@@ -20,12 +20,17 @@ PCONFIG=$LBPCONFIG/$PDIR
 PSBIN=$LBPSBIN/$PDIR
 PBIN=$LBPBIN/$PDIR
 
-# Installing InfluxDB
-if [ ! -x /usr/bin/influxd ]; then
-	echo "Adding InfluxDB to apt repository..."
-	wget -qO- https://repos.influxdata.com/influxdb.key | sudo apt-key add -
-	source /etc/os-release
-	echo "deb https://repos.influxdata.com/debian $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/influxdb.list
-fi
+# Installing InfluxDB and Grafana in newer versions than Debian included
+echo "<INFO> Adding/Updating Influx repository..."
+wget -qO- https://repos.influxdata.com/influxdb.key | sudo apt-key add - 2>/dev/null
+source /etc/os-release
+echo "deb https://repos.influxdata.com/debian $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/influxdb.list
+
+echo "<INFO> Adding/Updating Grafana repository..."
+wget -q -O - https://packages.grafana.com/gpg.key | sudo apt-key add - 2>/dev/null
+echo "deb https://packages.grafana.com/oss/deb stable main" | sudo tee /etc/apt/sources.list.d/grafana.list
+
+echo "<INFO> Updating apt database..."
+apt-get -q -y --allow-unauthenticated --allow-downgrades --allow-remove-essential --allow-change-held-packages update
 
 exit 0
