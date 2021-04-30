@@ -195,9 +195,9 @@ sub save {
 		if( ! $obj->{id} ) {
 			# The panel has no id, create one
 			# We need to get the highest panel id from all existing panels
-			my $highest_id = 1; 
+			my $highest_id = 0; 
 			foreach( @{ $self->{_dashboard}->{panels} } ) {
-				$highest_id = $_->{id} if( $_->{id} > $highest_id );
+				$highest_id = 0+$_->{id} if( 0+$_->{id} > $highest_id );
 			}
 			$obj->{id} = $highest_id+1;
 		}
