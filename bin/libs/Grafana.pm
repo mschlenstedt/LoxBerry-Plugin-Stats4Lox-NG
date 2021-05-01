@@ -54,16 +54,16 @@ sub PanelFromTemplate {
 sub deletePanelFromDashboard {
 	my $class = shift;
 	my $dashboard_file = shift;
-	my $panel_uids = shift;
+	my $panel_ids = shift;
 	
-	print STDERR "panel_uids is " . ref($panel_uids) . "\n";
-	if( ref($panel_uids) eq "" ) {
-		$panel_uids = [ $panel_uids ];
-		print STDERR "panel_uids now is " . ref($panel_uids) . "\n";
+	print STDERR "panel_ids is " . ref($panel_ids) . "\n";
+	if( ref($panel_ids) eq "" ) {
+		$panel_ids = [ $panel_ids ];
+		print STDERR "panel_ids now is " . ref($panel_ids) . "\n";
 	}
 	
-	if( !$panel_uids ) {
-		die "deletePanelFromDashboard requires a valid uid parameter";
+	if( !$panel_ids ) {
+		die "deletePanelFromDashboard requires a valid panel id parameter";
 	}
 	
 	my $self = {};
@@ -72,11 +72,11 @@ sub deletePanelFromDashboard {
 	$self->{_dashboard} = $self->{_dashboardobj}->open( filename => $dashboard_file, writeonclose => 0, lockexclusive => 1 ) or die "Could not open dashboard file\n";
 	
 	my $deleted = 0;
-	foreach my $panel_uid ( @{$panel_uids} ) {
-		print STDERR "Deleting $panel_uid\n";
-		my @panelsWithUid = $self->{_dashboardobj}->find($self->{_dashboard}->{panels}, "\$_->{uid} eq '".$panel_uid."'");
-		next if( !@panelsWithUid );
-		foreach( @panelsWithUid ) {
+	foreach my $panel_id ( @{$panel_ids} ) {
+		print STDERR "Deleting $panel_id\n";
+		my @panelsWithId = $self->{_dashboardobj}->find($self->{_dashboard}->{panels}, "\$_->{id} eq '".$panel_id."'");
+		next if( !@panelsWithId );
+		foreach( @panelsWithId ) {
 			$deleted++;
 			delete $self->{_dashboard}->{panels}[$_];
 		}
@@ -124,10 +124,10 @@ sub modifyDashboard {
 sub modifyPanel {
 	my $class = shift;
 	my $dashboard_file = shift;
-	my $panel_uid = shift;
+	my $panel_id = shift;
 	
-	if( !$panel_uid ) {
-		die "modifyPanel requires a valid uid parameter";
+	if( !$panel_id ) {
+		die "modifyPanel requires a valid panel id parameter";
 	}
 	
 	my $self = {};
@@ -135,12 +135,12 @@ sub modifyPanel {
 	$self->{_dashboardobj} = new LoxBerry::JSON;
 	$self->{_dashboard} = $self->{_dashboardobj}->open( filename => $dashboard_file, writeonclose => 0, lockexclusive => 1 ) or die "Could not open dashboard file\n";
 	
-	my @panelsWithUid = $self->{_dashboardobj}->find($self->{_dashboard}->{panels}, "\$_->{uid} eq '".$panel_uid."'");
+	my @panelsWithId = $self->{_dashboardobj}->find($self->{_dashboard}->{panels}, "\$_->{id} eq '".$panel_id."'");
 	
-	if( !@panelsWithUid ) {
-		die "Panel with uid $panel_uid does not exist";
+	if( !@panelsWithId ) {
+		die "Panel with id $panel_id does not exist";
 	}
-	$self->{_panelKey} = $panelsWithUid[0];
+	$self->{_panelKey} = $panelsWithId[0];
 	my $panel = $self->{_dashboard}->{panels}[ $self->{_panelKey} ];
 	
 	$panel->{_packageGrafana} = $self;
@@ -190,19 +190,25 @@ sub save {
 	}
 	elsif ( $function eq "PanelFromTemplate" ) {
 		
-		my @panelsWithUid;
-		if( ! $obj->{uid} ) {
-			# The panel has no uid, create one
-			$obj->{uid} = LoxBerry::System::trim(`cat /proc/sys/kernel/random/uuid`);
+		my @panelsWithId;
+
+		if( ! $obj->{id} ) {
+			# The panel has no id, create one
+			# We need to get the highest panel id from all existing panels
+			my $highest_id = 0; 
+			foreach( @{ $self->{_dashboard}->{panels} } ) {
+				$highest_id = 0+$_->{id} if( 0+$_->{id} > $highest_id );
+			}
+			$obj->{id} = $highest_id+1;
 		}
 		else {
-			# Panel has uid, search for existing panel with that uid
-			@panelsWithUid = $self->{_dashboardobj}->find($self->{_dashboard}->{panels}, "\$_->{uid} eq '".$obj->{uid}."'");
+			# Panel has id, search for existing panel with that id
+			@panelsWithId = $self->{_dashboardobj}->find($self->{_dashboard}->{panels}, "\$_->{id} eq '".$obj->{id}."'");
 		}
 	
-		if( @panelsWithUid ) {
+		if( @panelsWithId ) {
 			# Panel exists
-			my $panelkey = $panelsWithUid[0];
+			my $panelkey = $panelsWithId[0];
 			print STDERR "Panel exists\n";
 			$self->{_dashboard}->{panels}[$panelkey] = $obj;
 		}
@@ -211,7 +217,7 @@ sub save {
 			push @{$self->{_dashboard}->{panels}}, $obj;
 		}
 		$self->{_dashboardobj}->write();
-		return $obj->{uid};
+		return $obj->{id};
 	
 	}
 	elsif( $function eq "modifyDashboard" ) {
@@ -233,7 +239,7 @@ sub save {
 		$self->{_dashboard}->{panels}[$panelkey] = $obj;
 		$self->{_dashboardobj}->write();
 		
-		return $obj->{uid};
+		return $obj->{id};
 	}
 		
 		

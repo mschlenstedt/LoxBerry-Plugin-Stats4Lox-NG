@@ -26,16 +26,12 @@ sub provisionDashboard {
 	);
 	$dashboard->{title} = "LoxBerry Stats4Lox";
 	my $dashboard_uid = Grafana->save( $dashboard );
-	
-	# Get number of panels
-	my $panelcount = scalar @{ $dashboard->{panels} };
-	
 	undef $dashboard;
 	
 	### Update the panels
-	my %known_panel_uids;
+	my %known_panel_ids;
 	if( defined $element->{grafana}->{panels} ) {
-		%known_panel_uids = %{$element->{grafana}->{panels}};
+		%known_panel_ids = %{$element->{grafana}->{panels}};
 	}
 	delete $element->{grafana}->{panels};
 	# As we don't know, if outputs got added or deleted, first we clear all panels of this stat
@@ -43,30 +39,30 @@ sub provisionDashboard {
 	# $LoxBerry::JSON::DEBUG=1;
 	# print STDERR Dumper( \%known_panel_uids );
 	
-	my @uids_to_delete = values %known_panel_uids;
+	my @ids_to_delete = values %known_panel_ids;
 	# print STDERR Dumper( \@uids_to_delete );
 	deletePanelFromDashboard Grafana( 
 		"$Globals::s4l_provisioning_dir/dashboards/defaultDashboard.json",
-		\@uids_to_delete
+		\@ids_to_delete
 	);
 	
-	# Now, we recreate the panels from selected outputs and known lables, with known panel uid's
+	# Now, we recreate the panels from selected outputs and known lables, with known panel id's
 	
 	my %outputkeys_labels;
 	
 	@outputkeys_labels{ @{$element->{outputkeys}} } = @{$element->{outputlabels}};
 	
-	my $panel_id = $panelcount;
+	# my $panel_id = $panelcount;
 	
 	foreach my $output ( @{ $element->{outputs} } ) {
-		my $panel_uid;
+		my $panel_id;
 		
-		# Get index of output from outputkeys 
+		# Get array index of output from outputkeys 
 		my $label = $outputkeys_labels{$output};
-		next if(!$label); 
+		next if(! defined $label); 
 		
-		if( defined $known_panel_uids{$label} ) {
-			$panel_uid = $known_panel_uids{$label};
+		if( defined $known_panel_ids{$label} ) {
+			$panel_id = $known_panel_ids{$label};
 		}
 		my $panel = PanelFromTemplate Grafana( 
 			"$Globals::s4l_provisioning_dir/dashboards/defaultDashboard.json",
@@ -76,10 +72,6 @@ sub provisionDashboard {
 		##
 		## Fill Panel data with content
 		##
-		
-		$panel->{uid} = $panel_uid if($panel_uid);
-		$panel_id++;
-		$panel->{id} = $panel_id;
 		
 		my $paneltitle = $element->{description} ? $element->{description} : $element->{name};
 		$paneltitle .= " $label";
@@ -92,7 +84,7 @@ sub provisionDashboard {
 			$paneltitle .= ')';
 		}	
 		$panel->{title} = $paneltitle;
-		
+		$panel->{id} = $panel_id if( defined $panel_id );
 		$panel->{description} = defined $element->{type} ? $element->{type} : "";
 		
 		
@@ -113,8 +105,8 @@ sub provisionDashboard {
 		# Save the panel
 		#################
 		
-		$panel_uid = Grafana->save( $panel );
-		$element->{grafana}->{panels}{$label} = $panel_uid;
+		$panel_id = Grafana->save( $panel );
+		$element->{grafana}->{panels}{$label} = $panel_id;
 		
 	}
 	
