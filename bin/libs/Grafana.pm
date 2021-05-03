@@ -117,11 +117,11 @@ sub modifyDashboard {
 	# bless $self, $class;
 	
 	$self->{_dashboardobj} = new LoxBerry::JSON;
-	my $dashboard = $self->{_dashboardobj}->open( filename => $dashboard_file, writeonclose => 0, lockexclusive => 1 ) or die "Could not open dashboard file\n";
+	$self->{_dashboard} = $self->{_dashboardobj}->open( filename => $dashboard_file, writeonclose => 0, lockexclusive => 1 ) or die "Could not open dashboard file\n";
 	
 	$self->{_function} = "modifyDashboard";
 	
-	$dashboard->{_packageGrafana} = $self;
+	$self->{_dashboard}->{_packageGrafana} = $self;
 	
 	return $self->{_dashboard};
 	

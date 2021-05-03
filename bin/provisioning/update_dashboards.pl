@@ -234,6 +234,26 @@ sub updateDefaultDashboard
 		}
 	}
 	
+	##############################
+	# Sort panels in Dashboard
+	##############################
+	
+	LOGINF "Sorting panels";
+	$dashboard = modifyDashboard Grafana( 
+		"$Globals::s4l_provisioning_dir/dashboards/defaultDashboard.json"
+	);
+	if( ! defined $dashboard ) {
+		LOGERR "Dashboard is empty\n";
+		return;
+	}
+	
+	my @panels = @{ $dashboard->{panels} };
+	
+	@{$dashboard->{panels}} = sort { $$a{title} cmp $$b{title} } @{ $dashboard->{panels} };
+	
+	
+	LOGOK "Saved dashboard uid: " . Grafana->save( $dashboard ) . "\n";
+	
 
 return;
 	

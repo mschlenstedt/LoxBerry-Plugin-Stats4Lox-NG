@@ -110,27 +110,29 @@ sub provisionDashboard {
 		undef $panel;
 		
 		
-		##############################
-		# Dashboard consistency check
-		##############################
 		
-		# # Try of a workaround, as rapid updates store an empty panel in dashboard
-		# $dashboard = modifyDashboard Grafana( 
-			# "$Globals::s4l_provisioning_dir/dashboards/defaultDashboard.json"
-		# );
-		# print STDERR "Dashboard is empty\n" if( ! $dashboard );
-		# my @panels = @{ $dashboard->{panels} };
-		# my @fixed_panels;
-		# foreach( @panels ) {
-			# print STDERR "Panel: " . $_->{title} . "\n";
-			# if( defined $_->{id} ) {
-				# push( @fixed_panels, $_ );
-			# }
-		# }
-		# $dashboard->{panels} = @fixed_panels;
-		# Grafana->save( $dashboard );
 		
 	}
+
+		##############################
+		# Sort panels in Dashboard
+		##############################
+		
+		# LOGINF "Sorting panels";
+		$dashboard = modifyDashboard Grafana( 
+			"$Globals::s4l_provisioning_dir/dashboards/defaultDashboard.json"
+		);
+		if( ! defined $dashboard ) {
+			# LOGERR "Dashboard is empty\n";
+			return;
+		}
+	
+		my @panels = @{ $dashboard->{panels} };
+	
+		@{$dashboard->{panels}} = sort { $$a{title} cmp $$b{title} } @{ $dashboard->{panels} };
+	
+		# LOGOK "Saved dashboard uid: " . Grafana->save( $dashboard ) . "\n";
+		Grafana->save( $dashboard );
 	
 }
 
