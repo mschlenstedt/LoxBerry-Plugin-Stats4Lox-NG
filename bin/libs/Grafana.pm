@@ -72,15 +72,22 @@ sub deletePanelFromDashboard {
 	$self->{_dashboard} = $self->{_dashboardobj}->open( filename => $dashboard_file, writeonclose => 0, lockexclusive => 1 ) or die "Could not open dashboard file\n";
 	
 	my $deleted = 0;
+	
+	
+	
 	foreach my $panel_id ( @{$panel_ids} ) {
 		print STDERR "Deleting $panel_id\n";
 		my @panelsWithId = $self->{_dashboardobj}->find($self->{_dashboard}->{panels}, "\$_->{id} eq '".$panel_id."'");
 		next if( !@panelsWithId );
 		foreach( @panelsWithId ) {
 			$deleted++;
-			delete $self->{_dashboard}->{panels}[$_];
+			splice @{$self->{_dashboard}->{panels}}, $_, 1;
+			# delete $self->{_dashboard}->{panels}[$_];
 		}
 	}
+	# if( ! $self->{_dashboard}->{panels} ) {
+		# $self->{_dashboard}->{panels} = ();
+	# }
 	$self->{_dashboardobj}->write();
 	return $deleted;
 
@@ -178,7 +185,7 @@ sub save {
 		
 		# Save panels from orig dashboard
 		my $panels;
-		if( $self->{_dashboard}->{panels} ) {
+		if( defined $self->{_dashboard}->{panels} ) {
 			$obj->{panels} = $self->{_dashboard}->{panels};
 		}
 		
@@ -200,6 +207,7 @@ sub save {
 				$highest_id = 0+$_->{id} if( 0+$_->{id} > $highest_id );
 			}
 			$obj->{id} = $highest_id+1;
+			print STDERR "Panel had no panel id - id $obj->{id} created";
 		}
 		else {
 			# Panel has id, search for existing panel with that id
@@ -216,6 +224,7 @@ sub save {
 			print STDERR "Panel is new\n";
 			push @{$self->{_dashboard}->{panels}}, $obj;
 		}
+		print STDERR "Calling write\n";
 		$self->{_dashboardobj}->write();
 		return $obj->{id};
 	
