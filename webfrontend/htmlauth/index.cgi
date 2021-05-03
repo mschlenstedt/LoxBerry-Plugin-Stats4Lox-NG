@@ -8,26 +8,14 @@ use FindBin qw($Bin);
 use lib "$Bin/../../../../bin/plugins/stats4lox-ng/libs/";
 use Globals;
 
-our $htmlhead="";
-$htmlhead .= '<script type="application/javascript" src="js/loxone_sub_navbar.js"></script>';
-$htmlhead .= '<script type="application/javascript" src="js/settings_loxone.js"></script>';
-
-
 LoxBerry::Web::lbheader("Stats4Lox", undef, undef);
 
 my $template = HTML::Template->new(
-    filename => "$lbptemplatedir/settings_loxone.html",
+    filename => "$lbptemplatedir/home.html",
     global_vars => 1,
     loop_context_vars => 1,
     die_on_bad_params => 0,
 );
-
-my $lang = LoxBerry::System::lblanguage();
-$template->param( 'LOXONE_ELEMENTS', LoxBerry::System::read_file( "$lbptemplatedir/lang/loxelements_$lang.json" ) );
-
-my %miniservers = LoxBerry::System::get_miniservers();
-$template->param( 'LOXONE_MINISERVERS', to_json( \%miniservers ) );
-
 
 print $template->output();
 
