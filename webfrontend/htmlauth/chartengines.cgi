@@ -11,7 +11,7 @@ use Globals;
 LoxBerry::Web::lbheader("Stats4Lox", undef, undef);
 
 my $template = HTML::Template->new(
-    filename => "$lbptemplatedir/home.html",
+    filename => "$lbptemplatedir/chartengines.html",
     global_vars => 1,
     loop_context_vars => 1,
     die_on_bad_params => 0,

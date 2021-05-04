@@ -12,19 +12,21 @@
       "unixsocket": "/tmp/telegraf.sock",
       "internal_statfiles": "/tmp/telegraf_internals*.out"
    },
+   "grafana": {
+      "port": 3000
+   },
    "loxone": {
-      "measurement" : "stats_loxone",
       "active": "True",
-	  "mqttlive_basetopic": "s4l/mqttlive"
+      "mqttlive_basetopic": "s4l/mqttlive"
    },
    "miniserver": {
       "measurement" : "stats_miniserver",
-      "interval": "300",
+      "interval": 300,
       "active": "True"
    },
    "loxberry": {
       "measurement" : "stats_loxberry",
-      "interval": "300",
+      "interval": 300,
       "active": "True"
    }
 }
