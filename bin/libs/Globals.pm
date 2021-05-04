@@ -77,6 +77,7 @@ our $telegraf_internal_files = "/tmp/telegraf_internals*.out";
 # GRAFANA PROVISIONING
 our $graf_provisioning_dir = "/etc/grafana/provisioning";
 our $s4l_provisioning_dir = "$LoxBerry::System::lbpdatadir/provisioning";
+our $grafanaport = 3000;
 
 
 # IMPORT MAPPINGS
