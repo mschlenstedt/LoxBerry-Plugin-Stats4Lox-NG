@@ -11,12 +11,12 @@ our %navbar = (
 			URL => "main_loxone.cgi"
 	},
 	30 => {
-			Name => "Inputs",
-			URL => "input_settings.cgi"
+			Name => "Inputs / Outputs",
+			URL => "inputs_outputs.cgi"
 	},
-	50 => {
-			Name => "Outputs",
-			URL => "output_settings.cgi"
+	40 => {
+			Name => "Chart Engines",
+			URL => "chartengines.cgi"
 	},
 	90 => {
 			Name => "Logs",
