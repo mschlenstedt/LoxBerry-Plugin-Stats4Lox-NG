@@ -265,7 +265,6 @@ if( $q->{action} eq "deleteimport" and $q->{msno} and $q->{uuid} ) {
 	}
 }
 
-
 if( $q->{action} eq "getmqttlivedata" ) {
 	if ( -e $s4ltmp."/mqttlive_uidata.json" ) {
 		$response = LoxBerry::System::read_file($s4ltmp."/mqttlive_uidata.json");
@@ -278,6 +277,51 @@ if( $q->{action} eq "getmqttlivedata" ) {
 	}
 }
 
+if( $q->{action} eq "starttelegraf" ) {
+	system ("sudo systemctl enable telegraf >/dev/null 2>&1");
+	system ("sudo systemctl restart telegraf >/dev/null 2>&1");
+	$response = $?;
+}
+
+if( $q->{action} eq "stoptelegraf" ) {
+	system ("sudo systemctl disable telegraf >/dev/null 2>&1");
+	system ("sudo systemctl stop telegraf >/dev/null 2>&1");
+	$response = $?;
+}
+
+if( $q->{action} eq "startinfluxdb" ) {
+	system ("sudo systemctl enable influxdb >/dev/null 2>&1");
+	system ("sudo systemctl restart influxdb >/dev/null 2>&1");
+	$response = $?;
+}
+
+if( $q->{action} eq "stopinfluxdb" ) {
+	system ("sudo systemctl disable influxdb >/dev/null 2>&1");
+	system ("sudo systemctl stop influxdb >/dev/null 2>&1");
+	$response = $?;
+}
+
+if( $q->{action} eq "startgrafana-server" ) {
+	system ("sudo systemctl enable grafana-server >/dev/null 2>&1");
+	system ("sudo systemctl restart grafana-server >/dev/null 2>&1");
+	$response = $?;
+}
+
+if( $q->{action} eq "stopgrafana-server" ) {
+	system ("sudo systemctl disable grafana-server >/dev/null 2>&1");
+	system ("sudo systemctl stop grafana-server >/dev/null 2>&1");
+	$response = $?;
+}
+
+if( $q->{action} eq "startmqttlive" ) {
+	system ("$lbpbindir/mqtt/mqttlive.php >> $lbplogdir/mqttlive.log 2>&1 &");
+	$response = $?;
+}
+
+if( $q->{action} eq "stopmqttlive" ) {
+	system ("pkill -f mqttlive.php >/dev/null 2>&1");
+	$response = $?;
+}
 
 #####################################
 # Manage Response and error
