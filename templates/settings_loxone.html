@@ -75,6 +75,12 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 	border: 1px solid gray;
 }
 
+.errorbox {
+	border: 1px solid red;
+	font-size: 85%;
+}
+
+
 .ui-icon-import:after {
 	background-image: url("images/import_icon.png");
 }
@@ -106,6 +112,12 @@ Changes in the Details view are applied immediately (no "Save" button).
 <a href="#" class="ui-btn ui-btn-inline ui-mini" onclick="hint_hide('hint_activatestatistics');">Hide</a>
 </div>
 
+<div id="box_progress_errors" class="errorbox" style="display:none;">
+	<h4 style="background-color:red;color:white;padding:5px;margin:0;text-shadow:none">Processing Errors</h4>
+	<div id="progress_errors" style="padding:10px;">
+	</div>
+	<a href="#" class="ui-btn ui-btn-inline ui-mini" onclick="$('#box_progress_errors').fadeOut();">Hide</a>
+</div>
 
 
 <!-- Progress popup -->

@@ -242,6 +242,8 @@ function getLoxplan() {
 				statsconfigLoxone = Object.values( statsconfig.loxone );
 			}
 			catch(e) {
+				$("#progress_errors").append( "<p>Could not get stats.json data. Assuming empty stats.json</p>");
+				$("#box_progress_errors").fadeIn();
 				console.log( "statsconfigLoxone seems to be empty" );
 				statsconfigLoxone = [];
 			}
@@ -266,6 +268,14 @@ function getLoxplan() {
 function consolidateLoxPlan( data ) {
 
 	for (const [key, msobj] of Object.entries(data)) {
+	  
+	  if( data[key]?.error ) {
+		console.log( "Error", data[key] );
+		$("#progress_errors").append( "<p>"+data[key]?.error+"</p>" );
+		$("#box_progress_errors").fadeIn();
+	  }
+	  
+	  
 	  rooms = $.extend( rooms, data[key].rooms );
 	  rooms_used = $.extend( rooms_used, data[key].rooms_used );
 	  categories = $.extend( categories, data[key].categories );
