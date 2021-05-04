@@ -108,6 +108,11 @@ sub updateDefaultDashboard
 		"$Globals::s4l_provisioning_dir/templates/template_defaultDashboard.json"
 	);
 	$dashboard->{title} = "LoxBerry Stats4Lox";
+	my $lbhostname = LoxBerry::System::lbhostname();
+	if( ! $lbhostname ) {
+		$lbhostname = LoxBerry::System::get_localip();
+	}
+	$dashboard->{links}->[0]->{url} = "http://".$lbhostname.":".LoxBerry::System::lbwebserverport()."/admin/plugins/".$LoxBerry::System::lbpplugindir."/index.cgi";
 	my $dashboard_uid = Grafana->save( $dashboard );
 	undef $dashboard;
 	
