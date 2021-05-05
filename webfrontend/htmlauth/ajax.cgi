@@ -328,11 +328,15 @@ if( $q->{action} eq "stopmqttlive" ) {
 }
 
 if( $q->{action} eq "servicestatus" ) {
+	my $telegrafstat = `pgrep -f /usr/bin/telegraf`;
+	my $influxstat = `pgrep -f /usr/bin/influxd`;
+	my $grafanastat = `pgrep -f /usr/sbin/grafana-server`;
+	my $mqttlivestat = `pgrep -f mqttlive.php`;
 	my %response = (
-		telegraf => `pgrep -f /usr/bin/telegraf`,
-		influx => `pgrep -f /usr/bin/influxd`,
-		grafanaserver => `pgrep -f /usr/sbin/grafana-server`,
-		mqttlive => `pgrep -f mqttlive.php`,
+		telegraf => $telegrafstat,
+		influx => $influxstat,
+		grafanaserver => $grafanastat,
+		mqttlive => $mqttlivestat,
 	);
 	chomp (%response);
 	$response = encode_json( \%response );
