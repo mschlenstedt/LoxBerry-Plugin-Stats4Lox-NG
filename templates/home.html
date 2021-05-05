@@ -1,3 +1,5 @@
+<script type="text/javascript" src="./js/home.js"></script>
+
 <style>
 .datahidden {
 	display:none;
@@ -65,27 +67,38 @@
 <div class="grid">
 	<div class="box">
 		<div class="center middle bold margin">Telegraf</div>
-		<div class="status center">Updating...</div>
-		<a href="#" class="ui-btn ui-corner-all margin ui-icon-check ui-btn-icon-left">(Re)Start</a>
-		<a href="#" class="ui-btn ui-corner-all margin ui-icon-delete ui-btn-icon-left">Stop</a>
+		<div class="status center" id="telegraf_status">Updating...</div>
+		<a href="#" onclick="service('starttelegraf');return false;"
+			class="ui-btn ui-corner-all margin ui-icon-check ui-btn-icon-left">(Re)Start</a>
+		<a href="#" onclick="service('stoptelegraf');return false;"
+			class="ui-btn ui-corner-all margin ui-icon-delete ui-btn-icon-left">Stop</a>
+		<div class="center margin" id="telegraf_hint">&nbsp;</div>
 	</div>
 	<div class="box">
 		<div class="center middle bold margin">Influx</div>
-		<div class="status center">Updating...</div>
-		<a href="#" class="ui-btn ui-corner-all margin ui-icon-check ui-btn-icon-left">(Re)Start</a>
-		<a href="#" class="ui-btn ui-corner-all margin ui-icon-delete ui-btn-icon-left">Stop</a>
+		<div class="status center" id="influx_status">Updating...</div>
+		<a href="#" onclick="service('startinfluxdb');return false;"
+			class="ui-btn ui-corner-all margin ui-icon-check ui-btn-icon-left">(Re)Start</a>
+		<a href="#" onclick="service('stopinfluxdb');return false;"
+			class="ui-btn ui-corner-all margin ui-icon-delete ui-btn-icon-left">Stop</a>
+		<div class="center margin" id="influx_hint">&nbsp;</div>
 	</div>
 	<div class="box">
 		<div class="center middle bold margin">Grafana</div>
-		<div class="status center">Updating...</div>
-		<a href="#" class="ui-btn ui-corner-all margin ui-icon-check ui-btn-icon-left">(Re)Start</a>
-		<a href="#" class="ui-btn ui-corner-all margin ui-icon-delete ui-btn-icon-left">Stop</a>
+		<div class="status center" id="grafana-server_status">Updating...</div>
+		<a href="#" onclick="service('startgrafana-server');return false;"
+			class="ui-btn ui-corner-all margin ui-icon-check ui-btn-icon-left">(Re)Start</a>
+		<a href="#" onclick="service('stopgrafana-server');return false;"
+			class="ui-btn ui-corner-all margin ui-icon-delete ui-btn-icon-left">Stop</a>
+		<div class="center margin" id="grafana-server_hint">&nbsp;</div>
 	</div>
 	<div class="box">
 		<div class="center middle bold margin">MQTT Live</div>
-		<div class="status center">Updating...</div>
-		<a href="#" class="ui-btn ui-corner-all margin ui-icon-check ui-btn-icon-left">(Re)Start</a>
-		<a href="#" class="ui-btn ui-corner-all margin ui-icon-delete ui-btn-icon-left">Stop</a>
+		<div class="status center" id="mqttlive_status">Updating...</div>
+		<a href="#" onclick="service('startmqttlive');return false;"
+			class="ui-btn ui-corner-all margin ui-icon-check ui-btn-icon-left">(Re)Start</a>
+		<a href="#" onclick="service('stopmqttlive');return false;"
+			class="ui-btn ui-corner-all margin ui-icon-delete ui-btn-icon-left">Stop</a>
+		<div class="center margin" id="mqttlive_hint">&nbsp;</div>
 	</div>
 </div>
-
