@@ -4,5 +4,5 @@ INFLUXBIN=`which influx`
 INFLUXUERNAME=`jq -r '.influx.influxdbuser' $LBPCONFIG/$PLUGINNAME/cred.json`
 INFLUXPASSWORD=`jq -r '.influx.influxdbpass' $LBPCONFIG/$PLUGINNAME/cred.json`
 
-${INFLUXBIN} -ssl -unsafeSsl -username $INFLUXUERNAME -password $INFLUXPASSWORD "$@"
+${INFLUXBIN} -ssl -unsafeSsl -username $INFLUXUERNAME -password ''$INFLUXPASSWORD'' "$@"
 
