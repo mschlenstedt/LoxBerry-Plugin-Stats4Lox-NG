@@ -57,8 +57,8 @@ if [ "$INFLUXDBUSER" = "" ]; then
 fi
 
 # Debug
-#echo "Influx User: $INFLUXDBUSER"
-#echo "Influx Pass: $INFLUXDBPASS"
+echo "Influx User: $INFLUXDBUSER"
+echo "Influx Pass: $INFLUXDBPASS"
 
 # Activate own config delivered with plugin
 echo "<INFO> Activating my own InfluxDB configuration."
@@ -119,12 +119,15 @@ else
 fi
 
 # Check InfluxDB user. Create it if not exists
-RESP=`$INFLUXBIN -ssl -unsafeSsl -username $INFLUXDBUSER -password $INFLUXDBPASS -execute "SHOW USERS" | grep -e "^$INFLUXDBUSER\W*true$" | wc -l`
+RESP=`$INFLUXBIN -ssl -unsafeSsl -username $INFLUXDBUSER -password '$INFLUXDBPASS' -execute "SHOW USERS" | grep -e "^$INFLUXDBUSER\W*true$" | wc -l`
+echo "Response checking Influx user is: $RESP"
 if [ $RESP -eq 0 ] || [ $? -eq 127 ]; then # If user does not exist or if no admin user at all exists in a fresh installation:
 	echo "<INFO> Creating default InfluxDB user 'stats4lox' as admin user."
 	INFLUXDBUSER="stats4lox"
 	INFLUXDBPASS=`head /dev/urandom | tr -dc A-Za-z0-9 | head -c16`
-	$INFLUXBIN -ssl -unsafeSsl -execute "CREATE USER $INFLUXDBUSER WITH PASSWORD '$INFLUXDBPASS' WITH ALL PRIVILEGES"
+	$INFLUXBIN -ssl -unsafeSsl -execute "CREATE USER $INFLUXDBUSER WITH PASSWORD ''$INFLUXDBPASS'' WITH ALL PRIVILEGES"
+	echo "Coammand is: $INFLUXBIN -ssl -unsafeSsl -execute \"CREATE USER $INFLUXDBUSER WITH PASSWORD '$INFLUXDBPASS' WITH ALL PRIVILEGES\""
+	echo "Response creating Influx user is: $?"
 	if [ $? -ne 0 ]; then
 		echo "<ERROR> Could not create default InfluxDB user. Giving up."
 		exit 2

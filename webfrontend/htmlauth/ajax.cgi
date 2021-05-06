@@ -320,7 +320,26 @@ if( $q->{action} eq "startmqttlive" ) {
 
 if( $q->{action} eq "stopmqttlive" ) {
 	system ("pkill -f mqttlive.php >/dev/null 2>&1");
-	$response = $?;
+	if ($? < 3 || $? eq "15") { # Don't know why it give 15 as Exit Code back - on cmd it is 0, 1 or 2.
+		$response = 0;
+	} else {
+		$response = $?;
+	}
+}
+
+if( $q->{action} eq "servicestatus" ) {
+	my $telegrafstat = `pgrep -f /usr/bin/telegraf`;
+	my $influxstat = `pgrep -f /usr/bin/influxd`;
+	my $grafanastat = `pgrep -f /usr/sbin/grafana-server`;
+	my $mqttlivestat = `pgrep -f mqttlive.php`;
+	my %response = (
+		telegraf => $telegrafstat,
+		influx => $influxstat,
+		grafanaserver => $grafanastat,
+		mqttlive => $mqttlivestat,
+	);
+	chomp (%response);
+	$response = encode_json( \%response );
 }
 
 #####################################
