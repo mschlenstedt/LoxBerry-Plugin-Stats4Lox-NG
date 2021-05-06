@@ -132,9 +132,14 @@ sub provisionDashboard {
 			return;
 		}
 	
-		my @panels = @{ $dashboard->{panels} };
-	
 		@{$dashboard->{panels}} = sort { $$a{title} cmp $$b{title} } @{ $dashboard->{panels} };
+	
+		my $panelcount = scalar @{$dashboard->{panels}};
+		if( $panelcount > 0 ) {
+			for my $panelkey ( 0 .. $panelcount-1 ) {
+				$dashboard->{panels}[$panelkey]->{id} = $dashboard->{panels}[$panelkey]->{id}+0;
+			}
+		}
 	
 		# LOGOK "Saved dashboard uid: " . Grafana->save( $dashboard ) . "\n";
 		Grafana->save( $dashboard );

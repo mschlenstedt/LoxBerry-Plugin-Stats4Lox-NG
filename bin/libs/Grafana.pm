@@ -207,20 +207,22 @@ sub save {
 				$highest_id = 0+$_->{id} if( 0+$_->{id} > $highest_id );
 			}
 			$obj->{id} = $highest_id+1;
-			print STDERR "Panel had no panel id - id $obj->{id} created";
+			# print STDERR "Panel had no panel id - id $obj->{id} created";
 		}
 		else {
 			# Panel has id, search for existing panel with that id
-			@panelsWithId = $self->{_dashboardobj}->find($self->{_dashboard}->{panels}, "\$_->{id} eq '".$obj->{id}."'");
+			@panelsWithId = $self->{_dashboardobj}->find($self->{_dashboard}->{panels}, "\$_->{id} == ".$obj->{id});
 		}
 	
 		if( @panelsWithId ) {
 			# Panel exists
+			$obj->{id} = int($obj->{id});
 			my $panelkey = $panelsWithId[0];
 			print STDERR "Panel exists\n";
 			$self->{_dashboard}->{panels}[$panelkey] = $obj;
 		}
 		else {
+			$obj->{id} = int($obj->{id});
 			print STDERR "Panel is new\n";
 			push @{$self->{_dashboard}->{panels}}, $obj;
 		}
@@ -245,6 +247,7 @@ sub save {
 	elsif( $function eq "modifyPanel" ) {
 		
 		my $panelkey = $self->{_panelKey};
+		$obj->{id} += 0;
 		$self->{_dashboard}->{panels}[$panelkey] = $obj;
 		$self->{_dashboardobj}->write();
 		

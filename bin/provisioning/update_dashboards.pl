@@ -226,10 +226,11 @@ sub updateDefaultDashboard
 			#################
 			
 			LOGINF "Saving new panel to dashboard";
+			$panel->{id} = int($panel->{id});
 			$panel_id = Grafana->save( $panel );
-			LOGOK "Panel saved, storing panel id to stats.json";
-			$element->{grafana}->{panels}{$label} = $panel_id;
 			undef $panel;
+			LOGOK "Panel saved, storing panel id to stats.json";
+			$element->{grafana}->{panels}{$label} = $panel_id+0;
 			
 			# sleep 30;
 			
@@ -252,11 +253,14 @@ sub updateDefaultDashboard
 		return;
 	}
 	
-	my @panels = @{ $dashboard->{panels} };
-	
 	@{$dashboard->{panels}} = sort { $$a{title} cmp $$b{title} } @{ $dashboard->{panels} };
 	
-	
+	my $panelcount = scalar @{$dashboard->{panels}};
+	if( $panelcount > 0 ) {
+		for my $panelkey ( 0 .. $panelcount-1 ) {
+			$dashboard->{panels}[$panelkey]->{id} = $dashboard->{panels}[$panelkey]->{id}+0;
+		}
+	}
 	LOGOK "Saved dashboard uid: " . Grafana->save( $dashboard ) . "\n";
 	
 
