@@ -119,7 +119,7 @@ else
 fi
 
 # Check InfluxDB user. Create it if not exists
-RESP=`$INFLUXBIN -ssl -unsafeSsl -username $INFLUXDBUSER -password ''$INFLUXDBPASS'' -execute "SHOW USERS" | grep -e "^$INFLUXDBUSER\W*true$" | wc -l`
+RESP=`$INFLUXBIN -ssl -unsafeSsl -username $INFLUXDBUSER -password '$INFLUXDBPASS' -execute "SHOW USERS" | grep -e "^$INFLUXDBUSER\W*true$" | wc -l`
 echo "Response checking Influx user is: $RESP"
 if [ $RESP -eq 0 ] || [ $? -eq 127 ]; then # If user does not exist or if no admin user at all exists in a fresh installation:
 	echo "<INFO> Creating default InfluxDB user 'stats4lox' as admin user."
