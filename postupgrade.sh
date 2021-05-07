@@ -17,7 +17,7 @@ echo "<INFO> Copy back existing data files"
 cp -a /tmp/$ARGV1\_upgrade/data/$ARGV3/* $ARGV5/data/plugins/$ARGV3/ 
 
 #echo "<INFO> Remove temporary folders"
-rm -r /tmp/$ARGV1\_upgrade
+#rm -r /tmp/$ARGV1\_upgrade
 
 echo "<INFO> Starting services influxdb and telegraf after upgrade."
 sudo /bin/systemctl start influxdb
