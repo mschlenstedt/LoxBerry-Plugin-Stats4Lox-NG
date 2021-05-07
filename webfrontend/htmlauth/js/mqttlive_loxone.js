@@ -132,8 +132,8 @@ function updateTables() {
 		for( topic of mqttlivedata ) {
 			
 			if( topic.data.values[0] ) {
-				valkey = Object.keys(topic.data.values[0])[0];
-				value = topic.data.values[0][valkey];
+				outputlabel = topic.data.values[0].key;
+				outputdata = topic.data.values[0].value;
 			}
 			var arrived_dt = new Date(Math.round(topic.data.timestamp_epoch*1000));
 			var arrived = arrived_dt.toLocaleString();
@@ -159,7 +159,7 @@ function updateTables() {
 			html+= `	<div style="flex:5 5 40%;padding:5px;">`;
 			html+= `		<span class="small grayed">Received Topic / Value</span><br>`;
 			html+= `		<span class="bitsmall">${topic.data.originaltopic}</span><br>`;
-			html+= `		<span class="small grayed">&raquo;</span><span class="bitsmall"><b>${value}</b></span><span class="small grayed">&laquo;</span>`;
+			html+= `		<span class="small grayed">&raquo;</span><span class="bitsmall"><b>${outputdata}</b></span><span class="small grayed">&laquo;</span>`;
 			html+= `	</div>`;
 			
 			if( !topic.data?.error) {
