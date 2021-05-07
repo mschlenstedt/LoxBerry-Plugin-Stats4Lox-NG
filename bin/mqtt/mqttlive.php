@@ -99,7 +99,7 @@ function s4llive_mqttmsg ($topic, $msg){
 	
 	$timestamp_epoch = microtime(true);
 	$timestamp_nsec = sprintf('%.0f', $timestamp_epoch*1000000000);
-	LOGOK(date('H:i:s')." {$topic}-->$msg ($timestamp_nsec)");
+	LOGOK("{$topic}-->$msg ($timestamp_nsec)");
 	
 	$reltopic = substr( $topic, strlen($basetopic)+1 );
 	LOGDEB("Relative Topic $reltopic");
@@ -135,7 +135,12 @@ function s4llive_mqttmsg ($topic, $msg){
 		$dest = $stats->$id;
 		LOGINF("Name: $dest->name Room: $dest->room");
 		
-		if( empty($dest->measurementname) ) {
+		if( !in_array( $output, $dest->outputlabels ) ) {
+			$error = "ERROR Output '$output' unknown for this element";
+			$item->error = $error;
+			LOGWARN($error);
+		}
+		elseif( empty($dest->measurementname) ) {
 			$error = "ERROR No measurementname defined in stats.json for UUID $uuid";
 			$item->error = $error;
 			LOGWARN($error);
