@@ -213,7 +213,7 @@ if [ $UPGRADE -eq "0" ]; then
 		chmod 640 $PCONFIG/cred.json
 	fi
 else
-	echo "<OK> iWe are in UPgrade mode. I will use iexisting credentials."
+	echo "<OK> We are in Upgrade mode. I will use existing credentials."
 fi
 
 # Check for stats4lox database. Create it if not exists
