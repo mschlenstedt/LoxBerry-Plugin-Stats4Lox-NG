@@ -50,12 +50,6 @@ systemctl stop grafana-server
 
 #pause 'Press [Enter] key to continue...'
 
-# Set permissions
-#echo "<INFO> Adding user influxdb and telegraf to loxberry group."
-#usermod -a -G loxberry telegraf
-#usermod -a -G loxberry influxdb
-#usermod -a -G loxberry grafana
-
 # Check if we are in upgrade mode
 if [ -d $LBHOMEDIR/data/plugins/$PTEMPDIR\_upgrade ]; then
 	echo "<INFO> We are in Upgrade mode. Use existing database and credentials."
@@ -197,7 +191,12 @@ if [ $UPGRADE -eq "0" ]; then
 	echo "<INFO> Creating default InfluxDB user 'stats4lox' as admin user."
 	INFLUXDBUSER="stats4lox"
 	INFLUXDBPASS=`head /dev/urandom | tr -dc A-Za-z0-9 | head -c16`
-	$INFLUXBIN -ssl -unsafeSsl -execute "CREATE USER $INFLUXDBUSER WITH PASSWORD ''$INFLUXDBPASS'' WITH ALL PRIVILEGES"
+
+	# Debug
+	echo "Influx User: $INFLUXDBUSER"
+	echo "Influx Pass: $INFLUXDBPASS"
+
+	$INFLUXBIN -ssl -unsafeSsl -execute "CREATE USER $INFLUXDBUSER WITH PASSWORD '$INFLUXDBPASS' WITH ALL PRIVILEGES"
 	#echo "Coammand is: $INFLUXBIN -ssl -unsafeSsl -execute \"CREATE USER $INFLUXDBUSER WITH PASSWORD '$INFLUXDBPASS' WITH ALL PRIVILEGES\""
 	#echo "Response creating Influx user is: $?"
 	if [ $? -ne 0 ]; then
