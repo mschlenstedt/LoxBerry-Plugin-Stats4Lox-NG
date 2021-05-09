@@ -4,15 +4,11 @@ use strict;
 use LoxBerry::System;
 use LoxBerry::Log;
 use LoxBerry::JSON;
-use CGI;
 use Time::HiRes qw(time);
 use FindBin qw($Bin);
 use lib "$Bin/../libs";
 use Globals;
 use Fcntl ':flock';
-
-my $cgi = CGI->new;
-my $q = $cgi->Vars;
 
 my $updatesignal_file = $Globals::s4ltmp."/update_dashboard_signal.tmp";
 
