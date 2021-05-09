@@ -33,4 +33,30 @@ echo "deb https://packages.grafana.com/oss/deb stable main" | sudo tee /etc/apt/
 echo "<INFO> Updating apt database..."
 apt-get -q -y --allow-unauthenticated --allow-downgrades --allow-remove-essential --allow-change-held-packages update
 
+echo "<INFO> Deactivating existing plugin configuration for influx, grafana and telegraf..."
+if [ -L /etc/influxdb ]; then
+	rm -rf /etc/influxdb
+	if [ -d /etc/influxdb.orig ]; then
+		mv /etc/influxdb.orig /etc/influxdb
+	else
+		mkdir -p /etc/influxdb
+	fi
+fi
+if [ -L /etc/telegraf ]; then
+	rm -rf /etc/telegraf
+	if [ -d /etc/telegraf.orig ]; then
+		mv /etc/telegraf.orig /etc/telegraf
+	else
+		mkdir -p /etc/telegraf
+	fi
+fi
+if [ -L /etc/grafana ]; then
+	rm -rf /etc/grafana
+	if [ -d /etc/grafana.orig ]; then
+		mv /etc/grafana.orig /etc/grafana
+	else
+		mkdir -p /etc/grafana
+	fi
+fi
+
 exit 0

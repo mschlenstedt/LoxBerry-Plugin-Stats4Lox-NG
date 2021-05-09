@@ -25,6 +25,12 @@ INFLUXBIN=`which influx`
 OPENSSLBIN=`which openssl`
 TELEGRAFBIN=`which telegraf`
 ERROR=0
+UPGRADE=0
+DATE=`date +%Y%m%d%H%M%S`
+
+function pause(){
+   read -p "$*"
+}
 
 # Checking for InfluxDB and Telegraf
 if [ ! -x $INFLUXDBIN ]; then
@@ -42,11 +48,75 @@ systemctl stop influxdb
 systemctl stop telegraf
 systemctl stop grafana-server
 
+#pause 'Press [Enter] key to continue...'
+
 # Set permissions
-echo "<INFO> Adding user influxdb and telegraf to loxberry group."
-usermod -a -G loxberry telegraf
-usermod -a -G loxberry influxdb
-usermod -a -G loxberry grafana
+#echo "<INFO> Adding user influxdb and telegraf to loxberry group."
+#usermod -a -G loxberry telegraf
+#usermod -a -G loxberry influxdb
+#usermod -a -G loxberry grafana
+
+# Check if we are in upgrade mode
+if [ -d $LBHOMEDIR/data/plugins/$PTEMPDIR\_upgrade ]; then
+	echo "<INFO> We are in Upgrade mode. Use existing database and credentials."
+	UPGRADE=1
+
+	# Log
+	if [ -n "$(ls -A "$LBHOMEDIR/data/plugins/${PTEMPDIR}_upgrade/log" 2>/dev/null)" ]; then
+		chown -R loxberry:loxberry $LBHOMEDIR/log/plugins/$ARGV3
+		rsync -av $LBHOMEDIR/data/plugins/$PTEMPDIR\_upgrade/log/* $LBHOMEDIR/log/plugins/$ARGV3/
+		if [ $? -ne 0 ]; then
+			echo "<FAIL> Restoring log files failed. Giving up."
+			#pause 'Press [Enter] key to continue...'
+			mv $LBHOMEDIR/data/plugins/${PTEMPDIR}_upgrade $LBHOMEDIR/data/plugins/${DATE}_FAILED_INSTALLATION_STATS4LOX
+			exit 2
+		fi
+	else
+		echo "<INFO> Folder is empty. Nothing will be restored."
+	fi
+
+	# Data
+	if [ -n "$(ls -A "$LBHOMEDIR/data/plugins/${PTEMPDIR}_upgrade/data" 2>/dev/null)" ]; then
+		chown -R loxberry:loxberry $LBHOMEDIR/data/plugins/$ARGV3
+		rsync -av $LBHOMEDIR/data/plugins/${PTEMPDIR}_upgrade/data/* $LBHOMEDIR/data/plugins/$ARGV3/
+		if [ $? -ne 0 ]; then
+			echo "<FAIL> Restoring data files failed. Giving up."
+			#pause 'Press [Enter] key to continue...'
+			mv $LBHOMEDIR/data/plugins/${PTEMPDIR}_upgrade $LBHOMEDIR/data/plugins/${DATE}_FAILED_INSTALLATION_STATS4LOX
+			exit 2
+		fi
+	else
+		echo "<INFO> Folder is empty. Nothing will be restored."
+	fi
+
+	# Config
+	if [ -n "$(ls -A "$LBHOMEDIR/data/plugins/${PTEMPDIR}_upgrade/config/" 2>/dev/null)" ]; then
+		chown -R loxberry:loxberry $LBHOMEDIR/config/plugins/$ARGV3
+		rsync -av $LBHOMEDIR/data/plugins/${PTEMPDIR}_upgrade/config/* $LBHOMEDIR/config/plugins/$ARGV3/
+		if [ $? -ne 0 ]; then
+			echo "<FAIL> Restoring config files failed. Giving up."
+			#pause 'Press [Enter] key to continue...'
+			mv $LBHOMEDIR/data/plugins/${PTEMPDIR}_upgrade $LBHOMEDIR/data/plugins/${DATE}_FAILED_INSTALLATION_STATS4LOX
+			exit 2
+		fi
+	else
+		echo "<INFO> Folder is empty. Nothing will be restored."
+	fi
+
+	#pause 'Press [Enter] key to continue...'
+
+	# Create backup
+	mkdir -p $PDATA/backups/plugininstall
+	mv $LBHOMEDIR/data/plugins/${PTEMPDIR}_upgrade $PDATA/backups/plugininstall/${DATE}_backup_plugininstall
+	PWD=`pwd`
+	cd $PDATA/backups/plugininstall
+	7z a ${DATE}_backup_plugininstall.7z ${DATE}_backup_plugininstall
+	if [ $? -eq 0 ]; then
+		rm -rf $PDATA/backups/plugininstall/${DATE}_backup_plugininstall
+	fi
+	chown -R loxberry:loxberry $PDATA/backups/plugininstall
+	cd $PWD
+fi
 
 # Get InfluxDB credentials
 INFLUXDBUSER=`jq -r '.influx.influxdbuser' $PCONFIG/cred.json`
@@ -68,6 +138,7 @@ if [ -d /etc/influxdb ] && [ ! -L /etc/influxdb ]; then
 fi
 rm -rf /etc/influxdb > /dev/null 2>&1
 ln -s $PCONFIG/influxdb /etc/influxdb
+chown -R loxberry:loxberry $PCONFIG/influxdb
 
 if [ ! -e $PCONFIG/influxdb/influxdb-selfsigned.key ]; then
 	echo "<INFO> No SSL certificates for InfluxDB found."
@@ -119,7 +190,8 @@ else
 fi
 
 # Check InfluxDB user. Create it if not exists
-RESP=`$INFLUXBIN -ssl -unsafeSsl -username $INFLUXDBUSER -password '$INFLUXDBPASS' -execute "SHOW USERS" | grep -e "^$INFLUXDBUSER\W*true$" | wc -l`
+RESP=`$PBIN/s4linflux -execute "SHOW USERS" | grep -e "^$INFLUXDBUSER\W*true$" | wc -l`
+#RESP=`$INFLUXBIN -ssl -unsafeSsl -username $INFLUXDBUSER -password '$INFLUXDBPASS' -execute "SHOW USERS" | grep -e "^$INFLUXDBUSER\W*true$" | wc -l`
 echo "Response checking Influx user is: $RESP"
 if [ $RESP -eq 0 ] || [ $? -eq 127 ]; then # If user does not exist or if no admin user at all exists in a fresh installation:
 	echo "<INFO> Creating default InfluxDB user 'stats4lox' as admin user."
@@ -172,6 +244,7 @@ rm -rf /etc/telegraf > /dev/null 2>&1
 rm -f /etc/default/telegraf > /dev/null 2>&1
 ln -s $PCONFIG/telegraf /etc/telegraf
 ln -s $PCONFIG/telegraf/telegraf.env /etc/default/telegraf
+chown -R loxberry:loxberry $PCONFIG/telegraf
 
 # Saving InfluxDB credentials in Telegraf config and set restrictive permissions to that file
 #
@@ -207,10 +280,11 @@ if [ -d /etc/grafana ] && [ ! -L /etc/grafana ]; then
 fi
 rm -rf /etc/grafana > /dev/null 2>&1
 ln -s $PCONFIG/grafana /etc/grafana
-chmod 770 $PDATA/grafana
+chown -R loxberry:loxberry $PCONFIG/grafana
+#chmod 770 $PDATA/grafana
 
 # Give grafana user permissions to data/provisioning
-chmod 770 $PDATA/provisioning
+#chmod 770 $PDATA/provisioning
 $PBIN/provisioning/set_datasource_influx.pl
 $PBIN/provisioning/set_dashboard_provider.pl
 
@@ -223,5 +297,11 @@ sleep 5
 # Start/Stop MQTT Live Service
 echo "<INFO> Starting MQTTLive Service..."
 su loxberry -c "$PBIN/mqtt/mqttlive.php >> $PLOG/mqttlive.log 2>&1 &"
+
+if [ $UPGRADE ];then
+	echo "<INFO> We were in Upgrade mode. Everything went fine. Nevertheless, I will save a backup of your prevous installation."
+	mkdir -p $PDATA/backups/plugininstall
+	mv $ARGV5/data/plugins/$ARGV1\_upgrade $PDATA/backups/plugininstall/$DATE\_backup_plugininstall
+fi
 
 exit 0
