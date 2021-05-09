@@ -178,7 +178,7 @@ echo "<INFO> Starting InfluxDB..."
 systemctl unmask influxdb.service
 systemctl enable --now influxdb
 systemctl start influxdb
-sleep 5
+sleep 3
 
 # Check status
 systemctl status influxdb > /dev/null 2>&1
@@ -190,16 +190,16 @@ else
 fi
 
 # Check InfluxDB user. Create it if not exists
-RESP=`$PBIN/s4linflux -execute "SHOW USERS" | grep -e "^$INFLUXDBUSER\W*true$" | wc -l`
+#RESP=`$PBIN/s4linflux -execute "SHOW USERS" | grep -e "^$INFLUXDBUSER\W*true$" | wc -l`
 #RESP=`$INFLUXBIN -ssl -unsafeSsl -username $INFLUXDBUSER -password '$INFLUXDBPASS' -execute "SHOW USERS" | grep -e "^$INFLUXDBUSER\W*true$" | wc -l`
-echo "Response checking Influx user is: $RESP"
-if [ $RESP -eq 0 ] || [ $? -eq 127 ]; then # If user does not exist or if no admin user at all exists in a fresh installation:
+#echo "Response checking Influx user is: $RESP"
+if [ $UPGRADE -eq "0" ]; then
 	echo "<INFO> Creating default InfluxDB user 'stats4lox' as admin user."
 	INFLUXDBUSER="stats4lox"
 	INFLUXDBPASS=`head /dev/urandom | tr -dc A-Za-z0-9 | head -c16`
 	$INFLUXBIN -ssl -unsafeSsl -execute "CREATE USER $INFLUXDBUSER WITH PASSWORD ''$INFLUXDBPASS'' WITH ALL PRIVILEGES"
-	echo "Coammand is: $INFLUXBIN -ssl -unsafeSsl -execute \"CREATE USER $INFLUXDBUSER WITH PASSWORD '$INFLUXDBPASS' WITH ALL PRIVILEGES\""
-	echo "Response creating Influx user is: $?"
+	#echo "Coammand is: $INFLUXBIN -ssl -unsafeSsl -execute \"CREATE USER $INFLUXDBUSER WITH PASSWORD '$INFLUXDBPASS' WITH ALL PRIVILEGES\""
+	#echo "Response creating Influx user is: $?"
 	if [ $? -ne 0 ]; then
 		echo "<ERROR> Could not create default InfluxDB user. Giving up."
 		exit 2
@@ -214,14 +214,14 @@ if [ $RESP -eq 0 ] || [ $? -eq 127 ]; then # If user does not exist or if no adm
 		chmod 640 $PCONFIG/cred.json
 	fi
 else
-	echo "<OK> InfluxDB user $INFLUXDBUSER already exists. I will use this existing account and leave it untouched."
+	echo "<OK> iWe are in UPgrade mode. I will use iexisting credentials."
 fi
 
 # Check for stats4lox database. Create it if not exists
 RESP=`$PBIN/s4linflux -execute "SHOW DATABASES" | grep -e "^stats4lox$" | wc -l`
 if [ $RESP -eq 0 ]; then
 	echo "<INFO> Creating default InfluxDB database 'stats4lox'."
-	$INFLUXBIN -ssl -unsafeSsl -username $INFLUXDBUSER -password $INFLUXDBPASS -execute "CREATE DATABASE stats4lox"
+	$PBIN/s4linflux -execute "CREATE DATABASE stats4lox"
 	if [ $? -gt 0 ]; then
 		echo "<ERROR> Could not create default InfluxDB database. Giving up."
 		exit 2
@@ -281,10 +281,8 @@ fi
 rm -rf /etc/grafana > /dev/null 2>&1
 ln -s $PCONFIG/grafana /etc/grafana
 chown -R loxberry:loxberry $PCONFIG/grafana
-#chmod 770 $PDATA/grafana
 
 # Give grafana user permissions to data/provisioning
-#chmod 770 $PDATA/provisioning
 $PBIN/provisioning/set_datasource_influx.pl
 $PBIN/provisioning/set_dashboard_provider.pl
 
@@ -292,16 +290,10 @@ $PBIN/provisioning/set_dashboard_provider.pl
 echo "<INFO> Starting Grafana..."
 systemctl enable --now grafana-server
 systemctl start grafana-server
-sleep 5
+sleep 3
 
 # Start/Stop MQTT Live Service
 echo "<INFO> Starting MQTTLive Service..."
 su loxberry -c "$PBIN/mqtt/mqttlive.php >> $PLOG/mqttlive.log 2>&1 &"
-
-if [ $UPGRADE ];then
-	echo "<INFO> We were in Upgrade mode. Everything went fine. Nevertheless, I will save a backup of your prevous installation."
-	mkdir -p $PDATA/backups/plugininstall
-	mv $ARGV5/data/plugins/$ARGV1\_upgrade $PDATA/backups/plugininstall/$DATE\_backup_plugininstall
-fi
 
 exit 0
