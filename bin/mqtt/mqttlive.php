@@ -27,6 +27,8 @@ $data_transferfile = $data_transferfolder."/mqttlive_dataspool.json";
 $perlprocessor_filename = LBPBINDIR."/lox2telegraf.pl";
 $uidata_file = $data_transferfolder."/mqttlive_uidata.json";
 
+$mqtt_connected = false;
+
 if(!file_exists($data_transferfolder) ){
 	mkdir( $data_transferfolder );
 }
@@ -60,6 +62,9 @@ while(1) {
 	if($mqtt_connected) {
 		$mqtt->proc("false");
 	}
+	else {
+		sleep(5);
+	}
 	if( microtime(true)>=$runtime_1secs+1 ) {
 		// Run tasks every second
 		tasks_1secs();
@@ -77,7 +82,9 @@ while(1) {
 		
 		// Run 1 Min. task
 		tasks_1mins();
-		$mqtt->ping();
+		if( $mqtt ) {
+			$mqtt->ping();
+		}
 		$runtime_1mins=$newruntime;
 	}
 }
@@ -200,8 +207,9 @@ function tasks_1mins() {
 	// get_miniservers (but possibly by inotify)
 	
 	// Update LWT
-	$mqtt->publish( $lwt_topic, "true", 0, true);
-	
+	if( $mqtt ) {
+		$mqtt->publish( $lwt_topic, "true", 0, true);
+	}
 	outputLinequeue();
 	
 	$queue_size = count($recordqueue);
@@ -376,10 +384,22 @@ function writeInfoForUI() {
 
 function readMqttCredentials() {
 	global $creds;
+	global $uidata, $uidata_update;
 	$oldcreds = $creds;
 	
 	// Get the MQTT Gateway connection details from LoxBerry
+	LOGINF("Reading MQTT Gateway credentials");
 	$creds = mqtt_connectiondetails();
+	if( $creds ) {
+		LOGOK("Using broker and credentials from MQTT Gateway");
+	}
+	else {
+		$error = "Could not read MQTT Gateway connection details - MQTT Gateway installed?";
+		LOGERR($error);
+		$uidata["state"]["broker_connected"] = false;
+		$uidata["state"]["broker_error"] = $error;
+		$uidata_update = true;
+	}
 
 	if( $oldcreds !== $creds ) {
 		// MQTT credentials changed, reconnect
@@ -401,12 +421,13 @@ function mqttConnect() {
 	
 	$uidata["state"]["broker_basetopic"] = $basetopic;
 	
-	if( empty($creds) ) {
-		$error = "No MQTT credentials. MQTT Gateway not installed?";
+	if( !$creds ) {
+		$error = "mqttConnect: No MQTT credentials. MQTT Gateway not installed?";
 		LOGERR($error);
 		$uidata["state"]["broker_connected"] = false;
 		$uidata["state"]["broker_error"] = $error;
 		$uidata_update = true;
+		return;
 	}
 	
 	// MQTT requires a unique client id
@@ -451,7 +472,7 @@ function mqttConnect() {
 } 
 
 
-function shutdown( $ex ) {
+function shutdown( $ex = null ) {
 	global $log;
 	if( $ex ) {
 		LOGCRIT("PHP EXCEPTION: " . $ex->getMessage());
