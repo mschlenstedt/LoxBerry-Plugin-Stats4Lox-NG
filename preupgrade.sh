@@ -24,7 +24,7 @@ mkdir -p $ARGV5/data/plugins/$ARGV1\_upgrade/data
 
 echo "<INFO> Backing up existing config files."
 if [ -n "$(ls -A "$ARGV5/config/plugins/$ARGV3" 2>/dev/null)" ]; then
-	rsync -avz $ARGV5/config/plugins/$ARGV3/* $ARGV5/data/plugins/${ARGV1}_upgrade/config/
+	rsync -av $ARGV5/config/plugins/$ARGV3/* $ARGV5/data/plugins/${ARGV1}_upgrade/config/
 	if [ $? -ne 0 ]
 	then
 	  echo "<FAIL> Backing up config files failed. Giving up."
@@ -37,7 +37,7 @@ fi
 
 echo "<INFO> Backing up existing log files."
 if [ -n "$(ls -A "$ARGV5/log/plugins/$ARGV3" 2>/dev/null)" ]; then
-	rsync -avz $ARGV5/log/plugins/$ARGV3/* $ARGV5/data/plugins/${ARGV1}_upgrade/log/
+	rsync -av $ARGV5/log/plugins/$ARGV3/* $ARGV5/data/plugins/${ARGV1}_upgrade/log/
 	if [ $? -ne 0 ]
 	then
 	  echo "<FAIL> Backing up log files failed. Giving up."
@@ -50,7 +50,7 @@ fi
 
 echo "<INFO> Backing up existing data files."
 if [ -n "$(ls -A "$ARGV5/data/plugins/$ARGV3/" 2>/dev/null)" ]; then
-	rsync -avz $ARGV5/data/plugins/$ARGV3/* $ARGV5/data/plugins/${ARGV1}_upgrade/data/
+	rsync -av $ARGV5/data/plugins/$ARGV3/* $ARGV5/data/plugins/${ARGV1}_upgrade/data/
 	if [ $? -ne 0 ]
 	then
 	  echo "<FAIL> Backing up data files failed. Giving up."

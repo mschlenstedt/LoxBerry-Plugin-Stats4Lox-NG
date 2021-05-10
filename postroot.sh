@@ -57,8 +57,8 @@ if [ -d $LBHOMEDIR/data/plugins/$PTEMPDIR\_upgrade ]; then
 
 	# Log
 	if [ -n "$(ls -A "$LBHOMEDIR/data/plugins/${PTEMPDIR}_upgrade/log" 2>/dev/null)" ]; then
-		chown -R loxberry:loxberry $LBHOMEDIR/log/plugins/$ARGV3
-		rsync -av $LBHOMEDIR/data/plugins/$PTEMPDIR\_upgrade/log/* $LBHOMEDIR/log/plugins/$ARGV3/
+		chown -R loxberry:loxberry $PLOG
+		rsync -Iav $LBHOMEDIR/data/plugins/$PTEMPDIR\_upgrade/log/* $PLOG/
 		if [ $? -ne 0 ]; then
 			echo "<FAIL> Restoring log files failed. Giving up."
 			#pause 'Press [Enter] key to continue...'
@@ -71,8 +71,8 @@ if [ -d $LBHOMEDIR/data/plugins/$PTEMPDIR\_upgrade ]; then
 
 	# Data
 	if [ -n "$(ls -A "$LBHOMEDIR/data/plugins/${PTEMPDIR}_upgrade/data" 2>/dev/null)" ]; then
-		chown -R loxberry:loxberry $LBHOMEDIR/data/plugins/$ARGV3
-		rsync -av $LBHOMEDIR/data/plugins/${PTEMPDIR}_upgrade/data/* $LBHOMEDIR/data/plugins/$ARGV3/
+		chown -R loxberry:loxberry $PDATA
+		rsync -Iav $LBHOMEDIR/data/plugins/${PTEMPDIR}_upgrade/data/* $PDATA/
 		if [ $? -ne 0 ]; then
 			echo "<FAIL> Restoring data files failed. Giving up."
 			#pause 'Press [Enter] key to continue...'
@@ -85,8 +85,8 @@ if [ -d $LBHOMEDIR/data/plugins/$PTEMPDIR\_upgrade ]; then
 
 	# Config
 	if [ -n "$(ls -A "$LBHOMEDIR/data/plugins/${PTEMPDIR}_upgrade/config/" 2>/dev/null)" ]; then
-		chown -R loxberry:loxberry $LBHOMEDIR/config/plugins/$ARGV3
-		rsync -av $LBHOMEDIR/data/plugins/${PTEMPDIR}_upgrade/config/* $LBHOMEDIR/config/plugins/$ARGV3/
+		chown -R loxberry:loxberry $PCONFIG
+		rsync -Iav $LBHOMEDIR/data/plugins/${PTEMPDIR}_upgrade/config/* $PCONFIG/
 		if [ $? -ne 0 ]; then
 			echo "<FAIL> Restoring config files failed. Giving up."
 			#pause 'Press [Enter] key to continue...'
@@ -121,8 +121,8 @@ if [ "$INFLUXDBUSER" = "" ]; then
 fi
 
 # Debug
-echo "Influx User: $INFLUXDBUSER"
-echo "Influx Pass: $INFLUXDBPASS"
+#echo "Influx User: $INFLUXDBUSER"
+#echo "Influx Pass: $INFLUXDBPASS"
 
 # Activate own config delivered with plugin
 echo "<INFO> Activating my own InfluxDB configuration."
@@ -193,8 +193,8 @@ if [ $UPGRADE -eq "0" ]; then
 	INFLUXDBPASS=`head /dev/urandom | tr -dc A-Za-z0-9 | head -c16`
 
 	# Debug
-	echo "Influx User: $INFLUXDBUSER"
-	echo "Influx Pass: $INFLUXDBPASS"
+	#echo "Influx User: $INFLUXDBUSER"
+	#echo "Influx Pass: $INFLUXDBPASS"
 
 	$INFLUXBIN -ssl -unsafeSsl -execute "CREATE USER $INFLUXDBUSER WITH PASSWORD '$INFLUXDBPASS' WITH ALL PRIVILEGES"
 	#echo "Coammand is: $INFLUXBIN -ssl -unsafeSsl -execute \"CREATE USER $INFLUXDBUSER WITH PASSWORD '$INFLUXDBPASS' WITH ALL PRIVILEGES\""
