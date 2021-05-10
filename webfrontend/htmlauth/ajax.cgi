@@ -6,7 +6,7 @@ use LoxBerry::Log;
 use CGI;
 use JSON;
 use FindBin qw($Bin);
-use lib "$Bin/../../../../bin/plugins/stats4lox-ng/libs/";
+use lib "$Bin/../../../../bin/plugins/stats4lox/libs/";
 use Globals;
 
 my $error;

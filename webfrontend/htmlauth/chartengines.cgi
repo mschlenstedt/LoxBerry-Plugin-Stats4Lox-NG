@@ -5,7 +5,7 @@ use LoxBerry::System;
 use LoxBerry::Web;
 use JSON;
 use FindBin qw($Bin);
-use lib "$Bin/../../../../bin/plugins/stats4lox-ng/libs/";
+use lib "$Bin/../../../../bin/plugins/stats4lox/libs/";
 use Globals;
 
 LoxBerry::Web::lbheader("Stats4Lox", undef, undef);

@@ -24,7 +24,7 @@
       "tags": [],
       "title": "Stats4Lox Main Page",
       "type": "link",
-      "url": "/admin/plugins/stats4lox-ng/index.cgi",
+      "url": "/admin/plugins/stats4lox/index.cgi",
 	  "targetBlank": true,
     }
   ],

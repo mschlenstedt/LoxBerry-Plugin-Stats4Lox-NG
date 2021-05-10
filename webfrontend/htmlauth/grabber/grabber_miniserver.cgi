@@ -4,7 +4,7 @@ use LoxBerry::System;
 use LoxBerry::JSON;
 use LoxBerry::IO;
 use FindBin qw($Bin);
-use lib "$Bin/../../../../../bin/plugins/stats4lox-ng/libs";
+use lib "$Bin/../../../../../bin/plugins/stats4lox/libs";
 use Globals;
 use Stats4Lox;
 use strict;

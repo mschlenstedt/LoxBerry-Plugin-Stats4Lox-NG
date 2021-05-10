@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Source: Sarnau https://github.com/sarnau/Inside-The-Loxone-Miniserver
-# Adaped for Stats4Lox-NG by Christian Fenzl
+# Adaped for Stats4Lox by Christian Fenzl
 
 import struct
 # import StringIO
