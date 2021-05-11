@@ -95,7 +95,6 @@ sub getLoxplan
 		$log->CRIT("$me Could not find project file.");
 	}
 	$log->OK("$me Finished");
-	$log->LOGEND("$me");
 }
 
 sub getFilelist
