@@ -10,4 +10,4 @@ providers:
   updateIntervalSeconds: 10
   allowUiUpdates: false
   options:
-    path: REPLACELBPTEMPLATEDIR/grafana_dashboards
+    path: REPLACELBPTEMPLATEDIR/grafana/dashboards
