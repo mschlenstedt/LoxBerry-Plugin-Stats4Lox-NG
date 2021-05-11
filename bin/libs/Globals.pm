@@ -81,7 +81,7 @@ our $telegraf_internal_files = "/tmp/telegraf_internals*.out";
 
 # Grafana Provisioning
 our $graf_provisioning_dir = "/etc/grafana/provisioning";
-our $s4l_provisioning_dir = "$LoxBerry::System::lbpconfigdir/grafana/provisioning";
+our $s4l_provisioning_dir = "$LoxBerry::System::lbpconfigdir/provisioning";
 our $s4l_provisioning_template_dir = "$LoxBerry::System::lbptemplatedir/grafana/templates";
 our $grafanaport = 3000;
 
