@@ -173,11 +173,9 @@ sub getFile
 	my $uripart = "/dev/fsget/$filename";
 	my $localfile = "$main::s4ltmp/s4l_loxplan_ms$msno.$ext";
 	$log->INF("$me Uripart: $uripart Localfile: $localfile");
-	
-	$log->DEB("Function getstore from $uripart to $localfile");
 	my $rc = LWP::Simple::getstore( $msuri.$uripart, $localfile);
 	if( LWP::Simple::is_error($rc) ) {
-		$log->CRIT("$me LWP::Simple::getstore Download error (is_error)");
+		$log->CRIT("$me LWP::Simple::getstore Download error (is_error) Code $rc");
 		return;
 	}
 	
