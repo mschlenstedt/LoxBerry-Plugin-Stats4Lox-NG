@@ -28,14 +28,12 @@ sub getLoxplan
 	
 	if( ! $msno) {
 		$log->CRIT("$me No Miniserver number defined.");
-		$log->LOGEND("$me");
 		return;
 	}
 	
 	# Create temporary storage
 	if(!$main::s4ltmp) {
 		$log->CRIT("$me Missing variable s4ltmp.");
-		$log->LOGEND("$me");
 		return;
 	}
 	if( ! -e $main::s4ltmp ) {
@@ -43,7 +41,6 @@ sub getLoxplan
 		my $mkrc = mkdir ($main::s4ltmp, 0770);
 		if( !$mkrc ) {
 			$log->CRIT("$me Could not create temporary folder $main::s4ltmp.");
-			$log->LOGEND("$me");
 			return;
 		}
 	}
@@ -52,7 +49,6 @@ sub getLoxplan
 	my @files = getFilelist( $msno, "prog/", $log );
 	if( !@files ) {
 		$log->CRIT("$me getFilelist: No files found.");
-		$log->LOGEND("$me");
 		return;
 	}
 	
@@ -60,7 +56,6 @@ sub getLoxplan
 	my $localfile = getFile( $msno, "prog/$files[0]", $log );
 	if( !$localfile ) {
 		$log->CRIT("$me getFile. File download not successful.");
-		$log->LOGEND("$me");
 		return;
 	}
 	$log->INF("$me Local file: $localfile");
@@ -100,7 +95,6 @@ sub getLoxplan
 		$log->CRIT("$me Could not find project file.");
 	}
 	$log->OK("$me Finished");
-	$log->LOGEND("$me");
 }
 
 sub getFilelist
@@ -122,7 +116,6 @@ sub getFilelist
 	my (undef, undef, $fileresp) = LoxBerry::IO::mshttp_call( $msno, $query );
 	if( !$fileresp ) {
 		$log->CRIT("$me Could not get file list from MS$msno");
-		$log->LOGEND("$me");
 		return;
 	}
 	
@@ -146,7 +139,8 @@ sub getFilelist
 	
 	@files = sort {lc($b) cmp lc($a)} @files;
 	$log->OK("$me Final sorted filelist:\n" . join( "\n", @files) );
-	$log->LOGEND("$me");
+	
+		
 	return @files;
 	
 }
@@ -171,7 +165,6 @@ sub getFile
 	my $msuri = $miniservers{$msno}{FullURI};
 	if (!$msuri) {
 		$log->CRIT("$me Cannot get FullURI from Miniserver $msno");
-		$log->LOGEND("$me");
 		return;
 	}
 	
@@ -183,12 +176,10 @@ sub getFile
 	my $rc = LWP::Simple::getstore( $msuri.$uripart, $localfile);
 	if( LWP::Simple::is_error($rc) ) {
 		$log->CRIT("$me LWP::Simple::getstore Download error (is_error) Code $rc");
-		$log->LOGEND("$me");
 		return;
 	}
 	
 	$log->OK("$me Download successful");
-	$log->LOGEND("$me");
 	return( $localfile );
 }
 
@@ -212,7 +203,6 @@ sub checkLoxplanUpdate
 
 	if (! -e $loxplanjson) {
 		$log->WARN("$me Json currently does not exist ($loxplanjson)");
-		$log->LOGEND("$me");
 		die "checkLoxplanUpdate: Json currently does not exist ($loxplanjson)\n";
 	}
 	
@@ -232,7 +222,6 @@ sub checkLoxplanUpdate
 	};
 	if( $@ ) {
 		$log->CRIT("$me Could not fetch local version info");
-		$log->LOGEND("$me");
 		die "checkLoxplanUpdate: Could not fetch local version info\n";
 	}
 	
@@ -241,7 +230,6 @@ sub checkLoxplanUpdate
 	if( $localTimestamp > 0 && $lastCheck > time()-90 ) {
 		# Prevent checking for 90 seconds
 		log->INF("$me Skipping check (already done in the past 90 seconds)");
-		$log->LOGEND("$me");
 		return;
 	}
 	
@@ -257,7 +245,6 @@ sub checkLoxplanUpdate
 	};
 	if( $@ ) {
 		$log->CRIT("$me Could not fetch remote version info");
-		$log->LOGEND("$me");
 		die "checkLoxplanUpdate: Could not fetch remote version info\n";
 	}
 	
@@ -265,7 +252,6 @@ sub checkLoxplanUpdate
 	
 	if( $localTimestamp ne "0" and $localTimestamp eq $remoteTimestamp ) {
 		$log->INF("$me Timestamps are equal, no need to update");
-		$log->LOGEND("$me");
 		return;
 	}
 	
