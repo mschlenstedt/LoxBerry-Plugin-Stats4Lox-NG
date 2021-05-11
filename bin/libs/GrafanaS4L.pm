@@ -22,7 +22,7 @@ sub provisionDashboard {
 	### Update the dashboard
 	my $dashboard = DashboardFromTemplate Grafana( 
 		"$Globals::s4l_provisioning_dir/dashboards/defaultDashboard.json",
-		"$Globals::s4l_provisioning_dir/templates/template_defaultDashboard.json"
+		"$Globals::s4l_provisioning_template_dir/template_defaultDashboard.json"
 	);
 	$dashboard->{title} = "LoxBerry Stats4Lox";
 	my $lbhostname = LoxBerry::System::lbhostname();
@@ -71,7 +71,7 @@ sub provisionDashboard {
 		}
 		my $panel = PanelFromTemplate Grafana( 
 			"$Globals::s4l_provisioning_dir/dashboards/defaultDashboard.json",
-			"$Globals::s4l_provisioning_dir/templates/template_panel_graph.json"
+			"$Globals::s4l_provisioning_template_dir/template_panel_graph.json"
 		);
 		
 		##

@@ -101,7 +101,7 @@ sub updateDefaultDashboard
 	LOGINF "Creating dashboard from dashboard template";
 	my $dashboard = DashboardFromTemplate Grafana( 
 		"$Globals::s4l_provisioning_dir/dashboards/defaultDashboard.json",
-		"$Globals::s4l_provisioning_dir/templates/template_defaultDashboard.json"
+		"$Globals::s4l_provisioning_template_dir/template_defaultDashboard.json"
 	);
 	$dashboard->{title} = "LoxBerry Stats4Lox";
 	my $lbhostname = LoxBerry::System::lbhostname();
@@ -177,7 +177,7 @@ sub updateDefaultDashboard
 			
 			my $panel = PanelFromTemplate Grafana( 
 				"$Globals::s4l_provisioning_dir/dashboards/defaultDashboard.json",
-				"$Globals::s4l_provisioning_dir/templates/template_panel_graph.json"
+				"$Globals::s4l_provisioning_template_dir/template_panel_graph.json"
 			);
 			
 			LOGINF "Panel template loaded";
