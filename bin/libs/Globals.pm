@@ -54,29 +54,35 @@ our @EXPORT = qw (
 );
 
 
-# RAMDISK temporary directory
-our $s4ltmp = '/dev/shm/s4ltmp';
-our $loxplanjsondir = $LoxBerry::System::lbpdatadir;
+# Main configuration files
 our $statsconfig = "$LoxBerry::System::lbpconfigdir/stats.json";
 our $stats4loxconfig = "$LoxBerry::System::lbpconfigdir/stats4lox.json";
 our $stats4loxcredentials = "$LoxBerry::System::lbpconfigdir/cred.json";
 
-# IMPORT SETTINGS
+# RAMDISK temporary directory
+our $s4ltmp = '/dev/shm/s4ltmp';
+
+# JSON directory of Miniserver LoxPlans
+our $loxplanjsondir = $LoxBerry::System::lbpdatadir;
+
+# Import settings
 our $influx_bulk_blocksize = 1000;
 our $influx_bulk_delay_secs = 1;
-
 our $import_time_to_dead_minutes = 60;
 our $import_max_parallel_processes = 4;
 our $import_max_parallel_per_ms = 4;
 our $importstatusdir = $LoxBerry::System::lbpdatadir.'/import';
+
+# Telegraf settings
 our $telegraf_unix_socket = "/tmp/telegraf.sock";
 our $telegraf_max_buffer_fullness = "0.75";
 our @telegraf_buffer_checks = ("influxdb");
 our $telegraf_internal_files = "/tmp/telegraf_internals*.out";
 
-# GRAFANA PROVISIONING
+# Grafana Provisioning
 our $graf_provisioning_dir = "/etc/grafana/provisioning";
-our $s4l_provisioning_dir = "$LoxBerry::System::lbpdatadir/provisioning";
+our $s4l_provisioning_dir = "$LoxBerry::System::lbpconfigdir/grafana/provisioning";
+our $s4l_provisioning_template_dir = "$LoxBerry::System::lbptemplatedir/grafana/templates";
 our $grafanaport = 3000;
 
 
