@@ -176,14 +176,31 @@ sub getFile
 	my $response = $ua->request($req);
 	if ($response->is_success) 
 	{
-		open(my $fh, '>', $localfile) or die "Could not open file '$localfile' $!";
-		print $fh $response->content;
-		close $fh;
-		$log->OK("$me Download successful");
-		return( $localfile );
+		open(my $fh, '>', $localfile) or $log->CRIT("Could not open file '$localfile' $!");
+		print $fh $response->content or $log->CRIT("Could not write to file '$localfile' $!");
+		close $fh or $log->CRIT("Could not close  file '$localfile' $!");
+		
+		open(my $fh, $localfile) or $log->CRIT("Could not open file '$localfile' $!");
+		if(read($fh, my $buffer, 2))
+		{
+			if($buffer eq 'PK')
+			{
+				$log->INF("The file '$localfile' seems to be a valid ZIP file.");
+				$log->OK("$me Download successful");
+				return( $localfile );
+			}
+			else
+			{
+				$log->CRIT("The file '$localfile' seems to be an INVALID ZIP file.");
+				return;
+			}
+		}
+		close($fh) or $log->CRIT("Could not close  file '$localfile' $!");
+		return;
 	}
 	else
 	{
+		unlink($localfile) or $log->CRIT("Can't unlink '$localfile': $!");
 		$log->CRIT("$me Download error (is_error) Code ".$response->status_line);
 		return;
 	}
