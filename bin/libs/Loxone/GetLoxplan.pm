@@ -203,8 +203,8 @@ sub checkLoxplanUpdate
 	}
 
 	if (! -e $loxplanjson) {
-		$log->CRIT("$me Json does not exist ($loxplanjson)");
-		die "checkLoxplanUpdate: Json does not exist ($loxplanjson)\n";
+		$log->WARN("$me Json currently does not exist ($loxplanjson)");
+		die "checkLoxplanUpdate: Json currently does not exist ($loxplanjson)\n";
 	}
 	
 	my $localTimestamp = 0;
