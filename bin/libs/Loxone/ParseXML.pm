@@ -124,8 +124,21 @@ sub readloxplan
 		$lox_miniserver{$miniserver->{U}}{Title} = $miniserver->{Title};
 		$lox_miniserver{$miniserver->{U}}{Serial} = $miniserver->{Serial};
 		
-		# IP address can hava a port
+		# Save full Internal Address
+		$lox_miniserver{$miniserver->{U}}{IntAddr} = $miniserver->{IntAddr};
+		
+		# IntAddr can have a port - Split and save host and port part
 		my ($msxmlip, $msxmlport) = split(/:/, $miniserver->{IntAddr}, 2);
+		if( $msxmlport ) {
+			$lox_miniserver{$miniserver->{U}}{Port} = $msxmlport;
+		}
+		else {
+			$lox_miniserver{$miniserver->{U}}{Port} = 80;
+		}
+		
+		$lox_miniserver{$miniserver->{U}}{Host} = $msxmlip;
+		
+		# Check if we can get an ip
 		if($msxmlip=~/^(\d{1,3}).(\d{1,3}).(\d{1,3}).(\d{1,3})$/ &&(($1<=255 && $2<=255 && $3<=255 &&$4<=255 ))) { 
 			# IP seems valid
 			$log->DEB( "Found Miniserver $miniserver->{Title} with IP $msxmlip");
@@ -135,20 +148,31 @@ sub readloxplan
 			$lox_miniserver{$miniserver->{U}}{IP} = undef;
 		} else { 
 			# IP seems not to be an IP - possibly we need a DNS lookup?
-			$log->WARN( "Found Miniserver $miniserver->{Title} possibly configured with hostname. Querying IP of $msxmlip ...");
+			$log->INF( "Found Miniserver $miniserver->{Title} possibly configured with hostname. Querying IP of $msxmlip ...");
 			require Socket;
 			my $dnsip = Socket::inet_ntoa(Socket::inet_aton($msxmlip));
 			if ($dnsip) {
-				$log->WARN( " --> Found Miniserver $miniserver->{Title} and DNS lookup got IP $dnsip ...");
+				$log->OK( " --> Found Miniserver $miniserver->{Title} and DNS lookup got IP $dnsip ...");
 				$lox_miniserver{$miniserver->{U}}{IP} = $dnsip;
 			} else {
-				$log->ERR( " --> Could not find an IP for Miniserver $miniserver->{Title}. Giving up this MS. Please check the internal Miniserver IPs in your Loxone Config.");
+				$log->WARN( " --> Could not resolve IP for Miniserver $miniserver->{Title}.");
 				$lox_miniserver{$miniserver->{U}}{IP} = $msxmlip;
 			}
 		}
 		
-		if( defined $lox_miniserver{$miniserver->{U}}{IP} ) {
-			$lox_miniserver{$miniserver->{U}}{msno} = LoxBerry::System::get_miniserver_by_ip( $lox_miniserver{$miniserver->{U}}{IP} );
+		# Resolve Miniserver in LoxBerry config
+		my %lb_miniservers;
+		%lb_miniservers = LoxBerry::System::get_miniservers();
+		
+		if (! %lb_miniservers) {
+			$log->ERR("No Miniservers defined in LoxBerry. Cannot match any Miniserver");
+		} else {
+			foreach my $msno ( keys %lb_miniservers ) {
+				next if( $lb_miniservers{$msno}{IPAddress} ne $lox_miniserver{$miniserver->{U}}{Host} );
+				next if( $lb_miniservers{$msno}{IPAddress} ne $lox_miniserver{$miniserver->{U}}{IP} );
+				$lox_miniserver{$miniserver->{U}}{msno} = $msno;
+				last;
+			}
 		}
 	}
 	
