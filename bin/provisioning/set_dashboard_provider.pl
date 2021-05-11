@@ -15,7 +15,7 @@ apiVersion: 1
 providers:
 - name: Stats4Lox
   orgId: 1
-  folder: ''
+  folder: 'Stats4Lox Preconfigured'
   folderUid: ''
   type: file
   disableDeletion: false

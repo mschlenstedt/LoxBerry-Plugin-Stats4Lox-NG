@@ -285,6 +285,11 @@ chown -R loxberry:loxberry $PCONFIG/grafana
 $PBIN/provisioning/set_datasource_influx.pl
 $PBIN/provisioning/set_dashboard_provider.pl
 
+# Copy shipped static dashboards to provisioning directory
+echo "<INFO> Updating static dashboards to provisioning" 
+mkdir -p "$PCONFIG/provisioning/dashboards"
+cp -f "$PTEMPDIR/templates/grafana/dashboards/*.json" "$PCONFIG/provisioning/dashboards/"
+
 # Activate Grafana
 echo "<INFO> Starting Grafana..."
 systemctl enable --now grafana-server
