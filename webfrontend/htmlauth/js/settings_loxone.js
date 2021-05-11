@@ -242,8 +242,8 @@ function getLoxplan() {
 				statsconfigLoxone = Object.values( statsconfig.loxone );
 			}
 			catch(e) {
-				$("#progress_errors").append( "<p>Could not get stats.json data. Assuming empty stats.json</p>");
-				$("#box_progress_errors").fadeIn();
+				// $("#progress_errors").append( "<p>Could not get stats.json data. Assuming empty stats.json</p>");
+				// $("#box_progress_errors").fadeIn();
 				console.log( "statsconfigLoxone seems to be empty" );
 				statsconfigLoxone = [];
 			}
