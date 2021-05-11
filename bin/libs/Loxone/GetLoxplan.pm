@@ -95,6 +95,7 @@ sub getLoxplan
 		$log->CRIT("$me Could not find project file.");
 	}
 	$log->OK("$me Finished");
+	$log->LOGEND("$me");
 }
 
 sub getFilelist
@@ -139,8 +140,6 @@ sub getFilelist
 	
 	@files = sort {lc($b) cmp lc($a)} @files;
 	$log->OK("$me Final sorted filelist:\n" . join( "\n", @files) );
-	
-		
 	return @files;
 	
 }
@@ -160,7 +159,7 @@ sub getFile
 	}
 	
 	require LWP::Simple;
-	
+	require LWP::UserAgent;
 	my %miniservers = LoxBerry::System::get_miniservers();
 	my $msuri = $miniservers{$msno}{FullURI};
 	if (!$msuri) {
@@ -173,14 +172,24 @@ sub getFile
 	my $uripart = "/dev/fsget/$filename";
 	my $localfile = "$main::s4ltmp/s4l_loxplan_ms$msno.$ext";
 	$log->INF("$me Uripart: $uripart Localfile: $localfile");
-	my $rc = LWP::Simple::getstore( $msuri.$uripart, $localfile);
-	if( LWP::Simple::is_error($rc) ) {
-		$log->CRIT("$me LWP::Simple::getstore Download error (is_error) Code $rc");
+	
+	$ENV{'PERL_LWP_SSL_VERIFY_HOSTNAME'} = 0;
+	my $ua = LWP::UserAgent->new( ssl_opts => { verify_hostname => 0, SSL_verify_mode => 0 },);
+	my $req = HTTP::Request->new( GET => $msuri.$uripart );
+	my $response = $ua->request($req);
+	if ($response->is_success) 
+	{
+		open(my $fh, '>', $localfile) or die "Could not open file '$localfile' $!";
+		print $fh $response->content;
+		close $fh;
+		$log->OK("$me Download successful");
+		return( $localfile );
+	}
+	else
+	{
+		$log->CRIT("$me Download error (is_error) Code ".$response->status_line);
 		return;
 	}
-	
-	$log->OK("$me Download successful");
-	return( $localfile );
 }
 
 # Checks is the local json is up-to-date against the Miniserver
