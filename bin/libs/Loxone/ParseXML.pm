@@ -119,6 +119,7 @@ sub readloxplan
 	
 	# Read Loxone Miniservers
 	foreach my $miniserver ($lox_xml->findnodes('//C[@Type="LoxLIVE"]')) {
+		$log->DEB( "Found Miniserver $miniserver->{Title} with internal address ".$miniserver->{IntAddr});
 		# Use an multidimensional associative hash to save a table of necessary MS data
 		# key is the Uid
 		$lox_miniserver{$miniserver->{U}}{Title} = $miniserver->{Title};
@@ -168,8 +169,9 @@ sub readloxplan
 			$log->ERR("No Miniservers defined in LoxBerry. Cannot match any Miniserver");
 		} else {
 			foreach my $msno ( keys %lb_miniservers ) {
-				next if( $lb_miniservers{$msno}{IPAddress} ne $lox_miniserver{$miniserver->{U}}{Host} );
-				next if( $lb_miniservers{$msno}{IPAddress} ne $lox_miniserver{$miniserver->{U}}{IP} );
+				$log->DEB( "Compare Miniserver Loxberry IPAddress field " . $lb_miniservers{$msno}{IPAddress} . " vs. XML Host " . $lox_miniserver{$miniserver->{U}}{Host});
+				$log->DEB( "Compare Miniserver Loxberry IPAddress field " . $lb_miniservers{$msno}{IPAddress} . " vs. XML IP " . $lox_miniserver{$miniserver->{U}}{IP});
+				next if( $lb_miniservers{$msno}{IPAddress} ne $lox_miniserver{$miniserver->{U}}{Host} and $lb_miniservers{$msno}{IPAddress} ne $lox_miniserver{$miniserver->{U}}{IP} );
 				$lox_miniserver{$miniserver->{U}}{msno} = $msno;
 				last;
 			}
