@@ -183,6 +183,7 @@ sub getFile
 		open(my $fh, $localfile) or $log->CRIT("Could not open file '$localfile' $!");
 		if(read($fh, my $buffer, 2))
 		{
+			close($fh) or $log->CRIT("Could not close  file '$localfile' $!");
 			if($buffer eq 'PK')
 			{
 				$log->INF("The file '$localfile' seems to be a valid ZIP file.");
@@ -195,7 +196,12 @@ sub getFile
 				return;
 			}
 		}
-		close($fh) or $log->CRIT("Could not close  file '$localfile' $!");
+		else
+		{
+			close($fh) or $log->CRIT("Could not close  file '$localfile' $!");
+			$log->CRIT("The file '$localfile' can't be checked.");
+			return;
+		}
 		return;
 	}
 	else
