@@ -171,9 +171,7 @@ sub getFile
 	my $uripart = "/dev/fsget/$filename";
 	my $localfile = "$main::s4ltmp/s4l_loxplan_ms$msno.$ext";
 	$log->INF("$me Uripart: $uripart Localfile: $localfile");
-	
-	$ENV{'PERL_LWP_SSL_VERIFY_HOSTNAME'} = 0;
-	my $ua = LWP::UserAgent->new( ssl_opts => { verify_hostname => 0, SSL_verify_mode => 0 },);
+	my $ua = LWP::UserAgent->new( ssl_opts => { verify_hostname => 0} );
 	my $req = HTTP::Request->new( GET => $msuri.$uripart );
 	my $response = $ua->request($req);
 	if ($response->is_success) 
