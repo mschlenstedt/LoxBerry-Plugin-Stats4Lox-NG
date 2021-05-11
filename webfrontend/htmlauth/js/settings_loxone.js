@@ -305,12 +305,11 @@ function consolidateLoxPlan( data ) {
 		// return categories_used.indexOf(item) == pos;
 	// })
 
-	
-	miniservers_used.sort();
-	
+	miniservers_used = Object.values( miniservers_used );
+	miniservers_used.sort( dynamicSort( "msno" ) );
+
 	// console.log("controls array", controls);
-	
-// console.log("Controls", controls);
+	// console.log("Controls", controls);
 	
 	var rooms_tmp = [];
 	for (var roomid in rooms) {
