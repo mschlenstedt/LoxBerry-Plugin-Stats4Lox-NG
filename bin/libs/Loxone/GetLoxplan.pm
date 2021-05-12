@@ -159,7 +159,7 @@ sub getFile
 		$log->LOGSTART("$me");
 	}
 	
-	require LWP::Simple;
+	require LWP::UserAgent;
 	
 	my %miniservers = LoxBerry::System::get_miniservers();
 	my $msuri = $miniservers{$msno}{FullURI};
@@ -174,14 +174,26 @@ sub getFile
 	my $localfile = "$main::s4ltmp/s4l_loxplan_ms$msno.$ext";
 	$log->INF("$me Uripart: $uripart Localfile: $localfile");
 	
-	my $rc = LWP::Simple::getstore( $msuri.$uripart, $localfile);
-	if( LWP::Simple::is_error($rc) ) {
-		$log->CRIT("$me LWP::Simple::getstore Download error (is_error)");
+	my $ua = LWP::UserAgent->new( ssl_opts => { verify_hostname => 0} );
+	my $req = HTTP::Request->new( GET => $msuri.$uripart );
+	my $response = $ua->request($req);
+	
+	if ($response->is_success) {
+		my $error = LoxBerry::System::write_file( $localfile, $response->content );
+		if( $error ) {
+			$log->CRIT("$me Could not write file $localfile: $error");
+			unlink $localfile;
+			return;
+		}
+		$log->OK("$me File successfully downloaded to $localfile");
+		return( $localfile );
+	}
+	else {
+		$log->CRIT("$me Download error: $response->status_line");
+		unlink $localfile;
 		return;
 	}
 	
-	$log->OK("$me Download successful");
-	return( $localfile );
 }
 
 # Checks is the local json is up-to-date against the Miniserver
