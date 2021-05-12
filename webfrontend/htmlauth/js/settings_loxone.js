@@ -464,9 +464,9 @@ function createTableBody() {
 		// Text filter (filterSearchString)
 		if( filterSearchStr_lc != "" ) {
 			if ( 
-				element.Title.toLowerCase().indexOf(filterSearchStr_lc) == -1 &&
-				element.Desc.toLowerCase().indexOf(filterSearchStr_lc) == -1 &&
-				element.UID.toLowerCase().indexOf(filterSearchStr_lc) == -1 
+				element.Title?.toLowerCase().indexOf(filterSearchStr_lc) == -1 &&
+				element.Desc?.toLowerCase().indexOf(filterSearchStr_lc) == -1 &&
+				element.UID?.toLowerCase().indexOf(filterSearchStr_lc) == -1 
 				) continue;
 		}
 		
