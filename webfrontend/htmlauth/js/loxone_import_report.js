@@ -185,7 +185,7 @@ function updateReportTables(data) {
 		// Finished
 
 			var duration = status.duration ? Math.ceil(status.duration/60).toString()+" Min." : "N/A"; 
-			var records = status?.stats?.record_count_finished ? status?.stats?.record_count_finished.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".") : "";
+			var records = status?.stats?.record_count_finished ? status?.stats?.record_count_finished.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".") : 0;
 			
 			hF+=`
 			<tr data-filekey="${filekey}">

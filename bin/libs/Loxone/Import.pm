@@ -172,16 +172,27 @@ sub getStatlist
 			
 		}
 	}
-	$log->DEB("$me Number of lines $count");
-	$log->DEB("$me Number of different uuids ". keys(%resultsAll));
+	$log->INF("$me Number of lines $count");
+	$log->INF("$me Number of different uuids ". keys(%resultsAll));
 	
 	$self->{statlistAll} = \%resultsAll;
-	$log->DEB("$me Finished ok");
+	$log->OK("$me Finished ok");
 	
 	if ( defined $uuid ) {
-		return @{$resultsAll{$uuid}};
+		my $count_month_uuid = 0;
+		$count_month_uuid = @{$resultsAll{$uuid}} if( defined $resultsAll{$uuid} );
+		
+		if( $count_month_uuid > 0 ) {
+			$log->DEB("$me Responsing array ($count_month_uuid months): " . join(",", @{$resultsAll{$uuid}}) );
+			return @{$resultsAll{$uuid}};
+		}
+		else {
+			$log->DEB("$me No elements for uuid $uuid found. Responsing empty array");
+			return;
+		}
 	}
 	else {
+		$log->DEB("$me Responding with hash of all results");
 		return \%resultsAll;
 	}
 		

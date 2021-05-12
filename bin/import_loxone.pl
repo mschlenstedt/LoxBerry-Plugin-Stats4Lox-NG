@@ -115,11 +115,14 @@ if( $@ ) {
 supdate( { name => $import->{statobj}->{name} } );
 
 my @statmonths;
+my $months_count_full = 0;
+
 eval {
 	@statmonths = $import->getStatlist();
-	LOGDEB "$me Statlist $#statmonths elements.";
+	$months_count_full = scalar @statmonths;
+	LOGDEB "$me Statlist $months_count_full elements.";
 };
-if( $@ or !$#statmonths ) {
+if( $@ ) {
 	my $error = "$me getStatList: Could not get Statistics list from Loxone Miniserver MS$msno --> $@";
 	LOGCRIT $error;
 	supdate( { 
@@ -129,8 +132,18 @@ if( $@ or !$#statmonths ) {
 	} );
 	exit(2);
 }
+if( !$months_count_full ) {
+	my $error = "No Loxone Statistics available for $import->{statobj}->{name}. Finished by doing nothing ;-)";
+	LOGOK $error;
+	supdate( { 
+		name => $import->{statobj}->{name},
+		status => "finished",
+		errortext => $error,
+		record_count_finished => 0
+	} );
+	exit(0);
+}
 
-my $months_count_full = scalar @statmonths;
 my $months_count_finished = 0;
 my $record_count = 0;
 my $duration_time_secs = 0;
