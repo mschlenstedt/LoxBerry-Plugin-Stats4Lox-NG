@@ -91,6 +91,28 @@ sub new
 	return $self;
 }
 
+sub new_empty
+{
+	my $class = shift;
+	my $me = Globals::whoami();
+	
+	if (@_ % 2) {
+		Carp::croak "$me Illegal parameter list has odd number of values\n" . join("\n", @_) . "\n";
+	}
+	
+	my %p = @_;
+	
+	my $self = { 
+		log =>$p{log}
+	};
+
+	my $log = $self->{log};
+	
+	bless $self, $class;
+	return $self;
+	
+}
+
 sub getStatlist
 {
 	my $self = shift;
@@ -368,7 +390,7 @@ sub parseStatXML
 	foreach my $node ( @statsnodes ) {
 		# print STDERR "mainnode Node Name: ".$node->{T}."\n";
 		my %data;
-		my $data_time = createDateTime($node->{T}); 
+		my $data_time = createDateTime($node->{T}, 0, $log); 
 		$data{T} =  $data_time->epoch;
 		$data{val} = ();
 		# foreach my $statattr ( $node->attributes ) {
@@ -447,7 +469,7 @@ sub parseStatXML_REGEX
 		$bulkcount++;
 		$log->DEB("$me Readed $bulkcount records") if( $bulkcount%2000 == 0 );
 		# print STDERR "data_time: $data_time\n";
-		$data_time = createDateTime($data_time); 
+		$data_time = createDateTime($data_time, 0, $log); 
 		$data{T} =  $data_time->epoch;
 		$data{val} = ();
 		# print STDERR "Time $data{T} ";
@@ -638,12 +660,45 @@ sub submitData
 
 
 
+###
+### This is the original routine that fails if a Loxone statistic time is inside of a daylight saving switch timeframe
+###
+
+
+# sub createDateTime
+# {
+	# my ($timestr) = @_;
+	# my $me = Globals::whoami();
+	
+	# if( $timestr =~ /(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/ ) {
+		# my $ye = $1;
+		# my $mo = $2;
+		# my $da = $3;
+		# my $ho = $4;
+		# my $mi = $5;
+		# my $se = $6;
+		
+		# my $dt = DateTime->new(
+			# year       => $ye,
+			# month      => $mo,
+			# day        => $da,
+			# hour       => $ho,
+			# minute     => $mi,
+			# second     => $se,
+			# time_zone  => $LocalTZ
+		# );
+	
+		# return $dt;
+	# }
+# }
+
+
 
 sub createDateTime
 {
-	my ($timestr) = @_;
+	my ($timestr, $retry, $log) = @_;
 	my $me = Globals::whoami();
-	
+		
 	if( $timestr =~ /(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/ ) {
 		my $ye = $1;
 		my $mo = $2;
@@ -652,19 +707,52 @@ sub createDateTime
 		my $mi = $5;
 		my $se = $6;
 		
-		my $dt = DateTime->new(
-			year       => $ye,
-			month      => $mo,
-			day        => $da,
-			hour       => $ho,
-			minute     => $mi,
-			second     => $se,
-			time_zone  => $LocalTZ
-		);
+		my $dt;
+		
+		eval {
+					
+			$dt = DateTime->new(
+				year       => $ye,
+				month      => $mo,
+				day        => $da,
+				hour       => $ho,
+				minute     => $mi,
+				second     => $se,
+				time_zone  => $LocalTZ
+			);
+		};
+		
+		if( $@ and !$retry) {
+			$log->WARN("$me Exception on date conversion ($timestr): $@") if($log);
+			# print STDERR "Trying to modify timestamp (Loxone daylight saving issue)\n";
+			
+			# print "Offset: -1 minute\n";
+			$mi -= 1;
+			if( $mi < 0 ) {
+				$mi = 59;
+				$ho -= 1;
+			}
+			if( $ho < 0 ) {
+				$ho = 0;
+				$mi = 0;
+				$se = 0;
+			}
+			my $newtimestr = sprintf("%04d-%02d-%02d %02d:%02d:%02d", $ye, $mo, $da, $ho, $mi, $se);
+			$log->INF("$me Trying offset -1 minute: $newtimestr...") if($log);
+			$dt = createDateTime($newtimestr, 1);
+		}
+		elsif( $@ ) {
+			$log->CRIT("$me cannot parse timestamp $timestr after retry: $@") if($log);
+			die "$@";
+		}
 	
 		return $dt;
 	}
+	
 }
+
+
+
 
 sub statusgetfile {
 	
