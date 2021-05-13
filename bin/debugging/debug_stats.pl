@@ -139,6 +139,7 @@ foreach my $msno ( sort keys %miniservers ) {
 	
 	}
 }
+print "\n";
 LOGOK "All Miniservers finished";
 $finished = 1;
 
@@ -148,9 +149,16 @@ END {
 		LOGERR "Some statistic or Miniserver could not be fetched.";
 		LOGERR "This is a partial output";
 	}
-	LOGINF "Fetched data";
-	LOGINF "=================";
-	LOGDEB "\n\n" . to_json( \%blocktypedata, {utf8 => 0, pretty => 1} ) . "\n\n";
+#	LOGINF "Fetched data";
+#	LOGINF "=================";
+#	LOGDEB "\n\n" . to_json( \%blocktypedata, {utf8 => 0, pretty => 1} ) . "\n\n";
+	
+	# Write fetched data to a file
+	LoxBerry::System::write_file( "stat_dump.json", to_json( \%blocktypedata, {utf8 => 1, pretty => 1} ) );
+	LOGOK "The output is written to the file stat_dump.json";
+	
 	LOGEND;
+
+	
 
 }
