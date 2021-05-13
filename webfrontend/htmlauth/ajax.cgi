@@ -405,3 +405,7 @@ sub createImportFolder
 		`mkdir --parents "${Globals::importstatusdir}"`;
 	}
 }
+
+END {
+	LOGEND if($log);
+}
