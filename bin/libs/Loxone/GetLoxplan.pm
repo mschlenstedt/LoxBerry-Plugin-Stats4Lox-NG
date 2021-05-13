@@ -130,7 +130,8 @@ sub getFilelist
 		
 		# Skip entries
 		next if ( $parts[0] ne "-" );
-		next if ( !LoxBerry::System::begins_with( lc($filename), 'sps_' ) );
+		next if ( ! LoxBerry::System::begins_with( lc($filename), 'sps_' ) );
+		next if ( LoxBerry::System::begins_with( lc($filename), 'sps_old' ) );
 		next if ( lc($ext) ne "zip" and lc($ext) ne "loxcc" );
 		$log->DEB("$me $filename added to filelist");
 		push @files, $filename;
