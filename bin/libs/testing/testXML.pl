@@ -43,9 +43,64 @@ if(substr( $xmlstr, 0, 3) eq $UTF8_BOM) {
 }
 $xmlstr = Encode::encode("utf8", $xmlstr);
 
+### Loxone XML correction
+my $startpos = 0;
+
+while( ( my $foundpos = index( $xmlstr, '<C Type="LoxAIR"', $startpos ) ) != -1 ) {
+	# print "Found: $foundpos Startpos $startpos Character: ". substr( $xmlstr, $foundpos, 1 ) . "\n";
+	$startpos = $foundpos+1;
+	# Finding closing tag >
+	my $endpos = index( $xmlstr, '>', $foundpos );
+	# print "Closing: $endpos Character: ". substr( $xmlstr, $endpos, 1 ) . "\n";
+	# Get full tag
+	my $tagstr = substr( $xmlstr, $foundpos+1, $endpos-$foundpos-1 );
+	# print "Content: $tagstr\n";
+	
+	# my @attributes = split( /\s+=(?<=")\s+(?=")/g, $tagstr );
+	
+	# Split line by blank but without blanks inside of doublequotes
+	my @attributes = $tagstr =~ m/((?:" [^"]* "|[^\s"]*)+)/gx;
+	
+	# print "Attributes: \n";
+	# print join( "\n->", @attributes) . "\n";
+	
+	my @newattributeArray;
+	my %uniquenesshash;
+	my $duplicates = 0;
+	foreach my $fullattribute ( @attributes ) { 
+		next if (! $fullattribute);
+		my ($attribute, $value) = split( "=", $fullattribute, 2);
+		if( defined $uniquenesshash{$attribute} ) {
+			$duplicates += 1;
+			next;
+		}
+		$uniquenesshash{$attribute} = 1;
+		push @newattributeArray, $fullattribute;
+	}	
+	
+	if( $duplicates ) {
+		my $newattribute = join( ' ', @newattributeArray );
+		print "New attribute:\n$newattribute\n";
+		
+		# Replace the old attributes by the new attributes
+		substr( $xmlstr, $foundpos+1, $endpos-$foundpos-1, $newattribute );
+		LOGWARN "Replaced $duplicates duplicate attributes\n";
+	}
+	
+}
+
+
+
+
+
 my $lox_xml;
+
+my %parseroptions = (
+	# recover => 1
+);
+
 eval {
-	$lox_xml = XML::LibXML->load_xml( string => $xmlstr );
+	$lox_xml = XML::LibXML->load_xml( string => $xmlstr, \%parseroptions );
 };
 if( $@ ) {
 	my $exception = $@;

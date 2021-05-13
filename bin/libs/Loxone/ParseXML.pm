@@ -89,7 +89,23 @@ sub readloxplan
 			$xmlstr = substr $xmlstr, 3;
 		}
 		$xmlstr = Encode::encode("utf8", $xmlstr);
-		$lox_xml = XML::LibXML->load_xml( string => $xmlstr );
+		
+		
+		#######################################
+		## FIXES of invalid Loxone Loxplan XML 
+		#######################################
+		
+		$xmlstr = correctXML_LoxAIR( $xmlstr, $log );
+		
+		#######################################
+		## Finally, load the XML
+		#######################################
+		
+		my %parseroptions = (
+		#	recover => 1
+		);
+		
+		$lox_xml = XML::LibXML->load_xml( string => $xmlstr, \%parseroptions );
 	};
 	if ($@) {
 		$log->ERR( "import.cgi: Cannot parse LoxPLAN XML file: $@");
@@ -362,6 +378,66 @@ sub loxplan2json
 	return 1;
 
 }
+
+
+sub correctXML_LoxAIR 
+{
+	
+	my $xmlstr = shift;
+	my $log = shift;
+	
+	### Loxone XML correction for Tree2Air bridge
+	my $startpos = 0;
+
+	while( ( my $foundpos = index( $xmlstr, '<C Type="LoxAIR"', $startpos ) ) != -1 ) {
+		# print "Found: $foundpos Startpos $startpos Character: ". substr( $xmlstr, $foundpos, 1 ) . "\n";
+		$startpos = $foundpos+1;
+		# Finding closing tag >
+		my $endpos = index( $xmlstr, '>', $foundpos );
+		# print "Closing: $endpos Character: ". substr( $xmlstr, $endpos, 1 ) . "\n";
+		# Get full tag
+		my $tagstr = substr( $xmlstr, $foundpos+1, $endpos-$foundpos-1 );
+		# print "Content: $tagstr\n";
+		
+		# my @attributes = split( /\s+=(?<=")\s+(?=")/g, $tagstr );
+		
+		# Split line by blank but without blanks inside of doublequotes
+		my @attributes = $tagstr =~ m/((?:" [^"]* "|[^\s"]*)+)/gx;
+		
+		# print "Attributes: \n";
+		# print join( "\n->", @attributes) . "\n";
+		
+		my @newattributeArray;
+		my %uniquenesshash;
+		my $duplicates = 0;
+		foreach my $fullattribute ( @attributes ) { 
+			next if (! $fullattribute);
+			my ($attribute, $value) = split( "=", $fullattribute, 2);
+			if( defined $uniquenesshash{$attribute} ) {
+				$duplicates += 1;
+				next;
+			}
+			$uniquenesshash{$attribute} = 1;
+			push @newattributeArray, $fullattribute;
+		}	
+		
+		if( $duplicates ) {
+			my $newattribute = join( ' ', @newattributeArray );
+			# print "New attribute:\n$newattribute\n";
+			# Replace the old attributes by the new attributes
+			substr( $xmlstr, $foundpos+1, $endpos-$foundpos-1, $newattribute );
+		
+			$log->WARN( "Stats4Lox corrected $duplicates duplicate attributes (non-valid Loxone XML):" ) if ($log);
+			$log->WARN( "LoxAIR Original: $tagstr") if ($log);
+			$log->WARN( "LoxAIR S4LFixed: $newattribute") if ($log); 
+		}
+	}
+	
+	return $xmlstr;
+	
+}
+
+
 
 
 #####################################################
