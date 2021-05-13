@@ -101,6 +101,19 @@ $ImportMapping->{ENERGY} = [
 	{ statpos => "1", lxlabel => "AQp" } 
 ];
 
+$ImportMapping->{FRONIUS} = [ 
+	{ statpos => "0", lxlabel => "Default" },
+	{ statpos => "0", lxlabel => "AQp" },
+	{ statpos => "1", lxlabel => "AQc" },
+	{ statpos => "2", lxlabel => "AQv" },
+	{ statpos => "3", lxlabel => "AQPs" },
+	{ statpos => "4", lxlabel => "AQSs" },
+	{ statpos => "5", lxlabel => "AQp4" },
+	{ statpos => "6", lxlabel => "AQc4" },
+	{ statpos => "7", lxlabel => "AQd4" },
+	{ statpos => "8", lxlabel => "AQi4" }
+];	
+
 # DEFAULT MAPPING
 $ImportMapping->{Default} = [
 	{ statpos => "0", lxlabel => "Default" },
