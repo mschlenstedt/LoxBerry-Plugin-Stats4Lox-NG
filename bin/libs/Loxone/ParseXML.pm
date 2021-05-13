@@ -187,8 +187,15 @@ sub readloxplan
 		} else { 
 			# IP seems not to be an IP - possibly we need a DNS lookup?
 			$log->INF( "Found Miniserver $miniserver->{Title} possibly configured with hostname. Querying IP of $msxmlip ...");
-			require Socket;
-			my $dnsip = Socket::inet_ntoa(Socket::inet_aton($msxmlip));
+			
+			my $dnsip;
+			eval {
+				require Socket;
+				$dnsip = Socket::inet_ntoa(Socket::inet_aton($msxmlip));
+			};
+			if( $@ ) {
+				$log->WARN("DNS Lookup error for $msxmlip: $@");
+			}
 			if ($dnsip) {
 				$log->OK( " --> Found Miniserver $miniserver->{Title} and DNS lookup got IP $dnsip ...");
 				$lox_miniserver{$miniserver->{U}}{IP} = $dnsip;
