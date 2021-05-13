@@ -54,6 +54,7 @@ sub readloxplan
 		
 	my $loxconfig_path;
 	my $log;
+	my $ms_serials;
 	my @loxconfig_xml;
 	my %lox_miniserver;
 	my %lox_category;
@@ -67,11 +68,29 @@ sub readloxplan
 
 	$loxconfig_path = $args{filename};
 	$log = $args{log};
+	$ms_serials = $args{ms_serials};
 
 	# Uniquify CONTROL_BLACKLIST and convert to hash for faster search
 	my %CBLACKLIST = map { uc($_) => 1 } @main::CONTROL_BLACKLIST;
 
+	### Get Miniservers 
+	$log->INF("Reading LoxBerry Miniserver list");
+	my %lb_miniservers;
+	%lb_miniservers = LoxBerry::System::get_miniservers();
+	
+	if (! %lb_miniservers) {
+		$log->CRIT("No Miniservers defined in LoxBerry. Cannot match any Miniserver");
+		return;
+	}
 
+	### Add ms_serials parameter to %lb_minisservers list
+	foreach( sort keys %lb_miniservers ) {
+		if( defined $ms_serials->{$_} ) {
+			$log->DEB("MS$_: Added serial $ms_serials->{$_}");
+			$lb_miniservers{$_}{serial} = $ms_serials->{$_};
+		} 
+			
+	}
 	
 	# For performance, it would be possibly better to switch from XML::LibXML to XML::Twig
 
@@ -79,7 +98,7 @@ sub readloxplan
 	#my $parser = XML::LibXML->new();
 	our $lox_xml;
 	my $parser;
-	eval { 
+	eval {
 		my $xmlstr = LoxBerry::System::read_file($loxconfig_path);
 		
 		# LoxPLAN uses a BOM, that cannot be handled by the XML Parser
@@ -108,10 +127,12 @@ sub readloxplan
 		$lox_xml = XML::LibXML->load_xml( string => $xmlstr, \%parseroptions );
 	};
 	if ($@) {
-		$log->ERR( "import.cgi: Cannot parse LoxPLAN XML file: $@");
+		$log->CRIT( "import.cgi: Cannot parse LoxPLAN XML file: $@");
 		#exit(-1);
 		return;
 	}
+
+	
 
 	# Get time and version of XML
 	my %documentInfo;
@@ -177,21 +198,40 @@ sub readloxplan
 			}
 		}
 		
-		# Resolve Miniserver in LoxBerry config
-		my %lb_miniservers;
-		%lb_miniservers = LoxBerry::System::get_miniservers();
+		# Mapping of LoxBerry Miniserver number (msno) to LoxPlan Miniserver
 		
-		if (! %lb_miniservers) {
-			$log->ERR("No Miniservers defined in LoxBerry. Cannot match any Miniserver");
-		} else {
-			foreach my $msno ( keys %lb_miniservers ) {
-				$log->DEB( "Compare Miniserver Loxberry IPAddress field " . $lb_miniservers{$msno}{IPAddress} . " vs. XML Host " . $lox_miniserver{$miniserver->{U}}{Host});
-				$log->DEB( "Compare Miniserver Loxberry IPAddress field " . $lb_miniservers{$msno}{IPAddress} . " vs. XML IP " . $lox_miniserver{$miniserver->{U}}{IP});
-				next if( $lb_miniservers{$msno}{IPAddress} ne $lox_miniserver{$miniserver->{U}}{Host} and $lb_miniservers{$msno}{IPAddress} ne $lox_miniserver{$miniserver->{U}}{IP} );
+		foreach my $msno ( keys %lb_miniservers ) {
+			
+			# Compare serials (1st)
+			if( $lb_miniservers{$msno}{serial} eq uc( $miniserver->{Serial} ) ) {
+				$log->OK( "SERIAL match: LoxPlan-Miniserver '$miniserver->{Title}' matches LoxBerry Miniserver number $msno" );
+				$lox_miniserver{$miniserver->{U}}{msno} = $msno;
+				last;
+			}
+			
+			# Fallback to hostname (2nd)
+			
+			if( $lb_miniservers{$msno}{IPAddress} eq $lox_miniserver{$miniserver->{U}}{Host} ) {
+				$log->OK( "HOSTNAME match: LoxPlan-Miniserver '$miniserver->{Title}' matches LoxBerry Miniserver number $msno" );
+				$lox_miniserver{$miniserver->{U}}{msno} = $msno;
+				last;
+			}
+			
+			# Fallback to IP (3rd)
+			
+			if( $lb_miniservers{$msno}{IPAddress} eq $lox_miniserver{$miniserver->{U}}{IP} ) {
+				$log->OK( "IP match: LoxPlan-Miniserver '$miniserver->{Title}' matches LoxBerry Miniserver number $msno" );
 				$lox_miniserver{$miniserver->{U}}{msno} = $msno;
 				last;
 			}
 		}
+		
+		if( !defined $lox_miniserver{$miniserver->{U}}{msno} ) {
+			# Giving up
+			$log->WARN("LoxPlan-Miniserver '$miniserver->{Title}' matches NO Miniserver defined in LoxBerry");
+			next;
+		}
+	
 	}
 	
 	# Read Loxone categories
@@ -350,12 +390,13 @@ sub loxplan2json
 	my %args = @_;
 	my $log = $args{log};
 	my $remoteTimestamp = $args{remoteTimestamp};
+	my $ms_serials = $args{ms_serials};
 	
 	$log->INF("loxplan2json started") if ($log);
 	
 	eval {
 		
-		my $result = readloxplan( log => $args{log}, filename => $args{filename} );
+		my $result = readloxplan( log => $args{log}, filename => $args{filename}, ms_serials => $ms_serials);
 		if (!$result) {
 			$log->CRIT("Error parsing XML");
 			return undef;

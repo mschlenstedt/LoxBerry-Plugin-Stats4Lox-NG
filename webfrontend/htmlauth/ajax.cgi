@@ -25,15 +25,47 @@ LOGSTART "Request $q->{action}";
 if( $q->{action} eq "getloxplan" ) {
 	require Loxone::GetLoxplan;
 	require Loxone::ParseXML;
+	require LoxBerry::IO;
+	
+	my $msno = $q->{msno};
+	LOGTITLE "getloxplan Miniserver $msno";
 	
 	my %miniservers = LoxBerry::System::get_miniservers();
 	
-	if( ! defined $miniservers{$q->{msno}} ) {
+	if( ! defined $miniservers{$msno} ) {
 		$error = "Miniserver not defined";
 	}
 	else {
-		my $msno = $q->{msno};
-		LOGTITLE "getloxplan Miniserver $msno";
+		
+		## Get Serials of Miniservers
+		## Serials are used for matching of LoxBerry MSNO to "real" Miniservers in LoxPlan
+		my %ms_serials;
+		
+		$log->INF("Checking MS$msno");
+		if( $miniservers{$msno}{UseCloudDNS} and $miniservers{$msno}{CloudURL} ) {
+			# CloudDNS has serial defined in LoxBerry
+			$ms_serials{$msno} = uc( $miniservers{$msno}{CloudURL} );
+			$log->OK("MS $msno: Locally stored serial:  $ms_serials{$msno}");
+		}
+		else {	
+			# Fetch serial from Miniserver
+			my ($response) = LoxBerry::IO::mshttp_call2($msno, "/jdev/cfg/mac");
+			# print STDERR $response;
+			eval {
+				my $responseobj=JSON::from_json( $response );
+				my $sn = $responseobj->{LL}->{value};
+				$sn =~ tr/://d;
+				$ms_serials{$msno} = uc( $sn );
+				$log->OK("MS$msno: Aquired serial from MS: $ms_serials{$msno}");
+			};
+			if( $@ ) {
+				$log->ERR("Could not aquire MAC from Miniserver $msno: $@");
+			}
+		}
+		
+		if( !defined $ms_serials{$msno} ) {
+			$log->WARN("MS$msno: Could not get serial, therefore matching of Miniserver may fail");
+		}
 		
 		my $Loxplanfile = "$s4ltmp/s4l_loxplan_ms$msno.Loxone";		
 		my $loxplanjson = "$loxplanjsondir/ms".$msno.".json";
@@ -54,7 +86,8 @@ if( $q->{action} eq "getloxplan" ) {
 					filename => $Loxplanfile,
 					output => $loxplanjson,
 					log => $log,
-					remoteTimestamp => $remoteTimestamp
+					remoteTimestamp => $remoteTimestamp,
+					ms_serials => \%ms_serials
 				);
 			}
 			
