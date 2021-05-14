@@ -217,8 +217,9 @@ else
 fi
 
 # Check for stats4lox database. Create it if not exists
-RESP=`$PBIN/s4linflux -execute "SHOW DATABASES" | grep -e "^stats4lox$" | wc -l`
-if [ $RESP -eq 0 ]; then
+#RESP=`$PBIN/s4linflux -execute "SHOW DATABASES" | grep -e "^stats4lox$" | wc -l`
+#if [ $RESP -eq 0 ]; then
+if [ $UPGRADE -eq "0" ]; then
 	echo "<INFO> Creating default InfluxDB database 'stats4lox'."
 	$PBIN/s4linflux -execute "CREATE DATABASE stats4lox"
 	if [ $? -gt 0 ]; then
@@ -227,6 +228,8 @@ if [ $RESP -eq 0 ]; then
 	else
 		echo "<OK> InfluxDB database 'stats4lox' created successfully."
 	fi
+else
+	echo "<OK> We are in Upgrade mode. I will use existing database stats4lox."
 fi
 
 # Activating own telegraf config which is delivered with the plugin
@@ -294,5 +297,14 @@ sleep 3
 # Start/Stop MQTT Live Service
 echo "<INFO> Starting MQTTLive Service..."
 su loxberry -c "$PBIN/mqtt/mqttlive.php >> $PLOG/mqttlive.log 2>&1 &"
+
+# For debugging
+if [ $UPGRADE -eq "1" ]; then
+	echo "<INFO> We are in Upgrade mode. Do some checks for debugging..."
+	echo "<INFO> Existing users (gives an error if we have wrong credentials):"
+	$PBIN/s4linflux -execute "SHOW USERS"
+	echo "<INFO> Existing databases (gives an error if we have wrong credentials):"
+	$PBIN/s4linflux -execute "SHOW DATABASES"
+fi
 
 exit 0
