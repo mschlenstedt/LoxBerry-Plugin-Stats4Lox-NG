@@ -72,11 +72,8 @@ $(function() {
 		
 		if( target.id == "LoxoneDetails_s4lmeasurementname" ) {
 			// s4lmeasurementname MUST be defined
-			var measurementname = $("#LoxoneDetails_s4lmeasurementname").val().trim();
-			if( ( measurementname ) == "" ) {
-				// Fill the value with description or name
-				measurementname = control.Desc ? control.Desc : control.Title;
-			}
+			var measurementname = $("#LoxoneDetails_s4lmeasurementname").val();
+			measurementname = validateMeasurementname( measurementname, msno, uid );
 			$("#LoxoneDetails_s4lmeasurementname").val( measurementname ).textinput("refresh");
 		}
 		
@@ -621,7 +618,8 @@ function popupLoxoneDetails( uid, msno ) {
 		$("#LoxoneDetails_s4lmeasurementname").val(statmatch?.measurementname);
 	}
 	else {
-		$("#LoxoneDetails_s4lmeasurementname").val( control.Desc ? control.Desc : control.Title );
+		
+		$("#LoxoneDetails_s4lmeasurementname").val( validateMeasurementname( control.Desc ? control.Desc : control.Title, msno, uid) );
 	}
 	
 	if( statmatch?.interval ) {
@@ -893,7 +891,7 @@ function updateReportTables(data) {
 		
 		var msno = data.msno;
 		var uuid = data.uuid;
-		console.log("updateReportTables", msno, uuid, state, status);
+		// console.log("updateReportTables", msno, uuid, state, status);
 		
 		// Find 
 		var target_tr = $(`tr[data-uid=${uuid}][data-msno=${msno}]`);
@@ -948,23 +946,69 @@ function updateReportTables(data) {
 		
 		$(target).html(html);
 		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
 	}
-	
 	
 }
 
-
+// Validates a measurementname and returns a suggestion if not valid
+// measurementname is the string to verify
+// selfIndex is the index key in statsconfigLoxone of itself (otherwise it may find itself)
+function validateMeasurementname( measurementname, msno, uid ) {
+	
+	// Find own array index in statsconfigLoxone
+	var selfIndex = statsconfigLoxone.findIndex( obj => { return obj.uuid === uid && obj.msno == msno })
+	
+	if( typeof measurementname === 'undefined' || measurementname == "" ) {
+		// Check if statsconfigLoxone already knows name or description
+		// console.log( "1st try: measurementname is undefined" );
+		measurementname = statsconfigLoxone[selfIndex]?.description ? statsconfigLoxone[selfIndex].description : statsconfigLoxone[selfIndex]?.name;
+	}
+	console.log("measurementname", measurementname);
+	var measurementnameDefault = measurementname;
+	
+	if( typeof measurementname === 'undefined') {
+		console.log( "2st try: measurementname is undefined" );
+		throw "measurementname is empty. Must be defined for validation.";
+	}
+	
+	// Retrying different things
+	var counter =-1;
+	while(1) {
+		counter++;
+		// console.log("----------------", counter, "---------------");
+		switch(counter) {
+			case 0:
+				break;
+			case 1:
+				if( statsconfigLoxone[selfIndex]?.name && measurementname == statsconfigLoxone[selfIndex].name) 
+					measurementname = statsconfigLoxone[selfIndex].name;
+				else
+					continue;
+				break;
+			case 20:
+				throw `Could not find an alternative measurementname after ${counter} tries`;
+			default:
+				measurementname = measurementnameDefault+"_"+counter.toString();
+		}
+		
+		// Check if measurementname is already defined
+		var foundIndex = statsconfigLoxone.findIndex( function(obj, index) {
+			// console.log("findIndex", measurementname, selfIndex, obj["measurementname"], index);
+			if(selfIndex == index) { return false };
+			if(obj["measurementname"] != measurementname) { return false; }
+			return true;
+		})
+		
+		// console.log("Try", counter, measurementname, foundIndex);
+		
+		if(foundIndex == -1) {
+			break;
+		}
+	}
+	
+	// console.log("foundIndex", foundIndex);
+	return measurementname.trim();
+}
 
 
 function clearTimer() {
