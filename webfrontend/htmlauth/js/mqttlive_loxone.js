@@ -37,13 +37,13 @@ $(function() {
 		copyToClipboard(target[0]);
 	});
 	
-	// // Bind Delete Import button
-	// jQuery(document).on('click', '.deleteImportButton', function(event, ui){
-		// var target = event.target.closest("tr");
-		// var filekey = $(target).data("filekey");
-		// console.log("bind deleteImportButton", event.target, target, filekey);
-		// deleteImport(filekey, true);
-	// });
+	// Bind Clear UI Data ("Clear Display") button
+	jQuery(document).on('click', '.clearuidataButton', function(event, ui){
+		$.post( "ajax.cgi", { 
+			action : "mqttlive_clearuidata",
+			basetopic: mqttlivestate?.broker_basetopic
+		})
+	});
 	
 });
 	

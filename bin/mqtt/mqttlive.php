@@ -95,6 +95,9 @@ while(1) {
 
 $mqtt->close();
 
+//
+// Incoming MQTT message for S4L Live Update 
+//
 function s4llive_mqttmsg ($topic, $msg){
 	global $basetopic;
 	global $lwt_topic;
@@ -107,6 +110,11 @@ function s4llive_mqttmsg ($topic, $msg){
 	if( substr($topic, -(strlen("/connected")), strlen("/connected")) == "/connected" ) {
 		return;
 	}
+	if ( substr($topic, -(strlen("/command")), strlen("/command")) == "/command" ) {
+		s4llive_command( $topic, $msg );
+		return;
+	}
+	
 	
 	$timestamp_epoch = microtime(true);
 	$timestamp_nsec = sprintf('%.0f', $timestamp_epoch*1000000000);
@@ -184,6 +192,31 @@ function s4llive_mqttmsg ($topic, $msg){
 	$uidata_update = true;
 
 }
+
+//
+// Incoming MQTT message for S4L Commands 
+//
+function s4llive_command($topic, $msg){
+	global $basetopic;
+	global $uidata;
+	global $uidata_update;
+	LOGOK("s4llive_command received: $msg");
+
+	switch($msg) {
+		case "shutdown": 
+			LOGOK("Shutting down mqttlive");
+			exit(0);
+		case "clearuidata":
+			LOGOK("Clearing UI data");
+			$uidata["topics"] = array();
+			$uidata_update = true;
+			break;
+		default: 
+			LOGWARN("command topic: Unknown command $msg");
+	}
+}
+
+
 
 function tasks_1secs() {
 	global $uidata_update;
@@ -474,6 +507,11 @@ function mqttConnect() {
 	$mqtt->publish( $lwt_topic, "true", 0, true);
 	
 } 
+
+
+
+
+
 
 function exceptionHandler ( $ex ) {
 	if( $log ) {

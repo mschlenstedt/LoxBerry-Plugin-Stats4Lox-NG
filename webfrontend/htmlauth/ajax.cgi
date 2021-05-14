@@ -310,6 +310,45 @@ if( $q->{action} eq "getmqttlivedata" ) {
 	}
 }
 
+if( $q->{action} eq "mqttlive_clearuidata" ) {
+	my $basetopic = $q->{basetopic};
+	if( !$basetopic ) {
+		$error = "No base topic sent with request";
+		$log->ERR($error);
+		# Jump out
+	}
+	else {
+		require LoxBerry::IO;
+		my $mqttcred = LoxBerry::IO::mqtt_connectiondetails();
+		if( ! $mqttcred ) {
+			$error = "Could not get MQTT Connection details - MQTT Gateway installed?";
+			$log->WARN($error);
+			# Jump out
+		}
+		else {
+			eval {
+				if( ! $mqttcred->{brokerport} ) {
+					$mqttcred->{brokerport} = "1883";
+				}
+				
+				require Net::MQTT::Simple;
+				$ENV{MQTT_SIMPLE_ALLOW_INSECURE_LOGIN} = 1;
+				my $mqtt = Net::MQTT::Simple->new($mqttcred->{brokeraddress});
+				if($mqttcred->{brokeruser}) {
+					$mqtt->login($mqttcred->{brokeruser}, $mqttcred->{brokerpass});
+				}
+				$mqtt->publish("$basetopic/command", "clearuidata");
+			};
+			if( $@ ) {
+				$error = "Exception sending $basetopic/command=clearuidata: $@";
+				$log->ERR($error);
+			}
+		}
+	}
+	$response = "{ }";
+}
+
+
 if( $q->{action} eq "starttelegraf" ) {
 	system ("sudo systemctl enable telegraf >/dev/null 2>&1");
 	system ("sudo systemctl restart telegraf >/dev/null 2>&1");
