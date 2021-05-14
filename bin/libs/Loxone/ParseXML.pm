@@ -404,6 +404,16 @@ sub loxplan2json
 	
 	$log->INF("loxplan2json started") if ($log);
 	
+	$log->INF("Reading local Loxplan json");
+	my $loxplanobj = LoxBerry::JSON->new();
+	my $loxplan = $loxplanobj->open( filename => $args{output}, readonly => 1 );
+	
+	my $localTimestamp = $loxplan->{documentInfo}->{LoxAPPversion3timestamp};
+	my $lastChecked = $loxplan->{documentInfo}->{S4L_LastChecked};
+	
+	undef $loxplanobj;
+	undef $loxplan;
+	
 	eval {
 		
 		my $result = readloxplan( log => $args{log}, filename => $args{filename}, ms_serials => $ms_serials);
@@ -412,7 +422,13 @@ sub loxplan2json
 			return undef;
 		}
 		
-		$result->{documentInfo}->{LoxAPPversion3timestamp} = $remoteTimestamp if ($remoteTimestamp);
+		if( $remoteTimestamp ) {
+			$result->{documentInfo}->{LoxAPPversion3timestamp} = $remoteTimestamp;
+		}
+		else {
+			$result->{documentInfo}->{LoxAPPversion3timestamp} = $localTimestamp;
+		}
+		$result->{documentInfo}->{S4L_LastChecked} = $lastChecked;
 		
 		unlink $args{output};
 		open(my $fh, '>', $args{output});

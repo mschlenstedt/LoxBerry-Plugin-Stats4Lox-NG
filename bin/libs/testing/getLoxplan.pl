@@ -56,7 +56,7 @@ foreach my $msno ( sort keys %miniservers ) {
 	
 	my $remoteTimestamp;
 	eval {
-		$remoteTimestamp = Loxone::GetLoxplan::checkLoxplanUpdate( $msno, $Loxplanjson );
+		$remoteTimestamp = Loxone::GetLoxplan::checkLoxplanUpdate( $msno, $Loxplanjson, $log );
 	};
 	if( $@ or $remoteTimestamp ne "" ) {
 		print STDERR "Loxplan file not up-to-date. Fetching from Miniserver\n";

@@ -215,13 +215,9 @@ sub checkLoxplanUpdate
 		$log->LOGSTART("$me");
 	}
 
-	if (! -e $loxplanjson) {
-		$log->WARN("$me Json currently does not exist ($loxplanjson)");
-		die "checkLoxplanUpdate: Json currently does not exist ($loxplanjson)\n";
-	}
-	
-	my $localTimestamp = 0;
-	my $remoteTimestamp = 0;
+	my $localTimestamp;
+	my $remoteTimestamp;
+	my $lastCheck = 0;
 	
 	# Read local timestamp
 	my $loxplanobj;
@@ -231,19 +227,25 @@ sub checkLoxplanUpdate
 	
 		$loxplanobj = LoxBerry::JSON->new();
 		$loxplan = $loxplanobj->open( filename => $loxplanjson, writeonclose => 1 );
-		$localTimestamp = defined $loxplan->{documentInfo}->{LoxAPPversion3timestamp} ? $loxplan->{documentInfo}->{LoxAPPversion3timestamp} : "0";
-		$log->DEB("$me localTimestamp : $localTimestamp");
+		if( defined $loxplan->{documentInfo}->{LoxAPPversion3timestamp} ) {
+			$localTimestamp = $loxplan->{documentInfo}->{LoxAPPversion3timestamp};
+		}
+		$log->DEB("$me Locally stored timestamp of last LoxPlan update : $localTimestamp");
 	};
 	if( $@ ) {
 		$log->CRIT("$me Could not fetch local version info");
 		die "checkLoxplanUpdate: Could not fetch local version info\n";
 	}
 	
-	my $lastCheck = defined $loxplan->{documentInfo}->{S4L_LastChecked} ? $loxplan->{documentInfo}->{S4L_LastChecked} : 0;
+	if( defined $loxplan->{documentInfo}->{S4L_LastChecked} ) {
+		$lastCheck = $loxplan->{documentInfo}->{S4L_LastChecked};
+	}
+
+	$log->INF("$me Last check for new LoxPlan update : $lastCheck");
 	
-	if( $localTimestamp > 0 && $lastCheck > time()-90 ) {
+	if( $localTimestamp and $lastCheck > time()-90 ) {
 		# Prevent checking for 90 seconds
-		log->INF("$me Skipping check (already done in the past 90 seconds)");
+		$log->INF("$me Skipping check (already done in the past 90 seconds)");
 		return;
 	}
 	
@@ -255,7 +257,7 @@ sub checkLoxplanUpdate
 		(undef, undef, $respraw) = LoxBerry::IO::mshttp_call( $msno, "/jdev/sps/LoxAPPversion3" );
 		$respobj = JSON::decode_json( $respraw );
 		$remoteTimestamp = defined $respobj->{LL}->{value} ? $respobj->{LL}->{value} : "1";
-		$log->INF("$me remoteTimestamp: $remoteTimestamp");
+		$log->INF("$me Current LoxPlan timestamp on Miniserver : $remoteTimestamp");
 	};
 	if( $@ ) {
 		$log->CRIT("$me Could not fetch remote version info");
@@ -264,8 +266,8 @@ sub checkLoxplanUpdate
 	
 	$loxplan->{documentInfo}->{S4L_LastChecked} = time();
 	
-	if( $localTimestamp ne "0" and $localTimestamp eq $remoteTimestamp ) {
-		$log->INF("$me Timestamps are equal, no need to update");
+	if( $localTimestamp and $remoteTimestamp and $localTimestamp eq $remoteTimestamp ) {
+		$log->INF("$me Local and Miniserver timestamps are equal, no need to update");
 		return;
 	}
 	
