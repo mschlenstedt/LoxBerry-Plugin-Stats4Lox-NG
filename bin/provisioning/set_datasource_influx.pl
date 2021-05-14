@@ -25,7 +25,7 @@ datasources:
 - name: Stats4Lox
   type: influxdb
   access: proxy
-  is_default: true
+  isDefault: true
   orgId: 1
   database: $stats4lox->{influx}->{influxdatabase}
   basicAuth: true
