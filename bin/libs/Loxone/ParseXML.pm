@@ -114,7 +114,10 @@ sub readloxplan
 		## FIXES of invalid Loxone Loxplan XML 
 		#######################################
 		
-		$xmlstr = correctXML_LoxAIR( $xmlstr, $log );
+		# Corrects duplicate attributes in LoxAIR (Tree2Air Bridge)
+		$xmlstr = correctXML_removeAttributeDuplicates( $xmlstr, "LoxAIR", $log );
+		# Corrects duplicate attributes in LoxAIRDevice (Devices connected to Tree2Air Bridge)
+		$xmlstr = correctXML_removeAttributeDuplicates( $xmlstr, "LoxAIRDevice", $log );
 		
 		#######################################
 		## Finally, load the XML
@@ -427,17 +430,19 @@ sub loxplan2json
 
 }
 
-
-sub correctXML_LoxAIR 
+### Loxone XML: Corrects invalid duplicate attributes in XML element
+# Params: 1. full xml 2. Type (e.g. LoxAIR) 3. $log object
+# Returns: Corrected xml
+sub correctXML_removeAttributeDuplicates
 {
 	
 	my $xmlstr = shift;
+	my $elemType = shift;
 	my $log = shift;
 	
-	### Loxone XML correction for Tree2Air bridge
 	my $startpos = 0;
 
-	while( ( my $foundpos = index( $xmlstr, '<C Type="LoxAIR"', $startpos ) ) != -1 ) {
+	while( ( my $foundpos = index( $xmlstr, '<C Type="'.$elemType.'"', $startpos ) ) != -1 ) {
 		# print "Found: $foundpos Startpos $startpos Character: ". substr( $xmlstr, $foundpos, 1 ) . "\n";
 		$startpos = $foundpos+1;
 		# Finding closing tag >
@@ -476,8 +481,8 @@ sub correctXML_LoxAIR
 			substr( $xmlstr, $foundpos+1, $endpos-$foundpos-1, $newattribute );
 		
 			$log->WARN( "Stats4Lox corrected $duplicates duplicate attributes (non-valid Loxone XML):" ) if ($log);
-			$log->WARN( "LoxAIR Original: $tagstr") if ($log);
-			$log->WARN( "LoxAIR S4LFixed: $newattribute") if ($log); 
+			$log->WARN( "$elemType Original: $tagstr") if ($log);
+			$log->WARN( "$elemType S4LFixed: $newattribute") if ($log); 
 		}
 	}
 	
