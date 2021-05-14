@@ -6,9 +6,6 @@ require_once "loxberry_log.php";
 require_once "phpMQTT/phpMQTT.php";
 require_once LBPBINDIR . "/libs/filechangeTracker.php";
 
-register_shutdown_function('shutdown');
-set_exception_handler ('shutdown');
-
 // Create logfile
 $log = LBLog::newLog( [ 
 	"name" => "MQTTLive",
@@ -17,7 +14,14 @@ $log = LBLog::newLog( [
 	"filename" => LBPLOGDIR."/mqttlive.log"
 ] );
 LOGSTART("Stats4Lox MQTT Live");
- 
+
+register_shutdown_function('shutdownHandler');
+set_exception_handler ('exceptionHandler');
+// pcntl_signal(SIGTERM, 'shutdownHandler');
+// pcntl_signal(SIGHUP,  'shutdownHandler');
+// pcntl_signal(SIGUSR1, 'shutdownHandler');
+// pcntl_signal(SIGINT, 'shutdownHandler');
+
 // Global variables
 $stats_json = "$lbpconfigdir/stats.json";
 $stats4lox_json = "$lbpconfigdir/stats4lox.json";
@@ -401,7 +405,7 @@ function readMqttCredentials() {
 		$uidata_update = true;
 	}
 
-	if( $oldcreds !== $creds ) {
+	if( $creds && $oldcreds !== $creds ) {
 		// MQTT credentials changed, reconnect
 		LOGINF("MQTT credentials changed, reconnecting");
 		mqttConnect();
@@ -471,12 +475,18 @@ function mqttConnect() {
 	
 } 
 
-
-function shutdown( $ex = null ) {
-	global $log;
-	if( $ex ) {
-		LOGCRIT("PHP EXCEPTION: " . $ex->getMessage());
+function exceptionHandler ( $ex ) {
+	if( $log ) {
+		$log->CRIT("PHP EXCEPTION: " . $ex->getMessage());
 	}
-	echo "Shutdown\n";
-	LOGEND("MQTT Live: Shutdown");
+	shutdownHandler();
+}
+
+function shutdownHandler( $signal = null ) {
+	global $log;
+	
+	$log->INF("MQTT Live is shutting down");
+	$log->LOGEND("MQTT Live: Shutdown");
+	
+	exit();
 }
