@@ -109,10 +109,10 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 
 <h3>MQTT LiveUpdate Data</h3>
 <p>
-	This first listing shows, what data you have already submitted via MQTT LiveUpdate to your Loxone Statistics, and also, if your publishes might miss the correct topic.
+	This listing shows, what data you have already submitted via MQTT LiveUpdate to your Loxone Statistics, and also, if your publishes might miss the correct topic.
 </p>
 <p>
-	Below, you'll find <i>all available outputs</i> of Loxone blocks that you have enabled, to directly copy/paste. An output gets enabled by enabling it in the Detail View of the Statistics configuration.
+	Below, you'll find <i>all available outputs</i> of Loxone blocks that you have enabled, to directly copy/paste. An output gets enabled by enabling it in the Detail View of the Statistics configuration. See the <a href="https://www.loxwiki.eu/x/-YRWBQ" target="_blank">LoxWiki step-by-step guide</a> for assistance.
 </p>
 
 
@@ -120,7 +120,7 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 <div id="hint_mqttliveupdate_intro" class="hintbox" style="display:none;">
 <b>What is MQTT LiveUpdate good for?</b><br>
 <p>
-	The normal Statistics Grabber collects data in your defined interval (5 mins, 10 mins etc.). Data, that rapidly update, like power metering, or presses of a button, cannot be collected in that way. With MQTT LiveUpdate (<a href="https://www.loxwiki.eu/x/S4ZYAg" target="_blank">MQTT Gateway</a> plugin required), you create a virtual output command to MQTT Gateway and connect this to the block output with rapid updates (e.g. "Current power"). Every change of this output directly sends the data to your Stats4Lox statistic ("LiveUpdate"). For S4L, to match your <i>published data</i> &rarr; <i>Stats4Lox statistic</i>, the above publish syntax is required. See the LoxWiki step-by-step guide for assistance.
+	The normal Statistics Grabber collects data in your defined interval (5 mins, 10 mins etc.). Data, that rapidly update, like power metering, or presses of a button, cannot be collected in that way. With MQTT LiveUpdate (<a href="https://www.loxwiki.eu/x/S4ZYAg" target="_blank">MQTT Gateway</a> plugin required), you create a virtual output command to MQTT Gateway and connect this to the block output with rapid updates (e.g. "Current power"). Every change of this output directly sends the data to your Stats4Lox statistic ("LiveUpdate"). For S4L, to match your <i>published data</i> &rarr; <i>Stats4Lox statistic</i>, the publish syntax listed below is required.
 </p>
 <a href="#" class="ui-btn ui-btn-inline ui-mini" onclick="hint_hide('hint_mqttliveupdate_intro');">Hide</a>
 </div>
