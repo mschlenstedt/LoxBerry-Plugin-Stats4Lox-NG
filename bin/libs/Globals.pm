@@ -1,4 +1,5 @@
 #!/usr/bin/perl
+use LoxBerry::System;
 
 # NAVBAR definition (in scope main)
 our %navbar = (
@@ -53,37 +54,104 @@ our @EXPORT = qw (
 	telegraf_internal_files
 );
 
+my $config_is_parsed;
 
-# Main configuration files
+# Main configuration files (not changeable in stats4lox.json)
 our $statsconfig = "$LoxBerry::System::lbpconfigdir/stats.json";
 our $stats4loxconfig = "$LoxBerry::System::lbpconfigdir/stats4lox.json";
 our $stats4loxcredentials = "$LoxBerry::System::lbpconfigdir/cred.json";
 
+# Default parameters
+
+our $grafana = {
+	port => 3000,
+	grafanaport => 3000,
+	graf_provisioning_dir => "/etc/grafana/provisioning",
+	s4l_provisioning_dir => "$LoxBerry::System::lbpconfigdir/provisioning",
+	s4l_provisioning_template_dir => "$LoxBerry::System::lbptemplatedir/grafana/templates",
+};
+
+our $influx = {
+	influx_bulk_blocksize => 1000,
+	influx_bulk_delay_secs => 1,
+	influxbasicauth => "true",
+	influxdatabase => "stats4lox",
+	influxskiptlsverify => "true",
+	influxurl => "https://localhost:8086",
+};
+
+our $loxberry = {
+	active => "True",
+	interval => 300,
+	measurement => "stats_loxberry",
+};
+
+our $loxone = {
+	active => "True",
+	mqttlive_basetopic => "s4l/mqttlive",
+};
+
+our $miniserver = {
+	active => "True",
+	interval => 300,
+	measurement => "stats_miniserver",
+};
+
+our $stats4lox = { 
+	s4ltmp => 	'/dev/shm/s4ltmp',
+	loxplanjsondir => $LoxBerry::System::lbpdatadir,
+	import_time_to_dead_minutes => 60,
+	import_max_parallel_processes => 4,
+	import_max_parallel_per_ms => 4,
+	importstatusdir => $LoxBerry::System::lbpdatadir.'/import',
+};
+
+our $telegraf = {
+	unixsocket => "/tmp/telegraf.sock",
+	telegraf_unix_socket => "/tmp/telegraf.sock",
+	telegraf_max_buffer_fullness => "0.75",
+	telegraf_buffer_checks => ("influxdb"),
+	telegraf_internal_files => "/tmp/telegraf_internals*.out",
+	internal_statfiles => "/tmp/telegraf_internals*.out",
+};
+
+
+
+#########################
+#### OLD GLOBAL VARIABLES
+#########################
+
+
 # RAMDISK temporary directory
-our $s4ltmp = '/dev/shm/s4ltmp';
+   our $s4ltmp = '/dev/shm/s4ltmp';
 
 # JSON directory of Miniserver LoxPlans
-our $loxplanjsondir = $LoxBerry::System::lbpdatadir;
+   our $loxplanjsondir = $LoxBerry::System::lbpdatadir;
 
 # Import settings
-our $influx_bulk_blocksize = 1000;
-our $influx_bulk_delay_secs = 1;
-our $import_time_to_dead_minutes = 60;
-our $import_max_parallel_processes = 4;
-our $import_max_parallel_per_ms = 4;
-our $importstatusdir = $LoxBerry::System::lbpdatadir.'/import';
+   our $influx_bulk_blocksize = 1000;
+   our $influx_bulk_delay_secs = 1;
+   our $import_time_to_dead_minutes = 60;
+   our $import_max_parallel_processes = 4;
+   our $import_max_parallel_per_ms = 4;
+   our $importstatusdir = $LoxBerry::System::lbpdatadir.'/import';
 
 # Telegraf settings
-our $telegraf_unix_socket = "/tmp/telegraf.sock";
-our $telegraf_max_buffer_fullness = "0.75";
-our @telegraf_buffer_checks = ("influxdb");
-our $telegraf_internal_files = "/tmp/telegraf_internals*.out";
+   our $telegraf_unix_socket = "/tmp/telegraf.sock";
+   our $telegraf_max_buffer_fullness = "0.75";
+   our @telegraf_buffer_checks = ("influxdb");
+   our $telegraf_internal_files = "/tmp/telegraf_internals*.out";
 
 # Grafana Provisioning
-our $graf_provisioning_dir = "/etc/grafana/provisioning";
-our $s4l_provisioning_dir = "$LoxBerry::System::lbpconfigdir/provisioning";
-our $s4l_provisioning_template_dir = "$LoxBerry::System::lbptemplatedir/grafana/templates";
-our $grafanaport = 3000;
+   our $graf_provisioning_dir = "/etc/grafana/provisioning";
+   our $s4l_provisioning_dir = "$LoxBerry::System::lbpconfigdir/provisioning";
+   our $s4l_provisioning_template_dir = "$LoxBerry::System::lbptemplatedir/grafana/templates";
+   our $grafanaport = 3000;
+
+
+### Run merge_config ###
+Globals::merge_config();
+
 
 
 # IMPORT MAPPINGS
@@ -482,13 +550,48 @@ XOR
 YEAR
 /;
 
+##################################################
+# Merge default config with stats4lox.json config
+##################################################
+
+sub merge_config 
+{
+	my %args = @_;
+	if( ! $args{config_force_parse} ) {
+		return if( $config_is_parsed );
+		return if( $args{config_skip_parse} );
+	}
+
+	require LoxBerry::JSON;
+	require Hash::Merge;
+	
+	my $configobj = LoxBerry::JSON->new();
+	my $config = $configobj->open(filename => $Globals::stats4loxconfig, readonly => 1);
+	
+	my $merge = Hash::Merge->new('LEFT_PRECEDENT');
+	
+	# print STDERR "Port (Globals) : " . $Globals::grafana->{port} . "\n";
+	# print STDERR "Port (S4L.json): " . $config->{grafana}->{port} . "\n";
+	
+	$Globals::grafana = 	$merge->merge( $config->{grafana}, $Globals::grafana );
+	$Globals::influx = 		$merge->merge( $config->{influx}, $Globals::influx );
+	$Globals::loxberry = 	$merge->merge( $config->{loxberry}, $Globals::loxberry );
+	$Globals::loxone = 		$merge->merge( $config->{loxone}, $Globals::loxone );
+	$Globals::miniserver = 	$merge->merge( $config->{miniserver}, $Globals::miniserver );
+	$Globals::stats4lox = 	$merge->merge( $config->{stats4lox}, $Globals::stats4lox );
+	$Globals::telegraf = 	$merge->merge( $config->{telegraf}, $Globals::telegraf );
+
+	$config_is_parsed = 1;
+}
+
+
+
 # Returns the name of the current sub (for logfile)
 # e.g. my $me = whoami();
 # print "$me Starting import"; returns "Loxone::Import::new--> Starting import"
 sub whoami { 
 	return ( caller(1))[3] . '-->';
 }
-
 
 
 #####################################################
