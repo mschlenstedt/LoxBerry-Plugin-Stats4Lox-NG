@@ -283,15 +283,15 @@ sub lox2telegraf
 	#use IO::Socket qw(AF_INET AF_UNIX SOCK_STREAM SHUT_WR);
 	my $client;
 	my $telegraf_udp_socket = $Globals::telegraf_udp_socket;
-	my $telegraf_unix_socket = $Globals::telegraf_unix_socket;
+	my $telegraf_unix_socket = $Globals::telegraf->{telegraf_unix_socket};
 	
 	my $socketlockfh = lockTelegrafSocket();
 	
 	# Wait until Telegraf buffer fullness is below 75%
-	foreach (@Globals::telegraf_buffer_checks) {
+	foreach (@Globals::telegraf->{telegraf_buffer_checks}) {
 		my $buffer = 1;
 		my $check = $_;
-		while ( $buffer > $Globals::telegraf_max_buffer_fullness ) {
+		while ( $buffer > $Globals::telegraf->{telegraf_max_buffer_fullness} ) {
 			my $internals = telegrafinternals();
 			if (!$internals) {
 				print STDERR "Cannot get Telegraf internal stats. Ommitting buffer checks\n" if $DEBUG;
@@ -301,7 +301,7 @@ sub lox2telegraf
 			$buffer = $internals->{write}->{$check}->{buffer_size} / $internals->{write}->{$check}->{buffer_limit};
 			print STDERR "Telegraf $check buffer: " . $internals->{write}->{$check}->{buffer_size} . "/" . $internals->{write}->{$check}->{buffer_limit} if $DEBUG;
 			print STDERR " --> " . $buffer * 100 . "%\n" if $DEBUG;
-			sleep 1 if $buffer > $Globals::telegraf_max_buffer_fullness;
+			sleep 1 if $buffer > $Globals::telegraf->{telegraf_max_buffer_fullness};
 		}
 	}
 
@@ -351,7 +351,7 @@ sub telegrafinternals
 {
 	require "$LoxBerry::System::lbpbindir/libs/Globals.pm";
 
-	my @files = glob( $Globals::telegraf_internal_files );
+	my @files = glob( $Globals::telegraf->{telegraf_internal_files} );
 	@files = sort @files; # Oldest first
 	my @data;
 	my $result;
@@ -477,7 +477,7 @@ sub telegrafinternals
 #####################################################
 
 sub lockTelegrafSocket {
-	my $socketlockfile = $Globals::s4ltmp."/socket_telegraf.lock";
+	my $socketlockfile = $Globals::stats4lox->{s4ltmp}."/socket_telegraf.lock";
 	open my $fh, '>', $socketlockfile or die "CRITICAL Could not open LOCK file $socketlockfile: $!";
 	print STDERR "Aquiring Telegraf socket LOCK...\n" if $DEBUG;
 	flock $fh, 2;

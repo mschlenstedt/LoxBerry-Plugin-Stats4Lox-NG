@@ -41,8 +41,8 @@ if( defined $q->{importlist} ) {
 #### Scheduler processing ####
 ##############################
 
-if ( ! -d $Globals::s4ltmp ) {
-	`mkdir --parents "$Globals::s4ltmp"`;
+if ( ! -d $Globals::stats4lox->{s4ltmp} ) {
+	`mkdir --parents "$Globals::stats4lox->{s4ltmp}"`;
 }
 
 # Lock a file to make sure only one instance is running
@@ -58,14 +58,14 @@ my $lastchange_timestamp = time();
 my $next_step_5sec = 0;
 
 # Create info file for UI
-my $schedulerStatusfile = $Globals::s4ltmp."/s4l_import_scheduler.json";
+my $schedulerStatusfile = $Globals::stats4lox->{s4ltmp}."/s4l_import_scheduler.json";
 unlink $schedulerStatusfile;
 my $schedstatusobj = new LoxBerry::JSON;
 my $schedstatus = $schedstatusobj->open( filename => $schedulerStatusfile, writeonclose => 1 );
 my @slots;
 
 # Set number of parallel processes depending on cpu cores
-$Globals::import_max_parallel_processes = getCoresToUse();
+$Globals::stats4lox->{import_max_parallel_processes} = getCoresToUse();
 
 # Loop
 while(time() < $lastchange_timestamp+$timeout) {
@@ -212,7 +212,7 @@ sub getStatusChanges
 	my @changedfiles;
 	
 	# Read import directory
-	my @importfiles = glob( $Globals::importstatusdir . '/import_*.json' );
+	my @importfiles = glob( $Globals::stats4lox->{importstatusdir} . '/import_*.json' );
 	my %importfileshash = map { $_ => 1 } @importfiles;
 	# Delete entries from local hash that have been deleted on disk
 	foreach my $file ( keys %filelist ) {
@@ -275,7 +275,7 @@ sub updateDeadStatus
 		
 		my $statustimedelta = time()-$filelist{$file}{status}->{statustime};
 		
-		if( $statustimedelta > $Globals::import_time_to_dead_minutes*60 ) {
+		if( $statustimedelta > $Globals::stats4lox->{import_time_to_dead_minutes}*60 ) {
 			print STDERR "$uuid Is dead because of statustime\n";
 			$is_dead = 1;
 		}
@@ -342,14 +342,14 @@ sub getSlots
 	}
 	
 	# We can directly skip, when all slots are full
-	return if( $count_running >= $Globals::import_max_parallel_processes );
+	return if( $count_running >= $Globals::stats4lox->{import_max_parallel_processes} );
 	
 	print STDERR "  Left after max_parallel: " . scalar(keys %scheduled_and_running) . " elements\n";
 	
 	# Find a slot for 
 	foreach my $file ( keys %scheduled_and_running ) {
 		my $msno = $filelist{$file}{msno};
-		if( defined $count_by_ms{$msno} and $count_by_ms{$msno} >= $Globals::import_max_parallel_per_ms ) {
+		if( defined $count_by_ms{$msno} and $count_by_ms{$msno} >= $Globals::stats4lox->{import_max_parallel_per_ms} ) {
 			delete $scheduled_and_running{$file};
 		}
 	}

@@ -7,7 +7,7 @@ use FindBin qw($Bin);
 use lib "$Bin/../libs";
 use Globals;
 
-my $provdir = $Globals::s4l_provisioning_dir.'/dashboards';
+my $provdir = $Globals::grafana->{s4l_provisioning_dir}.'/dashboards';
 
 my $db = <<"EOF";
 apiVersion: 1
@@ -25,10 +25,10 @@ providers:
     path: $provdir
 EOF
 
-my $dsfile = $Globals::graf_provisioning_dir.'/dashboards/stats4lox.yaml';
+my $dsfile = $Globals::grafana->{graf_provisioning_dir}.'/dashboards/stats4lox.yaml';
 LoxBerry::System::write_file( $dsfile , $db );
 chmod 0770, $dsfile;
-chmod 0770, $Globals::graf_provisioning_dir;
+chmod 0770, $Globals::grafana->{graf_provisioning_dir};
 `chown loxberry:loxberry $dsfile`;
 `sudo systemctl restart grafana-server`;
 

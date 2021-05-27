@@ -20,7 +20,7 @@ deleteDatasources:
   orgId: 1
 EOF
 
-my $dsfile = $Globals::graf_provisioning_dir.'/datasources/stats4lox.yaml';
+my $dsfile = $Globals::grafana->{graf_provisioning_dir}.'/datasources/stats4lox.yaml';
 LoxBerry::System::write_file( $dsfile , $ds );
 chmod 0770, $dsfile;
 `chown loxberry:loxberry $dsfile`;

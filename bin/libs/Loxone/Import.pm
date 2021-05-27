@@ -127,7 +127,7 @@ sub getStatlist
 	my $usedcachefile=0;
 	
 	$log->DEB("$me Checking for cached statlist of $msno");
-	my $statlistcachefile = $Globals::s4ltmp."/msstatlist_ms$msno.tmp";
+	my $statlistcachefile = $Globals::stats4lox->{s4ltmp}."/msstatlist_ms$msno.tmp";
 	if( -e $statlistcachefile ) {
 		my $modtime = (stat($statlistcachefile))[9];
 		if ( defined $modtime and (time()-$modtime) < 900 ) {
@@ -581,7 +581,7 @@ sub submitData
 	
 	my @bulkdata;
 	my $bulkcount = 0;
-	my $bulkmax = $Globals::influx_bulk_blocksize;
+	my $bulkmax = $Globals::influx->{influx_bulk_blocksize};
 	my $fullcount = 0;
 	
 	my $measurementname = $statobj->{measurementname};
@@ -636,7 +636,7 @@ sub submitData
 			eval {
 				Stats4Lox::lox2telegraf( \@bulkdata, undef );
 			};
-			Time::HiRes::sleep( $Globals::influx_bulk_delay_secs );
+			Time::HiRes::sleep( $Globals::influx->{influx_bulk_delay_secs} );
 			$bulkcount = 0;
 			@bulkdata = ();
 			
@@ -765,9 +765,9 @@ sub statusgetfile {
 	
 	# Creating state json
 	$log->DEB("$me Creating status file");
-	`mkdir -p $Globals::importstatusdir`;
+	`mkdir -p $Globals::stats4lox->{importstatusdir}`;
 
-	my $statusfilename = $Globals::importstatusdir."/import_${msno}_${uuid}.json";
+	my $statusfilename = $Globals::stats4lox->{importstatusdir}."/import_${msno}_${uuid}.json";
 	
 	$main::statusobj = new LoxBerry::JSON;
 	$main::status = $main::statusobj->open( filename => $statusfilename, writeonclose => 1 );
@@ -801,7 +801,7 @@ sub supdate {
 sub lockMiniserver {
 	my $msno = shift;
 	my $me = Globals::whoami();
-	my $mslockfile = $Globals::s4ltmp."/miniserver_${msno}_download.lock";
+	my $mslockfile = $Globals::stats4lox->{s4ltmp}."/miniserver_${msno}_download.lock";
 	open my $fh, '>', $mslockfile or die "$me CRITICAL Could not open LOCK file $mslockfile: $!";
 	flock $fh, 2;
 	return $fh;
