@@ -10,7 +10,7 @@ use lib "$Bin/../libs";
 use Globals;
 use Fcntl ':flock';
 
-my $updatesignal_file = $Globals::s4ltmp."/update_dashboard_signal.tmp";
+my $updatesignal_file = $Globals::stats4lox->{s4ltmp}."/update_dashboard_signal.tmp";
 
 # Lock a file to make sure only one instance is running
 my $lockfile = "/var/lock/update_dashboards.lock";
@@ -100,8 +100,8 @@ sub updateDefaultDashboard
 	###
 	LOGINF "Creating dashboard from dashboard template";
 	my $dashboard = DashboardFromTemplate Grafana( 
-		"$Globals::s4l_provisioning_dir/dashboards/defaultDashboard.json",
-		"$Globals::s4l_provisioning_template_dir/template_defaultDashboard.json"
+		"$Globals::grafana->{s4l_provisioning_dir}/dashboards/defaultDashboard.json",
+		"$Globals::grafana->{s4l_provisioning_template_dir}/template_defaultDashboard.json"
 	);
 	$dashboard->{title} = "LoxBerry Stats4Lox";
 	my $lbhostname = LoxBerry::System::lbhostname();
@@ -144,7 +144,7 @@ sub updateDefaultDashboard
 		# print STDERR Dumper( \@uids_to_delete );
 		LOGDEB "Delete panels in dashboard (panel id's " . join(",", @ids_to_delete) . ")";
 		deletePanelFromDashboard Grafana( 
-			"$Globals::s4l_provisioning_dir/dashboards/defaultDashboard.json",
+			"$Globals::grafana->{s4l_provisioning_dir}/dashboards/defaultDashboard.json",
 			\@ids_to_delete
 		);
 		LOGOK "Panels deleted from dashboard";
@@ -176,8 +176,8 @@ sub updateDefaultDashboard
 			LOGINF "Creating new panel for panelid $panel_id";
 			
 			my $panel = PanelFromTemplate Grafana( 
-				"$Globals::s4l_provisioning_dir/dashboards/defaultDashboard.json",
-				"$Globals::s4l_provisioning_template_dir/template_panel_graph.json"
+				"$Globals::grafana->{s4l_provisioning_dir}/dashboards/defaultDashboard.json",
+				"$Globals::grafana->{s4l_provisioning_template_dir}/template_panel_graph.json"
 			);
 			
 			LOGINF "Panel template loaded";
@@ -242,7 +242,7 @@ sub updateDefaultDashboard
 	
 	LOGINF "Sorting panels";
 	$dashboard = modifyDashboard Grafana( 
-		"$Globals::s4l_provisioning_dir/dashboards/defaultDashboard.json"
+		"$Globals::grafana->{s4l_provisioning_dir}/dashboards/defaultDashboard.json"
 	);
 	if( ! defined $dashboard ) {
 		LOGERR "Dashboard is empty\n";

@@ -8,8 +8,8 @@ use Globals;
 use Grafana;
 
 my $dashboard = DashboardFromTemplate Grafana( 
-	"$Globals::s4l_provisioning_dir/dashboards/defaultDashboard.json",
-	"$Globals::s4l_provisioning_dir/templates/template_defaultDashboard.json"
+	"$Globals::grafana->{s4l_provisioning_dir}/dashboards/defaultDashboard.json",
+	"$Globals::grafana->{s4l_provisioning_dir}/templates/template_defaultDashboard.json"
 );
 
 
@@ -19,8 +19,8 @@ print $dashboard->{title} . "\n";
 my $dashboard_uid = Grafana->save( $dashboard );
 
 my $panel = PanelFromTemplate Grafana( 
-	"$Globals::s4l_provisioning_dir/dashboards/defaultDashboard.json",
-	"$Globals::s4l_provisioning_dir/templates/template_panel_graph.json"
+	"$Globals::grafana->{s4l_provisioning_dir}/dashboards/defaultDashboard.json",
+	"$Globals::grafana->{s4l_provisioning_dir}/templates/template_panel_graph.json"
 );
 
 $panel->{title} = "Panel Title (Room/Category)" . int(rand(100));
@@ -30,12 +30,12 @@ my $panel_uid = Grafana->save( $panel );
 print STDERR "Dashboard UID: $dashboard_uid Panel UID: $panel_uid\n";
 
 my $delcount = deletePanelFromDashboard Grafana( 
-	"$Globals::s4l_provisioning_dir/dashboards/defaultDashboard.json",
+	"$Globals::grafana->{s4l_provisioning_dir}/dashboards/defaultDashboard.json",
 	$panel_uid
 );
 
 $delcount = deletePanelFromDashboard Grafana( 
-	"$Globals::s4l_provisioning_dir/dashboards/defaultDashboard.json",
+	"$Globals::grafana->{s4l_provisioning_dir}/dashboards/defaultDashboard.json",
 	[ $panel_uid, "aaabbb" ]
 );
 

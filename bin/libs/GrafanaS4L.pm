@@ -21,8 +21,8 @@ sub provisionDashboard {
 	
 	### Update the dashboard
 	my $dashboard = DashboardFromTemplate Grafana( 
-		"$Globals::s4l_provisioning_dir/dashboards/defaultDashboard.json",
-		"$Globals::s4l_provisioning_template_dir/template_defaultDashboard.json"
+		"$Globals::grafana->{s4l_provisioning_dir}/dashboards/defaultDashboard.json",
+		"$Globals::grafana->{s4l_provisioning_template_dir}/template_defaultDashboard.json"
 	);
 	$dashboard->{title} = "LoxBerry Stats4Lox";
 	my $lbhostname = LoxBerry::System::lbhostname();
@@ -47,7 +47,7 @@ sub provisionDashboard {
 	my @ids_to_delete = values %known_panel_ids;
 	# print STDERR Dumper( \@uids_to_delete );
 	deletePanelFromDashboard Grafana( 
-		"$Globals::s4l_provisioning_dir/dashboards/defaultDashboard.json",
+		"$Globals::grafana->{s4l_provisioning_dir}/dashboards/defaultDashboard.json",
 		\@ids_to_delete
 	);
 	
@@ -70,8 +70,8 @@ sub provisionDashboard {
 			$panel_id = $known_panel_ids{$label};
 		}
 		my $panel = PanelFromTemplate Grafana( 
-			"$Globals::s4l_provisioning_dir/dashboards/defaultDashboard.json",
-			"$Globals::s4l_provisioning_template_dir/template_panel_graph.json"
+			"$Globals::grafana->{s4l_provisioning_dir}/dashboards/defaultDashboard.json",
+			"$Globals::grafana->{s4l_provisioning_template_dir}/template_panel_graph.json"
 		);
 		
 		##
@@ -125,7 +125,7 @@ sub provisionDashboard {
 		
 		# LOGINF "Sorting panels";
 		$dashboard = modifyDashboard Grafana( 
-			"$Globals::s4l_provisioning_dir/dashboards/defaultDashboard.json"
+			"$Globals::grafana->{s4l_provisioning_dir}/dashboards/defaultDashboard.json"
 		);
 		if( ! defined $dashboard ) {
 			# LOGERR "Dashboard is empty\n";
