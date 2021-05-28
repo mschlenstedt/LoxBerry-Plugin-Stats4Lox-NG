@@ -282,7 +282,6 @@ sub lox2telegraf
 	use IO::Socket;
 	#use IO::Socket qw(AF_INET AF_UNIX SOCK_STREAM SHUT_WR);
 	my $client;
-	my $telegraf_udp_socket = $Globals::telegraf_udp_socket;
 	my $telegraf_unix_socket = $Globals::telegraf->{telegraf_unix_socket};
 	
 	my $socketlockfh = lockTelegrafSocket();
