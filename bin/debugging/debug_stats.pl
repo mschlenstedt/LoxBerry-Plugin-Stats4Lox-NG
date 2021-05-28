@@ -39,7 +39,7 @@ foreach my $msno ( sort keys %miniservers ) {
 
 	# Read Loxplan json
 	my $loxplanobj = LoxBerry::JSON->new();
-	my $loxplan = $loxplanobj->open(filename => $loxplanjsondir."/ms$msno.json", readonly => 1);
+	my $loxplan = $loxplanobj->open(filename => $Globals::stats4lox->{loxplanjsondir}."/ms$msno.json", readonly => 1);
 
 	my $import;
 	eval {

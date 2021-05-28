@@ -67,8 +67,8 @@ if( $q->{action} eq "getloxplan" ) {
 			$log->WARN("MS$msno: Could not get serial, therefore matching of Miniserver may fail");
 		}
 		
-		my $Loxplanfile = "$s4ltmp/s4l_loxplan_ms$msno.Loxone";		
-		my $loxplanjson = "$loxplanjsondir/ms".$msno.".json";
+		my $Loxplanfile = "$Globals::stats4lox->{s4ltmp}/s4l_loxplan_ms$msno.Loxone";		
+		my $loxplanjson = "$Globals::stats4lox->{loxplanjsondir}/ms".$msno.".json";
 		my $remoteTimestamp;
 		eval {
 			$remoteTimestamp = Loxone::GetLoxplan::checkLoxplanUpdate( $msno, $loxplanjson, $log );
@@ -299,8 +299,8 @@ if( $q->{action} eq "deleteimport" and $q->{msno} and $q->{uuid} ) {
 }
 
 if( $q->{action} eq "getmqttlivedata" ) {
-	if ( -e $s4ltmp."/mqttlive_uidata.json" ) {
-		$response = LoxBerry::System::read_file($s4ltmp."/mqttlive_uidata.json");
+	if ( -e $Globals::stats4lox->{s4ltmp}."/mqttlive_uidata.json" ) {
+		$response = LoxBerry::System::read_file($Globals::stats4lox->{s4ltmp}."/mqttlive_uidata.json");
 		if( !$response ) {
 			$response = "{ }";
 		}

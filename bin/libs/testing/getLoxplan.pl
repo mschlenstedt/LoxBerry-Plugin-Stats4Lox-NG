@@ -50,7 +50,7 @@ foreach my $msno ( keys %miniservers ) {
 foreach my $msno ( sort keys %miniservers ) {
 	print STDERR "=== MS $msno =================\n";
 	
-	$Loxplanfile = "$s4ltmp/s4l_loxplan_ms$msno.Loxone";
+	$Loxplanfile = "$Globals::stats4lox->{s4ltmp}/s4l_loxplan_ms$msno.Loxone";
 	# $Loxplanjson = "${Loxone::GetLoxplan::s4ltmp}/s4l_loxplan_ms$msno.json";
 	$Loxplanjson = "$lbpdatadir/ms$msno.json";
 	
