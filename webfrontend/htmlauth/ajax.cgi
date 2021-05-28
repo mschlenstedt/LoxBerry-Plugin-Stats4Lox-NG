@@ -441,7 +441,7 @@ else {
 sub createImportFolder
 {
 	if( ! -d $Globals::stats4lox->{importstatusdir} ) {
-		`mkdir --parents "${Globals::importstatusdir}"`;
+		`mkdir --parents "$Globals::stats4lox->{importstatusdir}"`;
 	}
 }
 
