@@ -24,7 +24,7 @@ my $template = HTML::Template->new(
 );
 
 my $lang = LoxBerry::System::lblanguage();
-$template->param( 'MQTTLIVEDATA', LoxBerry::System::read_file( "$s4ltmp/mqttlive_uidata.json" ) );
+$template->param( 'MQTTLIVEDATA', LoxBerry::System::read_file( "$Globals::stats4lox->{s4ltmp}/mqttlive_uidata.json" ) );
 $template->param( 'STATSJSON', LoxBerry::System::read_file( "$lbpconfigdir/stats.json" ) );
 
 

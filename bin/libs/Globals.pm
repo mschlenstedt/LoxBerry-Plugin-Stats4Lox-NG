@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 use LoxBerry::System;
+use LoxBerry::JSON;
 
 # NAVBAR definition (in scope main)
 our %navbar = (
@@ -38,22 +39,15 @@ package Globals;
 
 use base 'Exporter';
 our @EXPORT = qw (
-	$s4ltmp
 	@CONTROL_BLACKLIST
-	$importstatusdir
-	$loxplanjsondir
 	$statsconfig
 	$stats4loxconfig
 	$stats4loxcredentials
-	$influx_bulk_blocksize
 	whoami
-	$telegraf_internal_files
-	$telegraf_unix_socket
-	$telegraf_max_buffer_fullness
-	@telegraf_buffer_checks
-	telegraf_internal_files
+	merge_config
 );
 
+# Internal variable, if merge_config was already called
 my $config_is_parsed;
 
 # Main configuration files (not changeable in stats4lox.json)
@@ -114,39 +108,6 @@ our $telegraf = {
 	telegraf_internal_files => "/tmp/telegraf_internals*.out",
 	internal_statfiles => "/tmp/telegraf_internals*.out",
 };
-
-
-
-#########################
-#### OLD GLOBAL VARIABLES
-#########################
-
-
-# RAMDISK temporary directory
-   our $s4ltmp = '/dev/shm/s4ltmp';
-
-# JSON directory of Miniserver LoxPlans
-   our $loxplanjsondir = $LoxBerry::System::lbpdatadir;
-
-# Import settings
-   our $influx_bulk_blocksize = 1000;
-   our $influx_bulk_delay_secs = 1;
-   our $import_time_to_dead_minutes = 60;
-   our $import_max_parallel_processes = 4;
-   our $import_max_parallel_per_ms = 4;
-   our $importstatusdir = $LoxBerry::System::lbpdatadir.'/import';
-
-# Telegraf settings
-   our $telegraf_unix_socket = "/tmp/telegraf.sock";
-   our $telegraf_max_buffer_fullness = "0.75";
-   our @telegraf_buffer_checks = ("influxdb");
-   our $telegraf_internal_files = "/tmp/telegraf_internals*.out";
-
-# Grafana Provisioning
-   our $graf_provisioning_dir = "/etc/grafana/provisioning";
-   our $s4l_provisioning_dir = "$LoxBerry::System::lbpconfigdir/provisioning";
-   our $s4l_provisioning_template_dir = "$LoxBerry::System::lbptemplatedir/grafana/templates";
-   our $grafanaport = 3000;
 
 
 ### Run merge_config ###
@@ -559,10 +520,8 @@ sub merge_config
 	my %args = @_;
 	if( ! $args{config_force_parse} ) {
 		return if( $config_is_parsed );
-		return if( $args{config_skip_parse} );
 	}
 
-	require LoxBerry::JSON;
 	require Hash::Merge;
 	
 	my $configobj = LoxBerry::JSON->new();
