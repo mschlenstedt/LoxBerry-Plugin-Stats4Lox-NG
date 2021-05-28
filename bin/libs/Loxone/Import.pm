@@ -636,6 +636,9 @@ sub submitData
 			eval {
 				Stats4Lox::lox2telegraf( \@bulkdata, undef );
 			};
+			if( $@ ) {
+				$log->ERR("$me lox2telegraf excepted: $@");
+			}
 			Time::HiRes::sleep( $Globals::influx->{influx_bulk_delay_secs} );
 			$bulkcount = 0;
 			@bulkdata = ();

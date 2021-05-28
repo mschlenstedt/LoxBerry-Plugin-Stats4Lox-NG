@@ -104,7 +104,7 @@ our $telegraf = {
 	unixsocket => "/tmp/telegraf.sock",
 	telegraf_unix_socket => "/tmp/telegraf.sock",
 	telegraf_max_buffer_fullness => "0.75",
-	telegraf_buffer_checks => ("influxdb"),
+	telegraf_buffer_checks => ["influxdb"],
 	telegraf_internal_files => "/tmp/telegraf_internals*.out",
 	internal_statfiles => "/tmp/telegraf_internals*.out",
 };

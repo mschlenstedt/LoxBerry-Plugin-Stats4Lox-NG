@@ -287,7 +287,7 @@ sub lox2telegraf
 	my $socketlockfh = lockTelegrafSocket();
 	
 	# Wait until Telegraf buffer fullness is below 75%
-	foreach (@Globals::telegraf->{telegraf_buffer_checks}) {
+	foreach (@{$Globals::telegraf->{telegraf_buffer_checks}}) {
 		my $buffer = 1;
 		my $check = $_;
 		while ( $buffer > $Globals::telegraf->{telegraf_max_buffer_fullness} ) {
