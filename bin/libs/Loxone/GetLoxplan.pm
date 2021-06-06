@@ -32,15 +32,15 @@ sub getLoxplan
 	}
 	
 	# Create temporary storage
-	if(!$main::s4ltmp) {
+	if(!$Globals::stats4lox->{s4ltmp}) {
 		$log->CRIT("$me Missing variable s4ltmp.");
 		return;
 	}
-	if( ! -e $main::s4ltmp ) {
-		$log->INF("$me Creating directory $main::s4ltmp");
-		my $mkrc = mkdir ($main::s4ltmp, 0770);
+	if( ! -e $Globals::stats4lox->{s4ltmp} ) {
+		$log->INF("$me Creating directory $Globals::stats4lox->{s4ltmp}");
+		my $mkrc = mkdir ($Globals::stats4lox->{s4ltmp}, 0770);
 		if( !$mkrc ) {
-			$log->CRIT("$me Could not create temporary folder $main::s4ltmp.");
+			$log->CRIT("$me Could not create temporary folder $Globals::stats4lox->{s4ltmp}.");
 			return;
 		}
 	}
@@ -60,18 +60,18 @@ sub getLoxplan
 	}
 	$log->INF("$me Local file: $localfile");
 	
-	my $LoxCCsource = "$main::s4ltmp/s4l_loxplan_ms$msno/sps0.LoxCC";
-	my $Loxplansource = "$main::s4ltmp/s4l_loxplan_ms$msno/sps0.Loxone";
-	my $Loxplandest = "$main::s4ltmp/s4l_loxplan_ms$msno.Loxone";
+	my $LoxCCsource = "$Globals::stats4lox->{s4ltmp}/s4l_loxplan_ms$msno/sps0.LoxCC";
+	my $Loxplansource = "$Globals::stats4lox->{s4ltmp}/s4l_loxplan_ms$msno/sps0.Loxone";
+	my $Loxplandest = "$Globals::stats4lox->{s4ltmp}/s4l_loxplan_ms$msno.Loxone";
 	
 	# Unzip file
 	$log->INF("Cleaning up old files");
-	`rm -f -r "$main::s4ltmp/s4l_loxplan_ms$msno/"`;
+	`rm -f -r "$Globals::stats4lox->{s4ltmp}/s4l_loxplan_ms$msno/"`;
 	
 	my ($name, $ext) = split(/.([^.]+)$/, $localfile);
 	if( lc($ext) eq "zip" ) {
 		$log->INF("$me Unzipping zip");
-		`unzip $localfile -d "$main::s4ltmp/s4l_loxplan_ms$msno/"`;
+		`unzip $localfile -d "$Globals::stats4lox->{s4ltmp}/s4l_loxplan_ms$msno/"`;
 	} 
 	elsif ( lc($ext) eq "loxcc" ) {
 		$log->INF("$me File already is a LoxCC file");
@@ -81,7 +81,7 @@ sub getLoxplan
 	# Check if we already have a .Loxone file, or need to unpack LoxCC
 	
 	if( -e $Loxplansource ) {
-		# If exists, copy to $main::s4ltmp
+		# If exists, copy to $Globals::stats4lox->{s4ltmp}
 		$log->INF("$me Copying Loxplan from zip");
 		require File::Copy;
 		File::Copy::copy( $Loxplansource, $Loxplandest );
@@ -172,7 +172,7 @@ sub getFile
 	my ($name, $ext) = split(/.([^.]+)$/, $filename);
 	
 	my $uripart = "/dev/fsget/$filename";
-	my $localfile = "$main::s4ltmp/s4l_loxplan_ms$msno.$ext";
+	my $localfile = "$Globals::stats4lox->{s4ltmp}/s4l_loxplan_ms$msno.$ext";
 	$log->INF("$me Uripart: $uripart Localfile: $localfile");
 	
 	my $ua = LWP::UserAgent->new( ssl_opts => { verify_hostname => 0} );
