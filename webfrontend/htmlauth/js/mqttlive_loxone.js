@@ -298,7 +298,7 @@ function createStatsjsonTable()
 				
 				var measurementname_safe = element.measurementname.replaceAll( /[ \/#]/g, '_');
 				livetopic = `${basetopic}/${element.msno}/${measurementname_safe}/${label}`;
-				valconstant = `&lt;v.8&gt;`;
+				valconstant = `&lt;v.3&gt;`;
 				html += `<div style="white-space: nowrap;">`
 				html += `<b>${label}</b>: publish ${livetopic} <i>${valconstant}</i>`;
 				html += `<a href="#" class="ui-mini ui-btn ui-shadow ui-icon-clipboard ui-btn-inline copyClipboard" style="padding:1px;font-size:86%;height:15px;width:32px;">Copy</a>`;
