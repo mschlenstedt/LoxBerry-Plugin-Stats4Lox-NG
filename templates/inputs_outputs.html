@@ -1,46 +1,159 @@
-<script type="text/javascript" src="./js/home.js"></script>
-
 <style>
-.datahidden {
-	display:none;
-}
-
-.small {
-	font-size:70%;
-}
-
-.middle {
-	font-size:120%;
-}
-
-.bold {
-	font-weight: bold;
-}
-
-.grayed {
-	color: gray;
-}
-
-.center {
-	text-align: center;
-}
-
-.grid {
-	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-	grid-column-gap: 15px;
-	grid-row-gap: 15px;
-}
-.box { 
-	border: 1px solid black;
-}
-
-.margin {
-	margin: 10px;
-}
-
+	.lb_flex-item 
+	{	
+		min-width	:650px;
+		width		:100%;
+		flex-wrap	:nowrap;
+		margin-top	:10px;  
+	}
+	.lb_flex-item-help 
+	{
+		min-width	:100px;
+		width		:100%;
+		position	:relative;
+		margin-left	:10px;
+	}
 </style>
 
-<p>
-	Currently, there is nothing to see or configure in here :-)
-</p>
+<h3 class="ui-bar ui-bar-a ui-corner-all">Inputs</h3>
+
+<form>
+<div class="ui-body ui-body-a ui-corner-all">
+
+	<h2></h2>
+
+</div>
+</form>
+
+<h3 class="ui-bar ui-bar-a ui-corner-all">Outputs</h3>
+
+<form>
+<div class="ui-body ui-body-a ui-corner-all">
+
+	<h2>Influx Database Configuration</h2>
+
+	<div class="lb_flex-container Influx">
+		<div	class="lb_flex-item-label">
+		<TMPL_VAR INPUTSOUTPUTS.LABEL_INFLUX_STORAGE_PATH>
+		</div>
+		<div	class="lb_flex-item-spacer"></div>
+		<div	class="lb_flex-item">
+			<TMPL_VAR INFLUX_STORAGE_PATH>
+		</div>
+		<div	class="lb_flex-item-spacer"></div>
+		<div	class="lb_flex-item-help hint">
+		<TMPL_VAR INPUTSOUTPUTS.HINT_INFLUX_STORAGE_PATH>
+		</div>
+		<div	class="lb_flex-item-spacer"></div>
+	</div>
+
+	<div style="padding: 0px 0px 20px 0px;"></div>
+	
+	<div class="lb_flex-container Influx">
+		<div	class="lb_flex-item-label">
+		</div>
+		<div	class="lb_flex-item-spacer"></div>
+		<div	class="lb_flex-item">
+		<a href="javascript:saveInflux();" id="btnsaveinflux" class="ui-btn ui-corner-all ui-shadow ui-btn-b ui-btn-icon-left ui-icon-check ui-btn-inline" 
+				data-transition="flow" data-inline="true"><TMPL_VAR INPUTSOUTPUTS.BUTTON_SAVE></a>
+		<div class="hint" id="labcom_hint">&nbsp;</div>
+		</div>
+		<div	class="lb_flex-item-spacer"></div>
+		<div	class="lb_flex-item-help hint">
+		</div>
+		<div	class="lb_flex-item-spacer"></div>
+	</div>
+		
+
+</div>
+</form>
+
+
+
+
+
+
+<script>
+// Validation
+validate_enable('#GrafanaPort');
+
+getconfig();
+	
+// Save Settings
+function savesettings() {
+	$("#labcom_hint").attr("style", "color:blue").html("<TMPL_VAR LABCOM.HINT_SAVE_SAVING>");
+	console.log ("Saving", $('#token').val(), $('#accountid').val());
+	$.ajax( { 
+			type: 'POST',
+			data: { 
+				ajax: 'savelabcom', 
+				token: $('#token').val(),
+				accountid: $('#accountid').val(),
+				secpin: secpin
+			}
+		} )
+	.fail(function( data ) {
+		console.log( "savelabcom Fail", data );
+		$("#labcom_hint").attr("style", "color:red").html("<TMPL_VAR LABCOM.HINT_SAVE_ERROR>: "+data.statusText);
+	})
+	.done(function( data ) {
+		console.log( "savelabcom Success: ", data );
+		if(data.secpinerror) {
+			securePINwrong();
+			return;
+		}
+		$("#labcom_hint").attr("style", "color:green").html("<TMPL_VAR LABCOM.HINT_SAVE_OK>");
+		getconfig();
+	})
+	.always(function( data ) {
+		console.log( "savelabcom Finished" );
+	});
+}
+
+// Get Config
+function getconfig() {
+	// Get Config
+	
+	console.log( "Get Config" );
+	// Ajax request
+	$.ajax({ 
+		url:  'ajax.cgi',
+		type: 'POST',
+		data: { action: 'getpluginconfig' }
+	})
+	.fail(function( data ) {
+		console.log( "getconfig Fail", data );
+	})
+	.done(function( data ) {
+		console.log( "getconfig Success", data );
+		// Fill the form with json data retrieved from the ajax getconfig call
+		if ( jQuery.isEmptyObject(data)) {
+			console.log("config is empty, does not exist or is invalid.");
+		}
+		if(data.influx.db_storage) {
+			console.log( "getconfig idb_storage is: ", data.influx.db_storage );
+			$('#influxstoragepath').val(data.influx.db_storage);
+			$('#influxstoragepath-select').val().trigger();
+			$('#influxstoragepath-folder').val().trigger();
+		} else {
+			$("#influxstoragepath").val('/opt/loxberry/data/plugins/stats4lox/influxdb');
+		}
+	})
+	.always(function( data ) {
+		console.log( "getconfig Finished" );
+	})
+}
+
+function refreshMQTTForm() {
+	console.log("refreshMQTTForm");
+	$(".MQTT").removeClass("ui-state-disabled");
+	if( $("#MQTTUseMQTTGateway").is(":checked") ) 
+		$(".ownbroker").addClass("ui-state-disabled");
+	else 
+		$(".ownbroker").removeClass("ui-state-disabled");
+}
+
+$("#MQTTUseMQTTGateway").on("click", refreshMQTTForm);
+
+</script>
+
