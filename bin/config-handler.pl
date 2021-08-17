@@ -17,10 +17,14 @@ use Data::Dumper;
 
 # Globals
 my $command = $ARGV[0];
-our $s4ljsonobj = LoxBerry::JSON->new();
+our $s4ljsonobj;
 our $s4lcfg;
 our $errors;
 our $logfile;
+our $chjsonobj;
+our $chstatus;
+
+#$LoxBerry::System::DEBUG = 1;
 
 # Log
 my $log = LoxBerry::Log->new (
@@ -35,10 +39,14 @@ LOGSTART "Config-Handler";
 # Which config should be updated:
 ##########################################################
 
+# Init status file
+&initstatus();
+
 # Influx Config
 if ($command eq 'influx' || $command eq 'all') {
 
 	LOGINF "--> Parsing INFLUX <--";
+	&updatestatus("global", "current_section", "influx");
 	&influxconfig();
 
 # Everything else give help
@@ -64,10 +72,14 @@ if ($errors) {
 # Influx
 sub influxconfig {
 
+	&updatestatus("influx", "errors", 0);
+	&updatestatus("influx", "message", "Check for config changes.");
+
 	my $checkchanges = &checkchanges("influx");
 
 	if ( $checkchanges ) {
 		LOGINF "*** Config hasn't changed. I will do nothing. ***";
+		&updatestatus("influx", "message", "Finished.");
 		return (0);
 	}
 
@@ -91,6 +103,8 @@ sub influxconfig {
 		LOGINF "DB storage hasn't changed. Leave it untouched.";
 	} else {
 		LOGINF "DB storage has changed. Moving DB to new location $dbsource/influxdb.";
+		&updatestatus("influx", "message", "Moving Database to new location.");
+
 		my $result = &influx_movedb($dbsource, $dbtarget);
 		if ($result) {
 			LOGERR "Something went wrong. I haven't moved the DB to the new location.";
@@ -100,14 +114,39 @@ sub influxconfig {
 		}
 	}
 
+	# End Influx Config
+	&updatestatus("influx", "errors", $errors);
+	&updatestatus("influx", "message", "Finished.");
+	return ($errors);
+
 }
 
 ##########################################################
 # Helper subroutines
 ##########################################################
 
+# Init Config-Handler Status
+sub initstatus {
+	my $cfgfile = $Globals::s4ltmp . "/config-handler-status.json";
+	$chjsonobj = LoxBerry::JSON->new();
+	$chstatus = $chjsonobj->open(filename => $cfgfile, lockexclusive => 0, writeonclose => 1);
+	$chstatus->{"global"}->{"running"} = 1;
+	$chjsonobj->write();
+	return (0);
+}
+ 
+# Update Config-Handler Status 
+sub updatestatus {
+	my $section = shift;
+	my $tag = shift;
+	my $message = shift;
+	$chstatus->{"$section"}->{"$tag"} = $message;
+	$chjsonobj->write();
+	return (0);
+}
+
 # Read S4L Config
-# Returns hash with config
+# Returns zero (0) and fill global var $s4lcfg
 sub reads4lconfig {
 	my $cfgfile = $lbpconfigdir . "/stats4lox.json";
 	$s4ljsonobj = LoxBerry::JSON->new();
@@ -117,12 +156,12 @@ sub reads4lconfig {
 
 # Read credentials
 # Returns Hash with credentials
-sub readcred {
-	my $cfgfile = $lbpplugindir."/cred.json";
-	my $jsonobj = LoxBerry::JSON->new();
-	my $cfg = $jsonobj->open(filename => $cfgfile);
-	return ($cfg);
-}
+#sub readcred {
+#	my $cfgfile = $lbpplugindir."/cred.json";
+#	my $jsonobj = LoxBerry::JSON->new();
+#	my $cfg = $jsonobj->open(filename => $cfgfile);
+#	return ($cfg);
+#}
 
 # Read S4L Hashes
 # Returns Hash with MD5 checksums
@@ -229,7 +268,6 @@ sub influx_movedb {
 		return (1);
 	}
 
-
 	# Move database to new location
 	system ("sudo systemctl stop influxdb");
 	system ("rsync -av $dbsource/* $dbtarget/influxdb/ >> $logfile 2>&1");
@@ -242,7 +280,7 @@ sub influx_movedb {
 		return (1);
 	}
 
-	LOGOK "Copying database successfull. Adjusting influx configuration.";
+	LOGOK "Copied database successfully. Adjusting influx configuration now.";
 	system("sed -i -e \"s#\\(^  dir = \\\"\\)\\(.*\\)\\(meta\\\"\$\\\)#  dir = \\\"" . $dbtarget . "/influxdb/meta" . "\\\"#g ; \
 		s#\\(^  dir = \\\"\\)\\(.*\\)\\(data\\\"\$\\\)#  dir = \\\"" . $dbtarget . "/influxdb/data" . "\\\"#g ; \
 		s#\\(^  wal-dir = \\\"\\)\\(.*\\)\\(wal\\\"\$\\\)#  wal-dir = \\\"" . $dbtarget . "/influxdb/wal" . "\\\"#g\" /etc/influxdb/influxdb.conf");
@@ -258,5 +296,10 @@ sub influx_movedb {
 
 
 END {
+	# Close status file
+	$chstatus->{"global"}->{"running"} = 0;
+	$chstatus->{"global"}->{"current_section"} = "none";
+	$chjsonobj->write();
+	# Close log
 	LOGEND "End.";
 }

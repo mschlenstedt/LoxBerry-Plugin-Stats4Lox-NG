@@ -1,4 +1,11 @@
 <style>
+	.buttonrow
+	{	
+		min-height	:2em;
+		width		:100%;
+		text-align	:center;
+		font-size	:smaller;
+	}
 	.lb_flex-item 
 	{	
 		min-width	:650px;
@@ -50,20 +57,15 @@
 	<div style="padding: 0px 0px 20px 0px;"></div>
 	
 	<div class="lb_flex-container Influx">
-		<div	class="lb_flex-item-label">
-		</div>
-		<div	class="lb_flex-item-spacer"></div>
-		<div	class="lb_flex-item">
-		<a href="javascript:saveInflux();" id="btnsaveinflux" class="ui-btn ui-corner-all ui-shadow ui-btn-b ui-btn-icon-left ui-icon-check ui-btn-inline" 
+		<div	class="buttonrow">
+			<a href="javascript:saveOutputInflux();" name="btnsaveoutputinflux" id="btnsaveoutputinflux" class="ui-btn ui-corner-all ui-shadow ui-btn-b ui-btn-icon-left ui-icon-check ui-btn-inline" 
 				data-transition="flow" data-inline="true"><TMPL_VAR INPUTSOUTPUTS.BUTTON_SAVE></a>
-		<div class="hint" id="labcom_hint">&nbsp;</div>
 		</div>
-		<div	class="lb_flex-item-spacer"></div>
-		<div	class="lb_flex-item-help hint">
-		</div>
-		<div	class="lb_flex-item-spacer"></div>
 	</div>
-		
+
+	<div class="lb_flex-container">
+			<div class="buttonrow" id="outputinflux_hint">&nbsp;</div>
+	</div>
 
 </div>
 </form>
@@ -78,35 +80,64 @@
 validate_enable('#GrafanaPort');
 
 getconfig();
-	
-// Save Settings
-function savesettings() {
-	$("#labcom_hint").attr("style", "color:blue").html("<TMPL_VAR LABCOM.HINT_SAVE_SAVING>");
-	console.log ("Saving", $('#token').val(), $('#accountid').val());
+
+var interval;
+
+// Save Settings: Output Influx
+function saveOutputInflux() {
+	console.log ("Saving Influx settings");
+	$(".Influx").addClass('ui-disabled');
+	$("#outputinflux_hint").attr("style", "color:blue").html("<TMPL_VAR INPUTSOUTPUTS.HINT_INFLUX_SAVING>");
 	$.ajax( { 
-			type: 'POST',
+			url:     'ajax.cgi',
+			type:    'POST',
 			data: { 
-				ajax: 'savelabcom', 
-				token: $('#token').val(),
-				accountid: $('#accountid').val(),
-				secpin: secpin
+				action: 'savepluginconfig', 
+				section: 'influx', 
+				influx_db_storage: $('#influxstoragepath').val()
 			}
 		} )
 	.fail(function( data ) {
-		console.log( "savelabcom Fail", data );
-		$("#labcom_hint").attr("style", "color:red").html("<TMPL_VAR LABCOM.HINT_SAVE_ERROR>: "+data.statusText);
+		console.log( "Saving Influx Fail:", data );
+		$("#outputinflux_hint").attr("style", "color:red").html("<TMPL_VAR INPUTSOUTPUTS.HINT_INFLUX_SAVING_FAIL>");
 	})
 	.done(function( data ) {
-		console.log( "savelabcom Success: ", data );
-		if(data.secpinerror) {
-			securePINwrong();
-			return;
-		}
-		$("#labcom_hint").attr("style", "color:green").html("<TMPL_VAR LABCOM.HINT_SAVE_OK>");
-		getconfig();
+		console.log( "Saving Influx Success: ", data );
+		interval = window.setInterval(checkconfighandlerstatus, 1000);
+	//	if ( check.error ) {
+	//		$("#outputinflux_hint").attr("style", "color:red").html("<TMPL_VAR INPUTSOUTPUTS.HINT_INFLUX_SAVING_ERROR>");
+	//	} else {
+	//		$("#outputinflux_hint").attr("style", "color:green").html("<TMPL_VAR INPUTSOUTPUTS.HINT_INFLUX_SAVING_SUCCESS>");
+	//	}
 	})
 	.always(function( data ) {
-		console.log( "savelabcom Finished" );
+		console.log( "Saving Influx Finished" );
+		//getconfig();
+		$(".Influx").removeClass('ui-disabled');
+		//$("#btnsaveoutputinflux").attr("disabled", false);
+	});
+}
+
+function checkconfighandlerstatus() {
+	console.log ("Checking Config-Handler Status");
+	$.ajax( { 
+			url:     'ajax.cgi',
+			type:    'POST',
+			data: { 
+				action: 'config-handler-status', 
+				section: 'influx', 
+			}
+		} )
+	.fail(function( data ) {
+		console.log( "Checking Config-Handler Status Fail:", data );
+		data.error = 1;
+	})
+	.done(function( data ) {
+		console.log( "Checking Config-Handler Status Success: ", data );
+		data.error = 0;
+	})
+	.always(function( data ) {
+		console.log( "Checking Config-Handler Finished" );
 	});
 }
 
@@ -133,8 +164,6 @@ function getconfig() {
 		if(data.influx.db_storage) {
 			console.log( "getconfig idb_storage is: ", data.influx.db_storage );
 			$('#influxstoragepath').val(data.influx.db_storage);
-			$('#influxstoragepath-select').val().trigger();
-			$('#influxstoragepath-folder').val().trigger();
 		} else {
 			$("#influxstoragepath").val('/opt/loxberry/data/plugins/stats4lox/influxdb');
 		}

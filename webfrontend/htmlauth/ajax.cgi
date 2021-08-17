@@ -67,7 +67,7 @@ if( $q->{action} eq "getloxplan" ) {
 			$log->WARN("MS$msno: Could not get serial, therefore matching of Miniserver may fail");
 		}
 		
-		my $Loxplanfile = "$s4ltmp/s4l_loxplan_ms$msno.Loxone";		
+		my $Loxplanfile = "$Globals::s4ltmp/s4l_loxplan_ms$msno.Loxone";		
 		my $loxplanjson = "$loxplanjsondir/ms".$msno.".json";
 		my $remoteTimestamp;
 		eval {
@@ -299,8 +299,8 @@ if( $q->{action} eq "deleteimport" and $q->{msno} and $q->{uuid} ) {
 }
 
 if( $q->{action} eq "getmqttlivedata" ) {
-	if ( -e $s4ltmp."/mqttlive_uidata.json" ) {
-		$response = LoxBerry::System::read_file($s4ltmp."/mqttlive_uidata.json");
+	if ( -e $Globals::s4ltmp."/mqttlive_uidata.json" ) {
+		$response = LoxBerry::System::read_file($Globals::s4ltmp."/mqttlive_uidata.json");
 		if( !$response ) {
 			$response = "{ }";
 		}
@@ -422,6 +422,50 @@ if( $q->{action} eq "getpluginconfig" ) {
 		}
 	}
 	else {
+		$response = "{ }";
+	}
+}
+
+if( $q->{action} eq "savepluginconfig" ) {
+	require LoxBerry::JSON;
+	my $errors = 0;
+	my $cfgfile = $lbpconfigdir . "/stats4lox.json";
+	my $jsonobj = LoxBerry::JSON->new();
+	my $cfg = $jsonobj->open(filename => $cfgfile);
+	if (!$cfg) {
+		$errors++;
+	}
+	
+	# Without the following workaround
+	# the script cannot be executed as
+	# background process via CGI
+	my $pid = fork();
+	$errors++ if !defined $pid;
+	if ($pid == 0) {
+		# do this in the child
+		open STDIN, "< /dev/null";
+		open STDOUT, "> /dev/null";
+		open STDERR, "> /dev/null";
+
+		# Output: Influx
+		if ( $q->{'section'} eq "influx" ) {
+			$cfg->{'influx'}->{'db_storage'} = $q->{'influx_db_storage'};
+			$jsonobj->write();
+			system ("$lbpbindir/config-handler.pl influx >/dev/null 2>&1");
+		}
+
+	} # End Child process
+
+	$response = '{ "error":' . $errors . '}';
+}
+
+if( $q->{action} eq "config-handler-status" ) {
+	my $section = $q->{section};
+	my $statfile = $Globals::s4ltmp . "/config-handler-status.json";
+	if ( -e $statfile ) {
+		$response = LoxBerry::System::read_file($statfile);
+	}
+	if ( !$response | !$section ) {
 		$response = "{ }";
 	}
 }
