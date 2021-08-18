@@ -1,7 +1,16 @@
 <style>
+	.chstatus
+	{	
+		height		:4.0em;
+		line-height	:1.0em;
+		overflow	:auto;
+		width		:100%;
+		text-align	:center;
+	}
 	.buttonrow
 	{	
 		min-height	:2em;
+		overflow	:auto;
 		width		:100%;
 		text-align	:center;
 		font-size	:smaller;
@@ -20,6 +29,11 @@
 		position	:relative;
 		margin-left	:10px;
 	}
+	.ui-popup-container
+	{
+		width:  40%; 
+		height: 30%;
+	}
 </style>
 
 <h3 class="ui-bar ui-bar-a ui-corner-all">Inputs</h3>
@@ -27,7 +41,7 @@
 <form>
 <div class="ui-body ui-body-a ui-corner-all">
 
-	<h2></h2>
+<h2></h2>
 
 </div>
 </form>
@@ -39,7 +53,7 @@
 
 	<h2>Influx Database Configuration</h2>
 
-	<div class="lb_flex-container Influx">
+	<div class="lb_flex-container influx">
 		<div	class="lb_flex-item-label">
 		<TMPL_VAR INPUTSOUTPUTS.LABEL_INFLUX_STORAGE_PATH>
 		</div>
@@ -56,7 +70,7 @@
 
 	<div style="padding: 0px 0px 20px 0px;"></div>
 	
-	<div class="lb_flex-container Influx">
+	<div class="lb_flex-container influx">
 		<div	class="buttonrow">
 			<a href="javascript:saveOutputInflux();" name="btnsaveoutputinflux" id="btnsaveoutputinflux" class="ui-btn ui-corner-all ui-shadow ui-btn-b ui-btn-icon-left ui-icon-check ui-btn-inline" 
 				data-transition="flow" data-inline="true"><TMPL_VAR INPUTSOUTPUTS.BUTTON_SAVE></a>
@@ -64,30 +78,36 @@
 	</div>
 
 	<div class="lb_flex-container">
-			<div class="buttonrow" id="outputinflux_hint">&nbsp;</div>
+		<div class="buttonrow" id="hint_influx">&nbsp;</div>
 	</div>
 
 </div>
 </form>
 
-
-
-
-
+<!-- PopUp while saving -->
+<div data-role="popup" id="popupSave" data-position-to="window" data-transition="flip" data-theme="a" and data-overlay-theme="a" data-dismissible="false" class="ui-content">
+	<center><h2><TMPL_VAR INPUTSOUTPUTS.POPUP_SAVING_TITLE></h2></center>
+	<div class="chstatus" id="ch_hint">&nbsp;</div>
+	<div class="chstatus" id="ch_status">&nbsp;</div>
+</div>
 
 <script>
+// globals
+var chstatusorig;
+var chstatus;
+var interval;
+
 // Validation
 validate_enable('#GrafanaPort');
 
 getconfig();
 
-var interval;
 
 // Save Settings: Output Influx
 function saveOutputInflux() {
 	console.log ("Saving Influx settings");
-	$(".Influx").addClass('ui-disabled');
-	$("#outputinflux_hint").attr("style", "color:blue").html("<TMPL_VAR INPUTSOUTPUTS.HINT_INFLUX_SAVING>");
+	$(".influx").addClass('ui-disabled');
+	//$("#hint_influx").attr("style", "color:blue").html("<TMPL_VAR INPUTSOUTPUTS.HINT_SAVING>");
 	$.ajax( { 
 			url:     'ajax.cgi',
 			type:    'POST',
@@ -99,27 +119,25 @@ function saveOutputInflux() {
 		} )
 	.fail(function( data ) {
 		console.log( "Saving Influx Fail:", data );
-		$("#outputinflux_hint").attr("style", "color:red").html("<TMPL_VAR INPUTSOUTPUTS.HINT_INFLUX_SAVING_FAIL>");
+		$("#hint_influx").attr("style", "color:red").html("<TMPL_VAR INPUTSOUTPUTS.HINT_SAVING_FAIL>");
 	})
 	.done(function( data ) {
 		console.log( "Saving Influx Success: ", data );
-		interval = window.setInterval(checkconfighandlerstatus, 1000);
-	//	if ( check.error ) {
-	//		$("#outputinflux_hint").attr("style", "color:red").html("<TMPL_VAR INPUTSOUTPUTS.HINT_INFLUX_SAVING_ERROR>");
-	//	} else {
-	//		$("#outputinflux_hint").attr("style", "color:green").html("<TMPL_VAR INPUTSOUTPUTS.HINT_INFLUX_SAVING_SUCCESS>");
-	//	}
+		section = "influx";
+		$("#ch_hint").attr("style", "color:black").html("<TMPL_VAR INPUTSOUTPUTS.HINT_SAVING>");
+		$( "#popupSave" ).popup( "open" )
+		interval = window.setInterval( function(){ checkconfighandlerstatus(section); }, 3000);
 	})
 	.always(function( data ) {
 		console.log( "Saving Influx Finished" );
 		//getconfig();
-		$(".Influx").removeClass('ui-disabled');
+		//$(".influx").removeClass('ui-disabled');
 		//$("#btnsaveoutputinflux").attr("disabled", false);
 	});
 }
 
-function checkconfighandlerstatus() {
-	console.log ("Checking Config-Handler Status");
+function checkconfighandlerstatus( section ) {
+	console.log ("Checking Config-Handler Status for section " + section);
 	$.ajax( { 
 			url:     'ajax.cgi',
 			type:    'POST',
@@ -130,11 +148,31 @@ function checkconfighandlerstatus() {
 		} )
 	.fail(function( data ) {
 		console.log( "Checking Config-Handler Status Fail:", data );
-		data.error = 1;
+		$("#hint_"+section).attr("style", "color:red").html("<TMPL_VAR INPUTSOUTPUTS.HINT_SAVING_FAIL>");
+		$("#chstatus").html("");
+		$("."+section).removeClass('ui-disabled');
+		$( "#popupSave" ).popup( "close" )
 	})
 	.done(function( data ) {
 		console.log( "Checking Config-Handler Status Success: ", data );
-		data.error = 0;
+		if ( data.global.running ) {
+			if (data[section].message != chstatusorig) {
+				chstatus = data[section].message + "<br><br>";
+				chstatusorig = data[section].message;
+			} else {
+				chstatus = chstatus + "&#9609;";
+			}
+
+			$("#ch_status").attr("style", "color:blue").html(chstatus);
+		} else {
+			$("#hint_"+section).attr("style", "color:green").html("<TMPL_VAR INPUTSOUTPUTS.HINT_SAVING_SUCCESS>");
+			$("#ch_status").attr("style", "color:blue").html("");
+			$("."+section).removeClass('ui-disabled');
+			$( "#popupSave" ).popup( "close" )
+			clearInterval(interval);
+		}
+
+
 	})
 	.always(function( data ) {
 		console.log( "Checking Config-Handler Finished" );
