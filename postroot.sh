@@ -104,7 +104,7 @@ if [ -d $LBHOMEDIR/data/plugins/$PTEMPDIR\_upgrade ]; then
 	mv $LBHOMEDIR/data/plugins/${PTEMPDIR}_upgrade $PDATA/backups/plugininstall/${DATE}_backup_plugininstall
 	PWD=`pwd`
 	cd $PDATA/backups/plugininstall
-	7z a ${DATE}_backup_plugininstall.7z ${DATE}_backup_plugininstall
+	7z a ${DATE}_backup_plugininstall.7z ${DATE}_backup_plugininstall '-xr!*.7z'
 	if [ $? -eq 0 ]; then
 		rm -rf $PDATA/backups/plugininstall/${DATE}_backup_plugininstall
 	fi
