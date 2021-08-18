@@ -196,7 +196,7 @@ if [ $UPGRADE -eq "0" ]; then
 	#echo "Influx User: $INFLUXDBUSER"
 	#echo "Influx Pass: $INFLUXDBPASS"
 
-	$INFLUXBIN -ssl -unsafeSsl -execute "CREATE USER $INFLUXDBUSER WITH PASSWORD '$INFLUXDBPASS' WITH ALL PRIVILEGES"
+	influx -ssl -unsafeSsl -execute "CREATE USER $INFLUXDBUSER WITH PASSWORD '$INFLUXDBPASS' WITH ALL PRIVILEGES"
 	#echo "Coammand is: $INFLUXBIN -ssl -unsafeSsl -execute \"CREATE USER $INFLUXDBUSER WITH PASSWORD '$INFLUXDBPASS' WITH ALL PRIVILEGES\""
 	#echo "Response creating Influx user is: $?"
 	if [ $? -ne 0 ]; then
