@@ -68,7 +68,7 @@ if( $q->{action} eq "getloxplan" ) {
 		}
 		
 		my $Loxplanfile = "$Globals::s4ltmp/s4l_loxplan_ms$msno.Loxone";		
-		my $loxplanjson = "$loxplanjsondir/ms".$msno.".json";
+		my $loxplanjson = "$Globals::loxplanjsondir/ms".$msno.".json";
 		my $remoteTimestamp;
 		eval {
 			$remoteTimestamp = Loxone::GetLoxplan::checkLoxplanUpdate( $msno, $loxplanjson, $log );
