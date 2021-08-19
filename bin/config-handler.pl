@@ -127,7 +127,7 @@ sub influxconfig {
 
 # Init Config-Handler Status
 sub initstatus {
-	my $cfgfile = $Globals::s4ltmp . "/config-handler-status.json";
+	my $cfgfile = $Globals::stats4lox->{s4ltmp} . "/config-handler-status.json";
 	$chjsonobj = LoxBerry::JSON->new();
 	$chstatus = $chjsonobj->open(filename => $cfgfile, lockexclusive => 0, writeonclose => 1);
 	$chstatus->{"global"}->{"running"} = 1;
@@ -166,7 +166,7 @@ sub reads4lconfig {
 # Read S4L Hashes
 # Returns Hash with MD5 checksums
 sub reads4lhashes {
-	my $cfgfile = $Globals::s4ltmp . "/stats4lox_json_md5.json";
+	my $cfgfile = $Globals::stats4lox->{s4ltmp} . "/stats4lox_json_md5.json";
 	my $jsonobj = LoxBerry::JSON->new();
 	my $cfg = $jsonobj->open(filename => $cfgfile);
 	return ($cfg);
@@ -175,9 +175,9 @@ sub reads4lhashes {
 # Read S4L Hashes
 # Saves config in global var and returns 0
 sub writes4lhashes {
-	mkdir("$Globals::s4ltmp",0777);
+	mkdir("$Globals::stats4lox->{s4ltmp}",0777);
 	my $jsonobj = LoxBerry::JSON->new();
-	my $md5checksums = $jsonobj->open(filename => "$Globals::s4ltmp/stats4lox_json_md5.json", writeonclose => 1);
+	my $md5checksums = $jsonobj->open(filename => "$Globals::stats4lox->{s4ltmp}" . "/stats4lox_json_md5.json", writeonclose => 1);
 	&reads4lconfig();
 	foreach my $key (keys %{ $s4lcfg }) {
 		$md5checksums->{$key} = md5_hex( Dumper( $s4lcfg->{$key} ) );
@@ -193,7 +193,7 @@ sub checkchanges {
 
 	&reads4lconfig();
 
-	if (!-e "$Globals::s4ltmp/stats4lox_json_md5.json") {
+	if (!-e "$Globals::stats4lox->{s4ltmp}" . "/stats4lox_json_md5.json") {
 		&writes4lhashes();
 		return (0);
 	}

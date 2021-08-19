@@ -67,8 +67,8 @@ if( $q->{action} eq "getloxplan" ) {
 			$log->WARN("MS$msno: Could not get serial, therefore matching of Miniserver may fail");
 		}
 		
-		my $Loxplanfile = "$Globals::s4ltmp/s4l_loxplan_ms$msno.Loxone";		
-		my $loxplanjson = "$Globals::loxplanjsondir/ms".$msno.".json";
+		my $Loxplanfile = "$Globals::stats4lox->{s4ltmp}/s4l_loxplan_ms$msno.Loxone";		
+		my $loxplanjson = "$Globals::stats4lox->{loxplanjsondir}/ms".$msno.".json";
 		my $remoteTimestamp;
 		eval {
 			$remoteTimestamp = Loxone::GetLoxplan::checkLoxplanUpdate( $msno, $loxplanjson, $log );
@@ -227,15 +227,15 @@ if( $q->{action} eq "lxlquery" ) {
 
 if( $q->{action} eq "import_scheduler_report" ) {
 
-	if( ! -e $Globals::s4ltmp."/s4l_import_scheduler.json" ) {
+	if( ! -e $Globals::stats4lox->{s4ltmp}."/s4l_import_scheduler.json" ) {
 		system("$lbpbindir/import_scheduler.pl > $lbplogdir/import_scheduler.log 2>&1 &");
 	}
 	my $checktime = time();
-	while( ! -e $Globals::s4ltmp."/s4l_import_scheduler.json" and time() < ($checktime+5) ) {
+	while( ! -e $Globals::stats4lox->{s4ltmp}."/s4l_import_scheduler.json" and time() < ($checktime+5) ) {
 		# Wait up to 5 seconds
 	}
-	if( -e $Globals::s4ltmp."/s4l_import_scheduler.json" ) {
-		$response = LoxBerry::System::read_file( $Globals::s4ltmp."/s4l_import_scheduler.json" );
+	if( -e $Globals::stats4lox->{s4ltmp}."/s4l_import_scheduler.json" ) {
+		$response = LoxBerry::System::read_file( $Globals::stats4lox->{s4ltmp}."/s4l_import_scheduler.json" );
 	}
 }
 
@@ -243,7 +243,7 @@ if( $q->{action} eq "scheduleimport" and $q->{msno} and $q->{uuid} ) {
 	my $msno = $q->{msno};
 	my $uuid = $q->{uuid};
 	createImportFolder();
-	my $importfile = $Globals::importstatusdir."/import_${msno}_${uuid}.json";
+	my $importfile = $Globals::stats4lox->{importstatusdir}."/import_${msno}_${uuid}.json";
 	
 	if( $q->{importtype} eq "full" ) {
 		
@@ -273,7 +273,7 @@ if( $q->{action} eq "deleteimport" and $q->{msno} and $q->{uuid} ) {
 	my $msno = $q->{msno};
 	my $uuid = $q->{uuid};
 	createImportFolder();
-	my $importfile = $Globals::importstatusdir."/import_${msno}_${uuid}.json";
+	my $importfile = $Globals::stats4lox->{importstatusdir}."/import_${msno}_${uuid}.json";
 	
 	if( ! -e $importfile ) {
 		unlink "$importfile.log";
@@ -299,8 +299,8 @@ if( $q->{action} eq "deleteimport" and $q->{msno} and $q->{uuid} ) {
 }
 
 if( $q->{action} eq "getmqttlivedata" ) {
-	if ( -e $Globals::s4ltmp."/mqttlive_uidata.json" ) {
-		$response = LoxBerry::System::read_file($Globals::s4ltmp."/mqttlive_uidata.json");
+	if ( -e $Globals::stats4lox->{s4ltmp}."/mqttlive_uidata.json" ) {
+		$response = LoxBerry::System::read_file($Globals::stats4lox->{s4ltmp}."/mqttlive_uidata.json");
 		if( !$response ) {
 			$response = "{ }";
 		}
@@ -461,7 +461,7 @@ if( $q->{action} eq "savepluginconfig" ) {
 
 if( $q->{action} eq "config-handler-status" ) {
 	my $section = $q->{section};
-	my $statfile = $Globals::s4ltmp . "/config-handler-status.json";
+	my $statfile = $Globals::stats4lox->{s4ltmp} . "/config-handler-status.json";
 	if ( -e $statfile ) {
 		$response = LoxBerry::System::read_file($statfile);
 	}
@@ -496,8 +496,8 @@ else {
 
 sub createImportFolder
 {
-	if( ! -d $Globals::importstatusdir ) {
-		`mkdir --parents "${Globals::importstatusdir}"`;
+	if( ! -d $Globals::stats4lox->{importstatusdir} ) {
+		`mkdir --parents "$Globals::stats4lox->{importstatusdir}"`;
 	}
 }
 
