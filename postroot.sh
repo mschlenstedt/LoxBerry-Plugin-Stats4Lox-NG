@@ -258,6 +258,14 @@ awk -v s="PASS_INFLUXDB=\"$INFLUXDBPASS\"" '/^PASS_INFLUXDB=/{$0=s;f=1} {a[++n]=
 chown loxberry:loxberry $PCONFIG/telegraf/telegraf.env
 chmod 640 $PCONFIG/telegraf/telegraf.env
 
+# Use correct Webserver Port in Telegraf
+#
+# REPLACE THIS WITH CONFIG-HANDLER LATER ON
+#
+echo "<INFO> Activating LB Webserver Port in Telegraf configuration (telegraf.d/stats4lox_loxone.conf) and restart Telegraf afterwards."
+LBWEBSERVERPORT=`perl -e 'use LoxBerry::System; print lbwebserverport();'`
+sed -i "s/^  urls = .*$/  urls = [ \"http:\/\/localhost:$LBWEBSERVERPORT\/admin\/plugins\/$PDIR\/grabber\/grabber_loxone.cgi\" ]/g" $PCONFIG/telegraf/telegraf.d/stats4lox_loxone.conf
+
 # Telegraf mit neuer Config starten
 echo "<INFO> Starting Telegraf..."
 systemctl unmask telegraf.service
