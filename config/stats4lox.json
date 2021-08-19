@@ -3,7 +3,7 @@
       "s4ltmp" : "/dev/shm/s4ltmp"
    },
    "influx" : {
-      "db_storage" : "REPLACELBPDATADIR/influxdb",
+      "db_storage" : "",
       "influxurl" : "https://localhost:8086",
       "influxbasicauth" : "true",
       "influxskiptlsverify" : "true",
