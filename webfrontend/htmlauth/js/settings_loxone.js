@@ -188,13 +188,19 @@ $(function() {
 	});
 	$("#filter_search").on( "change", function(event, ui){
 		if( $(event.target).val() == "" ) {
+			$('#filter_search').css({'backgroundColor':'white'});
+			$('#filter_search').attr("data-clear-btn", false);
 			window.clearTimeout(filterSearchDelay); 
 			filterSearchString = $(event.target).val();
 			filters["filter_search"] = filterSearchString;
 			saveFilters();
 			updateTable();
 			updateReportTables(data);
+		} else {
+			$('#filter_search').css({'backgroundColor':'#FFFF99'});
+			$('#filter_search').attr("data-clear-btn", true);
 		}
+
 	});
 
 	// Bind Loxone Details button
@@ -806,6 +812,14 @@ function restoreFilters() {
 			else if( key == "filter_search" ) {
 				$(`#${key}`).val( value );
 				filterSearchString = value;
+				if (filterSearchString != "") {
+					$('#filter_search').css({'backgroundColor':'#FFFF99'});
+					$('#filter_search').data("clear-btn", true);
+				} else {
+					$('#filter_search').css({'backgroundColor':'white'});
+					$('#filter_search').data("clear-btn", false);
+				}
+
 			}
 		}
 	} catch(e) {
