@@ -87,4 +87,13 @@ echo "<INFO> Remove old Service DropIn File..."
 rm -f /etc/systemd/system/influxdb.service.d/00-stats4lox.conf
 systemctl daemon-reload
 
+echo "<INFO> Remove old Service DropIn File..."
+rm -f /etc/systemd/system/influxdb.service.d/00-stats4lox.conf
+systemctl daemon-reload
+
+echo "<INFO> Chown data files back to loxberry:loxberry for upgrading/backing up..."
+if [ -d $PDATA ]; then
+	chown -R loxberry:loxberry $PDATA
+fi
+
 exit 0
