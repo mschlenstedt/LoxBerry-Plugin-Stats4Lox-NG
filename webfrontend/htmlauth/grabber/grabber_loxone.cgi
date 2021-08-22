@@ -49,7 +49,7 @@ for my $results( @{$cfg->{loxone}} ){
 		next;
 	}
 	print STDERR "Grabbing " . $results->{name} . "     $results->{uuid}\n" if $DEBUG;
-	my $tag = $results->{name};
+	my $tag = $results->{measurementname};
 	my $now = time();
 	# Checking if interval is reached
 	if ($mem->{$tag}) {
