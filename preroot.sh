@@ -83,9 +83,8 @@ if [ -d /var/lib/grafana ]; then
 	chown -R grafana:grafana /var/lib/grafana
 fi
 
-echo "<INFO> Purge existing Influx, Telegraf, Grafana Installation for a clean installation..."
-APT_LISTCHANGES_FRONTEND=none DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::=--force-confdef --no-install-recommends -q -y --allow-unauthenticated --fix-broken --reinstall --allow-downgrades --allow-remove-essential --allow-change-held-packages purge influxdb influxdb-client telegraf grafana
-rm -rf /etc/systemd/system/influxd*
-rm -f /lib/systemd/system/influxdb.service
+echo "<INFO> Remove old Service DropIn File..."
+rm -f /etc/systemd/system/influxdb.service.d/00-stats4lox.conf
+systemctl daemon-reload
 
 exit 0

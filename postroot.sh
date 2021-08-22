@@ -145,7 +145,8 @@ else
 fi
 
 # Correct permissions - influxdb must have write permissions to database folders
-#echo "<INFO> Set permissions for user influxdb for database folders..."
+echo "<INFO> Set permissions for user influxdb for database folders..."
+chown -R influxdb:influxdb $PDATA/influxdb
 #chmod -R 775 $PDATA/influxdb
 
 # Enlarge UDP/IP receive buffer limit for import
@@ -156,9 +157,9 @@ ln -s $PCONFIG/sysctl.conf /etc/sysctl.d/96-stats4lox.conf
 
 # Systemd DropIn Config
 echo "<INFO> Install Drop-In for Influx and Telegraf and Grafana systemd services..."
-rm -f /etc/systemd/system/influxdb.service.d/00-stats4lox.conf
-rm -f /etc/systemd/system/telegraf.service.d/00-stats4lox.conf
-rm -f /etc/systemd/system/grafana-server.service.d/00-stats4lox.conf
+rm -f /etc/systemd/system/influxdb.service.d/00-stats4lox.conf > /dev/null 2>&1
+rm -f /etc/systemd/system/telegraf.service.d/00-stats4lox.conf > /dev/null 2>&1
+rm -f /etc/systemd/system/grafana-server.service.d/00-stats4lox.conf > /dev/null 2>&1
 mkdir -p /etc/systemd/system/influxdb.service.d
 mkdir -p /etc/systemd/system/telegraf.service.d
 mkdir -p /etc/systemd/system/grafana-server.service.d
@@ -255,7 +256,7 @@ chown -R loxberry:loxberry $PCONFIG/telegraf
 echo "<INFO> Saving credentials in Telegraf configuration (telegraf.env) and restart Telegraf afterwards."
 awk -v s="USER_INFLUXDB=\"$INFLUXDBUSER\"" '/^USER_INFLUXDB=/{$0=s;f=1} {a[++n]=$0} END{if(!f)a[++n]=s;for(i=1;i<=n;i++)print a[i]>ARGV[1]}' $PCONFIG/telegraf/telegraf.env
 awk -v s="PASS_INFLUXDB=\"$INFLUXDBPASS\"" '/^PASS_INFLUXDB=/{$0=s;f=1} {a[++n]=$0} END{if(!f)a[++n]=s;for(i=1;i<=n;i++)print a[i]>ARGV[1]}' $PCONFIG/telegraf/telegraf.env
-chown loxberry:loxberry $PCONFIG/telegraf/telegraf.env
+chown telegraf:telegraf $PCONFIG/telegraf/telegraf.env
 chmod 640 $PCONFIG/telegraf/telegraf.env
 
 # Use correct Webserver Port in Telegraf
