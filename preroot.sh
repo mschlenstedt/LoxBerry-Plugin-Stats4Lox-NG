@@ -20,18 +20,35 @@ PCONFIG=$LBPCONFIG/$PDIR
 PSBIN=$LBPSBIN/$PDIR
 PBIN=$LBPBIN/$PDIR
 
+# Stop all services
+echo "<INFO> Stopping InfluxDB and Telegraf."
+systemctl stop influxdb
+systemctl stop telegraf
+systemctl stop grafana-server
+
 # Installing InfluxDB and Grafana in newer versions than Debian included
 echo "<INFO> Adding/Updating Influx repository..."
 wget -qO- https://repos.influxdata.com/influxdb.key | sudo apt-key add - 2>/dev/null
 source /etc/os-release
 echo "deb https://repos.influxdata.com/debian $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/influxdb.list
 
+echo "<INFO> Using Influx Version 1.8.9..."
+cat <<EOT >> greetings.txt
+Package: influxdb
+Pin: version 1.8.9*
+Pin-Priority: 1000
+EOT
+
 echo "<INFO> Adding/Updating Grafana repository..."
 wget -q -O - https://packages.grafana.com/gpg.key | sudo apt-key add - 2>/dev/null
 echo "deb https://packages.grafana.com/oss/deb stable main" | sudo tee /etc/apt/sources.list.d/grafana.list
 
 echo "<INFO> Updating apt database..."
-apt-get -q -y --allow-unauthenticated --allow-downgrades --allow-remove-essential --allow-change-held-packages update
+export APT_LISTCHANGES_FRONTEND=none
+export DEBIAN_FRONTEND=noninteractive
+dpkg --configure -a
+APT_LISTCHANGES_FRONTEND=none DEBIAN_FRONTEND=noninteractive apt-get -y -q --allow-unauthenticated --fix-broken --reinstall --allow-downgrades --allow-remove-essential --allow-change-held-packages --purge autoremove
+APT_LISTCHANGES_FRONTEND=none DEBIAN_FRONTEND=noninteractive apt-get -q -y --allow-unauthenticated --allow-downgrades --allow-remove-essential --allow-change-held-packages update
 
 echo "<INFO> Deactivating existing plugin configuration for influx, grafana and telegraf..."
 if [ -L /etc/influxdb ]; then
@@ -42,6 +59,10 @@ if [ -L /etc/influxdb ]; then
 		mkdir -p /etc/influxdb
 	fi
 fi
+if [ -d /var/lib/influxdb ]; then
+	chown -R influxdb:influxdb /var/lib/influxdb
+fi
+
 if [ -L /etc/telegraf ]; then
 	rm -rf /etc/telegraf
 	if [ -d /etc/telegraf.orig ]; then
@@ -58,5 +79,13 @@ if [ -L /etc/grafana ]; then
 		mkdir -p /etc/grafana
 	fi
 fi
+if [ -d /var/lib/grafana ]; then
+	chown -R grafana:grafana /var/lib/grafana
+fi
+
+echo "<INFO> Purge existing Influx, Telegraf, Grafana Installation for a clean installation..."
+APT_LISTCHANGES_FRONTEND=none DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::=--force-confdef --no-install-recommends -q -y --allow-unauthenticated --fix-broken --reinstall --allow-downgrades --allow-remove-essential --allow-change-held-packages purge influxdb influxdb-client telegraf grafana
+rm -rf /etc/systemd/system/influxd*
+rm -f /lib/systemd/system/influxdb.service
 
 exit 0
