@@ -48,6 +48,16 @@ systemctl stop influxdb
 systemctl stop telegraf
 systemctl stop grafana-server
 
+# Add all users/groups to each other
+echo "<INFO> Adding user loxberry to groups influxdb, telegraf, grafana..."
+usermod -a -G influxdb,telegraf,grafana loxberry
+echo "<INFO> Adding user influxdb to group loxberry..."
+usermod -a -G loxberry influxdb
+echo "<INFO> Adding user telegraf to group loxberry..."
+usermod -a -G loxberry telegraf
+echo "<INFO> Adding user grafana to group loxberry..."
+usermod -a -G loxberry grafana
+
 #pause 'Press [Enter] key to continue...'
 
 # Check if we are in upgrade mode
@@ -140,15 +150,14 @@ if [ ! -e $PCONFIG/influxdb/influxdb-selfsigned.key ]; then
 	$OPENSSLBIN req -x509 -nodes -newkey rsa:2048 -keyout $PCONFIG/influxdb/influxdb-selfsigned.key -out $PCONFIG/influxdb/influxdb-selfsigned.crt -days 3650 -subj "/C=DE/ST=Austria/L=Kollerschlag/O=LoxBerry"
 	#chown loxberry:loxberry $PCONFIG/influxdb/influxdb-selfsigned.*
 	chmod 660 $PCONFIG/influxdb/influxdb-selfsigned.*
-	chown influxdb:loxberry $PCONFIG/influxdb/influxdb-selfsigned.*
 else
 	echo "<INFO> Found SSL certificates for InfluxDB. I will not create new ones."
 fi
 
 # Correct permissions - influxdb must have write permissions to database folders
-echo "<INFO> Set permissions for user influxdb for database folders..."
-chown -R influxdb:influxdb $PDATA/influxdb
-#chmod -R 775 $PDATA/influxdb
+echo "<INFO> Set permissions for user influxdb for all config/data folders..."
+chown -R influxdb:loxberry $PDATA/influxdb
+chown -R influxdb:loxberry $PCONFIG/influxdb
 
 # Enlarge UDP/IP receive buffer limit for import
 echo "<INFO> Enlarge Unix receive buffer limit..."
@@ -248,7 +257,11 @@ rm -rf /etc/telegraf > /dev/null 2>&1
 rm -f /etc/default/telegraf > /dev/null 2>&1
 ln -s $PCONFIG/telegraf /etc/telegraf
 ln -s $PCONFIG/telegraf/telegraf.env /etc/default/telegraf
-chown -R loxberry:loxberry $PCONFIG/telegraf
+
+# Correct permissions - influxdb must have write permissions to database folders
+echo "<INFO> Set permissions for user telegraf for all config/data folders..."
+chown -R telegraf:loxberry $PDATA/telegraf
+chown -R telegraf:loxberry $PCONFIG/telegraf
 
 # Saving InfluxDB credentials in Telegraf config and set restrictive permissions to that file
 #
@@ -257,8 +270,8 @@ chown -R loxberry:loxberry $PCONFIG/telegraf
 echo "<INFO> Saving credentials in Telegraf configuration (telegraf.env) and restart Telegraf afterwards."
 awk -v s="USER_INFLUXDB=\"$INFLUXDBUSER\"" '/^USER_INFLUXDB=/{$0=s;f=1} {a[++n]=$0} END{if(!f)a[++n]=s;for(i=1;i<=n;i++)print a[i]>ARGV[1]}' $PCONFIG/telegraf/telegraf.env
 awk -v s="PASS_INFLUXDB=\"$INFLUXDBPASS\"" '/^PASS_INFLUXDB=/{$0=s;f=1} {a[++n]=$0} END{if(!f)a[++n]=s;for(i=1;i<=n;i++)print a[i]>ARGV[1]}' $PCONFIG/telegraf/telegraf.env
-chown telegraf:telegraf $PCONFIG/telegraf/telegraf.env
-chmod 640 $PCONFIG/telegraf/telegraf.env
+chown telegraf:loxberry $PCONFIG/telegraf/telegraf.env
+chmod 660 $PCONFIG/telegraf/telegraf.env
 
 # Use correct Webserver Port in Telegraf
 #
@@ -292,16 +305,15 @@ if [ -d /etc/grafana ] && [ ! -L /etc/grafana ]; then
 fi
 rm -rf /etc/grafana > /dev/null 2>&1
 ln -s $PCONFIG/grafana /etc/grafana
-chown -R loxberry:loxberry $PCONFIG/grafana
 
 # Give grafana user permissions to data/provisioning
 $PBIN/provisioning/set_datasource_influx.pl
 $PBIN/provisioning/set_dashboard_provider.pl
 
 # Correct permissions - influxdb must have write permissions to database folders
-echo "<INFO> Set permissions for user grafana for database folders..."
-chown -R grafana:grafana $PDATA/grafana
-#chmod -R 775 $PDATA/influxdb
+echo "<INFO> Set permissions for user grafana for all config/data folders..."
+chown -R grafana:loxberry $PDATA/grafana
+chown -R grafana:loxberry $PCONFIG/grafana
 
 # Activate Grafana
 echo "<INFO> Starting Grafana..."
