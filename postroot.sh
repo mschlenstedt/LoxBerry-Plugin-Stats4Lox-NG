@@ -325,6 +325,10 @@ sleep 3
 echo "<INFO> Starting MQTTLive Service..."
 su loxberry -c "$PBIN/mqtt/mqttlive.php >> $PLOG/mqttlive.log 2>&1 &"
 
+# Adjust owner of config-handler
+echo "<INFO> Chown config-handler to root..."
+chown root:root $PBIN/config-handler.pl
+
 # For debugging
 if [ $UPGRADE -eq "1" ]; then
 	echo "<INFO> We are in Upgrade mode. Do some checks for debugging..."
