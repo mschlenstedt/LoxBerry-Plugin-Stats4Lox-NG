@@ -102,7 +102,7 @@ sub influxconfig {
 	if ($dbtarget eq $dbsource || ! $dbsource) {
 		LOGINF "DB storage hasn't changed. Leave it untouched.";
 	} else {
-		LOGINF "DB storage has changed. Moving DB to new location $dbsource/influxdb.";
+		LOGINF "DB storage has changed. Moving DB to new location $dbtarget/influxdb.";
 		&updatestatus("influx", "message", "Moving Database to new location.");
 
 		my $result = &influx_movedb($dbsource, $dbtarget);
@@ -232,6 +232,8 @@ sub influx_movedb {
 	my $dbsource = shift;
 	my $dbtarget = shift;
 
+	my $noperms = 0;
+
 	if ( !-e "$dbsource" ) {
 		LOGERR "Source folder does not exist.";
 		# Restore old db path
@@ -257,6 +259,10 @@ sub influx_movedb {
 		return (1);
 	} 
 	system ("chown influxdb:loxberry $dbtarget/influxdb");
+	if ($? > 0) {
+		LOGINF "Cannot change owner/group of $dbtarget/influxdb. Assuming this is a filesystem wihtout permissions at all.";
+		$noperms = 1;
+	}
 
 	my $sourcesize = &dirsize($dbsource);
 	my $targetsize = &freespace($dbtarget);
@@ -271,7 +277,11 @@ sub influx_movedb {
 
 	# Move database to new location
 	system ("systemctl stop influxdb");
-	system ("rsync -av $dbsource/* $dbtarget/influxdb/ >> $logfile 2>&1");
+	if ($noperms) {
+		system ("rsync -av --no-owner --no-group --no-perms $dbsource/* $dbtarget/influxdb/ >> $logfile 2>&1");
+	} else {
+		system ("rsync -av $dbsource/* $dbtarget/influxdb/ >> $logfile 2>&1");
+	}
 	if ($? > 0) {
 		LOGERR "Copying database failed.";
 		system ("systemctl start influxdb");
