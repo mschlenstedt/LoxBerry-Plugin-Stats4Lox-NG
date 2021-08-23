@@ -51,7 +51,7 @@ dpkg --configure -a
 APT_LISTCHANGES_FRONTEND=none DEBIAN_FRONTEND=noninteractive apt-get -y -q --allow-unauthenticated --fix-broken --reinstall --allow-downgrades --allow-remove-essential --allow-change-held-packages --purge autoremove
 APT_LISTCHANGES_FRONTEND=none DEBIAN_FRONTEND=noninteractive apt-get -q -y --allow-unauthenticated --allow-downgrades --allow-remove-essential --allow-change-held-packages update
 
-echo "<INFO> Deactivating existing plugin configuration for influx, grafana and telegraf..."
+echo "<INFO> Deactivating existing plugin configuration for Influx, Grafana and Telegraf..."
 if [ -L /etc/influxdb ]; then
 	rm -rf /etc/influxdb
 	if [ -d /etc/influxdb.orig ]; then
