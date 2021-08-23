@@ -132,13 +132,13 @@ if [ -d /etc/influxdb ] && [ ! -L /etc/influxdb ]; then
 fi
 rm -rf /etc/influxdb > /dev/null 2>&1
 ln -s $PCONFIG/influxdb /etc/influxdb
-chown -R loxberry:loxberry $PCONFIG/influxdb
+#chown -R loxberry:loxberry $PCONFIG/influxdb
 
 if [ ! -e $PCONFIG/influxdb/influxdb-selfsigned.key ]; then
 	echo "<INFO> No SSL certificates for InfluxDB found."
 	echo "<INFO> Creating (new) self-signed SSL certificates."
 	$OPENSSLBIN req -x509 -nodes -newkey rsa:2048 -keyout $PCONFIG/influxdb/influxdb-selfsigned.key -out $PCONFIG/influxdb/influxdb-selfsigned.crt -days 3650 -subj "/C=DE/ST=Austria/L=Kollerschlag/O=LoxBerry"
-	chown loxberry:loxberry $PCONFIG/influxdb/influxdb-selfsigned.*
+	#chown loxberry:loxberry $PCONFIG/influxdb/influxdb-selfsigned.*
 	chmod 640 $PCONFIG/influxdb/influxdb-selfsigned.*
 else
 	echo "<INFO> Found SSL certificates for InfluxDB. I will not create new ones."
@@ -296,6 +296,11 @@ chown -R loxberry:loxberry $PCONFIG/grafana
 # Give grafana user permissions to data/provisioning
 $PBIN/provisioning/set_datasource_influx.pl
 $PBIN/provisioning/set_dashboard_provider.pl
+
+# Correct permissions - influxdb must have write permissions to database folders
+echo "<INFO> Set permissions for user grafana for database folders..."
+chown -R grafana:grafana $PDATA/grafana
+#chmod -R 775 $PDATA/influxdb
 
 # Activate Grafana
 echo "<INFO> Starting Grafana..."

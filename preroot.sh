@@ -83,12 +83,10 @@ if [ -d /var/lib/grafana ]; then
 	chown -R grafana:grafana /var/lib/grafana
 fi
 
-echo "<INFO> Remove old Service DropIn File..."
+echo "<INFO> Remove old Service DropIn Files..."
 rm -f /etc/systemd/system/influxdb.service.d/00-stats4lox.conf
-systemctl daemon-reload
-
-echo "<INFO> Remove old Service DropIn File..."
-rm -f /etc/systemd/system/influxdb.service.d/00-stats4lox.conf
+rm -f /etc/systemd/system/telegraf.service.d/00-stats4lox.conf
+rm -f /etc/systemd/system/grafana-server.service.d/00-stats4lox.conf
 systemctl daemon-reload
 
 echo "<INFO> Chown data files back to loxberry:loxberry for upgrading/backing up..."
