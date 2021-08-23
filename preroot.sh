@@ -21,7 +21,7 @@ PSBIN=$LBPSBIN/$PDIR
 PBIN=$LBPBIN/$PDIR
 
 # Stop all services
-echo "<INFO> Stopping InfluxDB and Telegraf."
+echo "<INFO> Stopping InfluxDBi, Grafana and Telegraf."
 systemctl daemon-reload
 systemctl stop influxdb
 systemctl stop telegraf
