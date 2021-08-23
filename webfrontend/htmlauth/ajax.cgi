@@ -451,7 +451,7 @@ if( $q->{action} eq "savepluginconfig" ) {
 		if ( $q->{'section'} eq "influx" ) {
 			$cfg->{'influx'}->{'db_storage'} = $q->{'influx_db_storage'};
 			$jsonobj->write();
-			system ("$lbpbindir/config-handler.pl influx >/dev/null 2>&1");
+			system ("sudo $lbpbindir/config-handler.pl influx >/dev/null 2>&1");
 		}
 
 	} # End Child process

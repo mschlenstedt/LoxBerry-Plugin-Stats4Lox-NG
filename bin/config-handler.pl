@@ -10,10 +10,10 @@ use Globals;
 use Digest::MD5 qw(md5 md5_hex);
 use Data::Dumper;
 
-#if ($<) {
-#  print "This script has to be run as root.\n";
-#  exit (1);
-#}
+if ($<) {
+  print "This script has to be run as root.\n";
+  exit (1);
+}
 
 # Globals
 my $command = $ARGV[0];
@@ -256,6 +256,7 @@ sub influx_movedb {
 		$s4lcfg->{influx}->{db_storage} = "$dbsource";
 		return (1);
 	} 
+	system ("chown influxdb:loxberry $dbtarget/influxdb");
 
 	my $sourcesize = &dirsize($dbsource);
 	my $targetsize = &freespace($dbtarget);
@@ -269,11 +270,11 @@ sub influx_movedb {
 	}
 
 	# Move database to new location
-	system ("sudo systemctl stop influxdb");
+	system ("systemctl stop influxdb");
 	system ("rsync -av $dbsource/* $dbtarget/influxdb/ >> $logfile 2>&1");
 	if ($? > 0) {
 		LOGERR "Copying database failed.";
-		system ("sudo systemctl start influxdb");
+		system ("systemctl start influxdb");
 		# Restore old db path
 		$dbsource =~ s/(.*)\/influxdb$/$1/g; # remove influx subfolder from path
 		$s4lcfg->{influx}->{db_storage} = "$dbsource";
@@ -284,7 +285,7 @@ sub influx_movedb {
 	system("sed -i -e \"s#\\(^  dir = \\\"\\)\\(.*\\)\\(meta\\\"\$\\\)#  dir = \\\"" . $dbtarget . "/influxdb/meta" . "\\\"#g ; \
 		s#\\(^  dir = \\\"\\)\\(.*\\)\\(data\\\"\$\\\)#  dir = \\\"" . $dbtarget . "/influxdb/data" . "\\\"#g ; \
 		s#\\(^  wal-dir = \\\"\\)\\(.*\\)\\(wal\\\"\$\\\)#  wal-dir = \\\"" . $dbtarget . "/influxdb/wal" . "\\\"#g\" /etc/influxdb/influxdb.conf");
-	system ("sudo systemctl start influxdb");
+	system ("systemctl start influxdb");
 
 	return (0);
 
