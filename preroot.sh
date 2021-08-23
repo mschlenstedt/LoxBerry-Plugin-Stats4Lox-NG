@@ -92,6 +92,8 @@ systemctl daemon-reload
 echo "<INFO> Chown data files back to loxberry:loxberry for upgrading/backing up..."
 if [ -d $PDATA ]; then
 	chown -R loxberry:loxberry $PDATA
+	chown -R loxberry:loxberry $PCONFIG
+	chown -R loxberry:loxberry $PLOG
 fi
 
 exit 0
