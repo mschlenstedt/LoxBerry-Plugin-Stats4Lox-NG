@@ -139,7 +139,8 @@ if [ ! -e $PCONFIG/influxdb/influxdb-selfsigned.key ]; then
 	echo "<INFO> Creating (new) self-signed SSL certificates."
 	$OPENSSLBIN req -x509 -nodes -newkey rsa:2048 -keyout $PCONFIG/influxdb/influxdb-selfsigned.key -out $PCONFIG/influxdb/influxdb-selfsigned.crt -days 3650 -subj "/C=DE/ST=Austria/L=Kollerschlag/O=LoxBerry"
 	#chown loxberry:loxberry $PCONFIG/influxdb/influxdb-selfsigned.*
-	chmod 640 $PCONFIG/influxdb/influxdb-selfsigned.*
+	chmod 660 $PCONFIG/influxdb/influxdb-selfsigned.*
+	chown influxdb:loxberry $PCONFIG/influxdb/influxdb-selfsigned.*
 else
 	echo "<INFO> Found SSL certificates for InfluxDB. I will not create new ones."
 fi
