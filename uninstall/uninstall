@@ -22,9 +22,10 @@ PBIN=$LBPBIN/$PDIR
 
 echo "This is the stats4lox uninstall script."
 
-echo "<INFO> Stopping influxdb and telegraf services."
+echo "<INFO> Stopping influxdb, grafana and telegraf services."
 systemctl stop influxdb
 systemctl stop telegraf
+systemctl stop grafana-server
 
 echo "<INFO> Deactivating my own InfluxDB configuration."
 if [ -L /etc/influxdb ]; then
@@ -57,11 +58,13 @@ rm -f /etc/sysctl.d/96-stats4lox.conf
 echo "<INFO> Removing sytemd config."
 rm -f /etc/systemd/system/influxdb.service.d/00-stats4lox.conf
 rm -f /etc/systemd/system/telegraf.service.d/00-stats4lox.conf
+rm -f /etc/systemd/system/grafana-server.service.d/00-stats4lox.conf
 systemctl daemon-reload
 
 echo "<INFO> Starting influxdb and telegraf services."
 systemctl start influxdb
 systemctl start telegraf
+systemctl start grafana-server
 
 echo "<INFO> Stopping internal services for upgrade."
 pkill -f mqttlive.php > /dev/null 2>&1
@@ -72,5 +75,10 @@ pkill -f import_loxone.pl> /dev/null 2>&1
 echo "<INFO> Cleaning old temporary files"
 S4LTMP=`jq -r '.stats4lox.s4ltmp' $PCONFIG/stats4lox.json`
 rm -fr $S4LTMP
+
+echo "<INFO> Removing all plugin files as user root"
+rm -rf $PDATA
+rm -rf $PCONFIG
+rm -rf $PLOG
 
 exit 0
