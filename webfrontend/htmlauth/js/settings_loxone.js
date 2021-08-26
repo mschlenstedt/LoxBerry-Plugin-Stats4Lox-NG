@@ -151,12 +151,15 @@ $(function() {
 		})
 		.done(function(data){
 			// Find internal key of statistic element
+			
 			var statkey = statsconfigLoxone.findIndex(obj => {
 			return obj.uuid === control.UID && obj.msno == control.msno })
 			
-			// Enable the Import button if a stats.json entry exists now
-			$("#LoxoneDetails_s4lstatimportbutton")
-				.removeClass("ui-disabled");
+			// Enable the Import button if a stats.json entry exists now, and Loxone Stats are active
+			if( control.StatsType != 0 ) {
+				$("#LoxoneDetails_s4lstatimportbutton")
+					.removeClass("ui-disabled");
+			}
 			
 			if( statkey != -1 ) {
 				// If element found in internal data
@@ -646,9 +649,13 @@ function popupLoxoneDetails( uid, msno ) {
 		else {
 			$("#LoxoneDetails_s4lstatimportbutton")
 			.removeClass("ui-disabled");
-		}
+		}		
 	}
 	else {
+		$("#LoxoneDetails_s4lstatimportbutton")
+			.addClass("ui-disabled");
+	}
+	if( control.StatsType == 0 ) {
 		$("#LoxoneDetails_s4lstatimportbutton")
 			.addClass("ui-disabled");
 	}
