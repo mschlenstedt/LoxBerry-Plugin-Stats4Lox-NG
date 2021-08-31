@@ -39,6 +39,17 @@ LOGSTART "Config-Handler";
 # Which config should be updated:
 ##########################################################
 
+# Locking
+# Locks lbupdate and immediately returns, if it cannot lock
+LOGINF "Creating Lockfile and wait a maximum of 10 Minutes for the lock.";
+my $lockstatus = LoxBerry::System::lock(lockfile => 'stats4lox_config-handler', wait => 600);
+if ($lockstatus) {
+    LOGCRIT "Could not lock for 10 Minutes now, prevented by $lockstatus";
+    exit (1);
+} else {
+    LOGOK "Lock was successfully created.";
+}
+
 # Init status file
 &initstatus();
 
@@ -131,6 +142,7 @@ sub initstatus {
 	$chjsonobj = LoxBerry::JSON->new();
 	$chstatus = $chjsonobj->open(filename => $cfgfile, lockexclusive => 0, writeonclose => 1);
 	$chstatus->{"global"}->{"running"} = 1;
+	$chstatus->{"global"}->{"logfile"} = $logfile;
 	$chjsonobj->write();
 	return (0);
 }
@@ -150,7 +162,7 @@ sub updatestatus {
 sub reads4lconfig {
 	my $cfgfile = $lbpconfigdir . "/stats4lox.json";
 	$s4ljsonobj = LoxBerry::JSON->new();
-	$s4lcfg = $s4ljsonobj->open(filename => $cfgfile, lockexclusive => 1, writeonclose => 1);
+	$s4lcfg = $s4ljsonobj->open(filename => $cfgfile, lockexclusive => 0, writeonclose => 1);
 	return (0);
 }
 
@@ -307,10 +319,14 @@ sub influx_movedb {
 
 
 END {
+	# Finally write current hashes
+	&writes4lhashes();
 	# Close status file
 	$chstatus->{"global"}->{"running"} = 0;
 	$chstatus->{"global"}->{"current_section"} = "none";
 	$chjsonobj->write();
+	# Unlock
+	my $unlockstatus = LoxBerry::System::unlock(lockfile => 'stats4lox_config-handler');
 	# Close log
 	LOGEND "End.";
 }

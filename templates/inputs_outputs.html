@@ -165,7 +165,11 @@ function checkconfighandlerstatus( section ) {
 
 			$("#ch_status").attr("style", "color:blue").html(chstatus);
 		} else {
-			$("#hint_"+section).attr("style", "color:green").html("<TMPL_VAR INPUTSOUTPUTS.HINT_SAVING_SUCCESS>");
+			if (data[section].errors > 0) {
+				$("#hint_"+section).attr("style", "color:red").html("<TMPL_VAR INPUTSOUTPUTS.HINT_SAVING_ERROR> <a href='/admin/system/tools/logfile.cgi?logfile=" + data.global.logfile + "&header=html&format=template&only=once' target='_blank'><TMPL_VAR INPUTSOUTPUTS.HINT_OPEN_LOGFILE></a>");
+			} else {
+				$("#hint_"+section).attr("style", "color:green").html("<TMPL_VAR INPUTSOUTPUTS.HINT_SAVING_SUCCESS>");
+			}
 			$("#ch_status").attr("style", "color:blue").html("");
 			$("."+section).removeClass('ui-disabled');
 			$( "#popupSave" ).popup( "close" )
@@ -200,7 +204,6 @@ function getconfig() {
 			console.log("config is empty, does not exist or is invalid.");
 		}
 		if(data.influx.db_storage) {
-			console.log( "getconfig idb_storage is: ", data.influx.db_storage );
 			$('#influxstoragepath').val(data.influx.db_storage);
 		} else {
 			$("#influxstoragepath").val('/opt/loxberry/data/plugins/stats4lox/influxdb');
