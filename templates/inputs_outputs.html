@@ -1,9 +1,9 @@
 <style>
 	.chstatus
 	{	
-		height		:4.0em;
-		line-height	:1.0em;
-		overflow	:auto;
+		min-height	:4.0em;
+		line-height	:1.2em;
+		word-wrap	:break-word;
 		width		:100%;
 		text-align	:center;
 	}
@@ -87,7 +87,7 @@
 <!-- PopUp while saving -->
 <div data-role="popup" id="popupSave" data-position-to="window" data-transition="flip" data-theme="a" and data-overlay-theme="a" data-dismissible="false" class="ui-content">
 	<center><h2><TMPL_VAR INPUTSOUTPUTS.POPUP_SAVING_TITLE></h2></center>
-	<div class="chstatus" id="ch_hint">&nbsp;</div>
+	<div class="chstatus" id="ch_hint"><TMPL_VAR INPUTSOUTPUTS.HINT_SAVING></div>
 	<div class="chstatus" id="ch_status">&nbsp;</div>
 </div>
 
@@ -107,7 +107,6 @@ getconfig();
 function saveOutputInflux() {
 	console.log ("Saving Influx settings");
 	$(".influx").addClass('ui-disabled');
-	//$("#hint_influx").attr("style", "color:blue").html("<TMPL_VAR INPUTSOUTPUTS.HINT_SAVING>");
 	$.ajax( { 
 			url:     'ajax.cgi',
 			type:    'POST',
@@ -124,15 +123,12 @@ function saveOutputInflux() {
 	.done(function( data ) {
 		console.log( "Saving Influx Success: ", data );
 		section = "influx";
-		$("#ch_hint").attr("style", "color:black").html("<TMPL_VAR INPUTSOUTPUTS.HINT_SAVING>");
+		$("#ch_status").attr("style", "color:blue").html("<TMPL_VAR INPUTSOUTPUTS.HINT_SAVING_PREPARING>");
 		$( "#popupSave" ).popup( "open" )
 		interval = window.setInterval( function(){ checkconfighandlerstatus(section); }, 3000);
 	})
 	.always(function( data ) {
 		console.log( "Saving Influx Finished" );
-		//getconfig();
-		//$(".influx").removeClass('ui-disabled');
-		//$("#btnsaveoutputinflux").attr("disabled", false);
 	});
 }
 
@@ -149,7 +145,7 @@ function checkconfighandlerstatus( section ) {
 	.fail(function( data ) {
 		console.log( "Checking Config-Handler Status Fail:", data );
 		$("#hint_"+section).attr("style", "color:red").html("<TMPL_VAR INPUTSOUTPUTS.HINT_SAVING_FAIL>");
-		$("#chstatus").html("");
+		$("#ch_status").html("");
 		$("."+section).removeClass('ui-disabled');
 		$( "#popupSave" ).popup( "close" )
 	})
