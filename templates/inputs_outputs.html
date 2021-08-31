@@ -107,6 +107,7 @@ getconfig();
 function saveOutputInflux() {
 	console.log ("Saving Influx settings");
 	$(".influx").addClass('ui-disabled');
+	$("#hint_influx").html("");
 	$.ajax( { 
 			url:     'ajax.cgi',
 			type:    'POST',
@@ -209,17 +210,6 @@ function getconfig() {
 		console.log( "getconfig Finished" );
 	})
 }
-
-function refreshMQTTForm() {
-	console.log("refreshMQTTForm");
-	$(".MQTT").removeClass("ui-state-disabled");
-	if( $("#MQTTUseMQTTGateway").is(":checked") ) 
-		$(".ownbroker").addClass("ui-state-disabled");
-	else 
-		$(".ownbroker").removeClass("ui-state-disabled");
-}
-
-$("#MQTTUseMQTTGateway").on("click", refreshMQTTForm);
 
 </script>
 
