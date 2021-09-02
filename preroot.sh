@@ -26,6 +26,7 @@ systemctl daemon-reload
 systemctl stop influxdb
 systemctl stop telegraf
 systemctl stop grafana-server
+killall /usr/bin/influxd
 
 # Installing InfluxDB and Grafana in newer versions than Debian included
 echo "<INFO> Adding/Updating Influx repository..."
