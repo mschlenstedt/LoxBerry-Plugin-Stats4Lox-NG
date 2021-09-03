@@ -45,10 +45,17 @@ my $mem = $jsonobjcfg->open(filename => $memfile, writeonclose => 1);
 my @data;
 for my $results( @{$cfg->{loxone}} ){
 	if (! $results->{uuid} || ! $results->{msno} || ! $results->{measurementname} ) {
-		print STDERR "   Data isn't complete. Skipping...\n" if $DEBUG;
+		print STDERR "$results->{name}: Data isn't complete. Skipping...\n" if $DEBUG;
 		next;
 	}
+	
 	print STDERR "Grabbing " . $results->{name} . "     $results->{uuid}\n" if $DEBUG;
+	
+	if ( ! is_enabled($results->{active}) ) {
+		print STDERR "   Statistic not activated - skipping\n" if $DEBUG;
+		next;
+	}
+	
 	my $tag = $results->{measurementname};
 	my $now = time();
 	# Checking if interval is reached
