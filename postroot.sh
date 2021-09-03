@@ -170,12 +170,15 @@ echo "<INFO> Install Drop-In for Influx and Telegraf and Grafana systemd service
 rm -f /etc/systemd/system/influxdb.service.d/00-stats4lox.conf > /dev/null 2>&1
 rm -f /etc/systemd/system/telegraf.service.d/00-stats4lox.conf > /dev/null 2>&1
 rm -f /etc/systemd/system/grafana-server.service.d/00-stats4lox.conf > /dev/null 2>&1
+rm -f /etc/systemd/system/influxdb.service.d/00-stats4lox-influxdb.conf > /dev/null 2>&1
+rm -f /etc/systemd/system/telegraf.service.d/00-stats4lox-telegraf.conf > /dev/null 2>&1
+rm -f /etc/systemd/system/grafana-server.service.d/00-stats4lox-grafana.conf > /dev/null 2>&1
 mkdir -p /etc/systemd/system/influxdb.service.d
 mkdir -p /etc/systemd/system/telegraf.service.d
 mkdir -p /etc/systemd/system/grafana-server.service.d
-ln -s $PCONFIG/systemd/00-stats4lox.conf /etc/systemd/system/influxdb.service.d/00-stats4lox.conf
-ln -s $PCONFIG/systemd/00-stats4lox.conf /etc/systemd/system/telegraf.service.d/00-stats4lox.conf
-ln -s $PCONFIG/systemd/00-stats4lox.conf /etc/systemd/system/grafana-server.service.d/00-stats4lox.conf
+ln -s $PCONFIG/systemd/00-stats4lox-influxdb.conf /etc/systemd/system/influxdb.service.d/00-stats4lox-influxdb.conf
+ln -s $PCONFIG/systemd/00-stats4lox-telegraf.conf /etc/systemd/system/telegraf.service.d/00-stats4lox-telegraf.conf
+ln -s $PCONFIG/systemd/00-stats4lox-grafana.conf /etc/systemd/system/grafana-server.service.d/00-stats4lox-grafana.conf
 systemctl daemon-reload
 
 # Activate InfluxDB service and start
