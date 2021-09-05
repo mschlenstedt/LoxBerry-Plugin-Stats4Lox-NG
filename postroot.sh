@@ -37,6 +37,10 @@ if [ ! -x $INFLUXDBIN ]; then
 	echo "<FAIL> Seems that InfluxDB was not installed correctly. Giving up."
 	exit 2
 fi
+if [ ! -x $INFLUXBIN ]; then
+	echo "<FAIL> Seems that InfluxDB was not installed correctly. Giving up."
+	exit 2
+fi
 if [ ! -x $TELEGRAFBIN ]; then
 	echo "<FAIL> Seems that Telegraf was not installed correctly. Giving up."
 	exit 2

@@ -35,7 +35,7 @@ source /etc/os-release
 echo "deb https://repos.influxdata.com/debian $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/influxdb.list
 
 echo "<INFO> Using Influx Version 1.8.9..."
-cat <<EOT >> greetings.txt
+cat <<EOT >> /etc/apt/preferences.d/influxdb
 Package: influxdb
 Pin: version 1.8.9*
 Pin-Priority: 1000
