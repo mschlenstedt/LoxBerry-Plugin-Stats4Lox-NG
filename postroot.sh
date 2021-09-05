@@ -189,6 +189,7 @@ systemctl daemon-reload
 echo "<INFO> Starting InfluxDB..."
 systemctl unmask influxdb.service
 systemctl enable --now influxdb
+systemctl daemon-reload
 systemctl start influxdb
 sleep 3
 
@@ -292,6 +293,7 @@ sed -i "s/^  urls = .*$/  urls = [ \"http:\/\/localhost:$LBWEBSERVERPORT\/admin\
 echo "<INFO> Starting Telegraf..."
 systemctl unmask telegraf.service
 systemctl enable --now telegraf
+systemctl daemon-reload
 systemctl start telegraf
 sleep 3
 
@@ -325,6 +327,7 @@ chown -R grafana:loxberry $PCONFIG/grafana
 # Activate Grafana
 echo "<INFO> Starting Grafana..."
 systemctl enable --now grafana-server
+systemctl daemon-reload
 systemctl start grafana-server
 sleep 3
 
