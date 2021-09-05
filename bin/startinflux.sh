@@ -4,5 +4,3 @@ echo Starting Influx via S4L starting script
 PID=$!
 echo $PID > /var/lib/influxdb/influxd.pid
 sleep 10
-
-
