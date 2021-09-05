@@ -28,6 +28,13 @@ systemctl stop telegraf
 systemctl stop grafana-server
 killall /usr/bin/influxd
 
+# Check for old debian influx-client package (V1.6.4 - out of date) which we do not want anymore
+INFLUXCLIENT=`dpkg -s influxdb-client 2>/dev/null | grep -c "ok installed"`
+if [ $INFLUXCLIENT -eq "1" ]; then
+	echo "<INFO> Found installed influx-client package from out-of-date Version 1.6.4. We remove it from your system."
+	APT_LISTCHANGES_FRONTEND=none DEBIAN_FRONTEND=noninteractive apt-get -y -q purge influxdb-client
+fi
+
 # Installing InfluxDB and Grafana in newer versions than Debian included
 echo "<INFO> Adding/Updating Influx repository..."
 wget -qO- https://repos.influxdata.com/influxdb.key | sudo apt-key add - 2>/dev/null
