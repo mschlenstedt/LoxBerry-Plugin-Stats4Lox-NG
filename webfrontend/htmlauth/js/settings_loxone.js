@@ -490,6 +490,8 @@ function createTableBody() {
 		if(typeof element.Desc != "undefined" && element.Desc != "" ) 
 			controlstable += `<br>${element.Desc}`;
 		var TypeLocal = loxone_elements[element.Type.toUpperCase()]?.localname;
+		if(typeof TypeLocal == "undefined")
+			TypeLocal = element.Type.toUpperCase();
 		controlstable += `<br><span class="small">${TypeLocal}</span>`;
 		
 		
@@ -574,7 +576,10 @@ function popupLoxoneDetails( uid, msno ) {
 	$("#LoxoneDetails_category").html(control.Category ? control.Category : "&nbsp;");
 	
 	$("#LoxoneDetails_typelabel").text("Type");
-	$("#LoxoneDetails_type").text(loxone_elements[control.Type?.toUpperCase()].localname);
+	var TypeLocal = loxone_elements[control.Type?.toUpperCase()]?.localname;
+	if(typeof TypeLocal == "undefined") 
+		TypeLocal = control.Type?.toUpperCase();
+	$("#LoxoneDetails_type").text(TypeLocal);
 	$("#LoxoneDetails_typehover").prop("title", control.Type);
 	
 	
