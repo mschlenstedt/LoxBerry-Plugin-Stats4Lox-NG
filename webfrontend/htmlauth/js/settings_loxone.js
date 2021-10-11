@@ -46,6 +46,10 @@ $(function() {
 		}
 		if( event.currentTarget.nodeName == "SELECT" ) {
 			var filterval = $("#"+filter_parent+" option:selected").val();
+			if( filterval != "all" ) 
+				$(event.currentTarget.parentNode).addClass('filter-highlight');
+			else
+				$(event.currentTarget.parentNode).removeClass('filter-highlight');
 		}
 		
 		console.log("Filter parent", filter_parent, filterval);
@@ -187,20 +191,22 @@ $(function() {
 		filters["filter_search"] = filterSearchString;
 		saveFilters();
 		// console.log("Text filter", filterSearchString);
-		filterSearchDelay = window.setTimeout(function() { updateTable(); updateReportTables(data); }, 500);
+		filterSearchDelay = window.setTimeout(function() { updateTable(); updateReportTables(); }, 500);
 	});
 	$("#filter_search").on( "change", function(event, ui){
 		if( $(event.target).val() == "" ) {
-			$('#filter_search').css({'backgroundColor':'white'});
+			// $('#filter_search').css({'backgroundColor':'white'});
+			$('#filter_search').removeClass('filter-highlight');
 			$('#filter_search').attr("data-clear-btn", false);
 			window.clearTimeout(filterSearchDelay); 
 			filterSearchString = $(event.target).val();
 			filters["filter_search"] = filterSearchString;
 			saveFilters();
 			updateTable();
-			updateReportTables(data);
+			updateReportTables();
 		} else {
-			$('#filter_search').css({'backgroundColor':'#FFFF99'});
+			// $('#filter_search').css({'backgroundColor':'#FFFF99'});
+			$('#filter_search').addClass('filter-highlight');
 			$('#filter_search').attr("data-clear-btn", true);
 		}
 
@@ -818,17 +824,21 @@ function restoreFilters() {
 				$(`input[type="radio"][name="${key}"]`).checkboxradio("refresh");
 			}
 			else if( selects.length > 0 ) {
-				// console.log("SELECT");
+				// console.log("SELECT", $(selects), value);
 				$(selects).val(value).selectmenu("refresh");
+				if(value != "all")
+					$(selects).closest('.ui-btn').addClass('filter-highlight');
 			}
 			else if( key == "filter_search" ) {
 				$(`#${key}`).val( value );
 				filterSearchString = value;
 				if (filterSearchString != "") {
-					$('#filter_search').css({'backgroundColor':'#FFFF99'});
+					// $('#filter_search').css({'backgroundColor':'#FFFF99'});
+					$('#filter_search').addClass('filter-highlight');
 					$('#filter_search').data("clear-btn", true);
 				} else {
-					$('#filter_search').css({'backgroundColor':'white'});
+					// $('#filter_search').css({'backgroundColor':'white'});
+					$('#filter_search').removeClass('filter-highlight');
 					$('#filter_search').data("clear-btn", false);
 				}
 
