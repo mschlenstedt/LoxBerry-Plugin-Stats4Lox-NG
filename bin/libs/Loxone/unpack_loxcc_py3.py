@@ -5,7 +5,7 @@
 # Adaped for Stats4Lox by Christian Fenzl
 
 import struct
-# import StringIO
+from io import BytesIO
 import sys
 
 s4ltmp = '/dev/shm/s4ltmp'
@@ -17,7 +17,7 @@ except:
 	print ('Second argument is destination file')
 	sys.exit(1)
 
-with open(sourcefile, "rb") as f:
+with open(sourcefile, 'rb') as f:
 	header, = struct.unpack('<L', f.read(4))
 	if header == 0xaabbccee:	# magic word to detect a compressed file
 		compressedSize,header3,header4, = struct.unpack('<LLL', f.read(12))
@@ -25,7 +25,7 @@ with open(sourcefile, "rb") as f:
 		# header4 could be a checksum, I don't know
 		data = f.read(compressedSize)
 		index = 0
-		resultStr = ''
+		resultStr = bytearray()
 		while index<len(data):
 			# the first byte contains the number of bytes to copy in the upper
 			# nibble. If this nibble is 15, then another byte follows with
@@ -37,11 +37,10 @@ with open(sourcefile, "rb") as f:
 			copyBytes = byte >> 4
 			byte &= 0xf
 			if copyBytes == 15:
-				# copyBytes += ord(data[index])
 				copyBytes += data[index]
 				index += 1
 			if copyBytes > 0:
-				resultStr += str(data[index:index+copyBytes])
+				resultStr += data[index:index+copyBytes]
 				index += copyBytes
 			if index >= len(data):
 				break
@@ -68,7 +67,7 @@ with open(sourcefile, "rb") as f:
 				else:
 					resultStr += resultStr[-bytesBack:-bytesBack+1]
 				bytesBackCopied -= 1
-		with open(destfile, "w") as f:
+		with open(destfile, "wb") as f:
 			f.write(resultStr)
 	else:
 		print('Could not open file')
