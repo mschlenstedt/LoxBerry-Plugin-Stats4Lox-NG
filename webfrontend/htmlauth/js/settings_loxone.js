@@ -304,6 +304,7 @@ function consolidateLoxPlan( data ) {
 	}
 	
 	// Sort controls by Title
+	controls = controls.filter ( control => control.msno > 0 ); // Filter controls not on an MS in LoxBerry
 	controls.sort( dynamicSortMultiple( "Title" ) );
 	
 	// Uniquify elementTypes_used
@@ -318,6 +319,7 @@ function consolidateLoxPlan( data ) {
 	// })
 
 	miniservers_used = Object.values( miniservers_used );
+	miniservers_used = miniservers_used.filter( item => item.msno > 0 ); // Filter MS that are not in LoxBerry
 	miniservers_used.sort( dynamicSort( "msno" ) );
 
 	// console.log("controls array", controls);
