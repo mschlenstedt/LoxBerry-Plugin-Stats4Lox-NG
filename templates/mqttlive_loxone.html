@@ -1,160 +1,172 @@
 <style>
-.datahidden {
-	display:none;
-}
-
-.small {
-	font-size:70%;
-}
-
-.bitsmall {
-	font-size:86%;
-}
-
-.grayed {
-	color: gray;
-}
-
-.center {
-	text-align: center;
-}
-
-.mono {
-	font-family: 'Courier New', monospace;
-	font-size: 85%;
-}
-
-
-.LoxoneDetails_table {
-	min-width: 400px;
-	width: 400px;
-	border-collapse: collapse;
-	border-bottom: 1px solid gray;
-}
-
-.LoxoneDetails_tr {
-	padding: 2px 5px 2px 5px;
-}
-.LoxoneDetails_td {
-	padding: 2px 5px 2px 5px;
-	border-collapse: collapse;
-	border-top: 1px solid gray;
-	// border-bottom: 1px solid gray;
-}
-
-.controlstable {
-	border-bottom: 1px solid gray;
-	width:100%;
-}
-
-.controlstable tr {
-	padding: 2px 5px 2px 5px;
-}
-.controlstable td {
-	padding: 2px 5px 2px 5px;
-	border-collapse: collapse;
-	border-top: 1px solid gray;
-	/* border-bottom: 1px solid gray; */
-}
-
-tr:nth-child(even).controlstable_tr {background: #EEE}
-tr:nth-child(odd).controlstable_tr {background: #FFF}
-
-.s4l_interval_highlight {
-	background-color: #0059b3 !important;
-	text-shadow:none !important;
-	color:white !important;
-}
-
-.popuptitle {
-	background-color: #6dac20;
-	color: white;
-	text-shadow: 1px 1px 2px black;
-	padding: 5px;
-}
-
-#progressState {
-	min-width:200px;
-	min-height:70px;
-
-}
-
-.hintbox {
-	background-color: #ffff73;
-	padding: 15px;
-	border: 1px solid gray;
-}
-
-.progress-border {
-	border:1px solid #ccc;
-}
-.progress-fill {
-	background-color:#6dac20;
-}
-
-.mqttlivestate {
-	padding: 4px;
-}
-
-
-.ui-icon-clipboard:after {
-	background-image: url("images/clipboard_18.svg");
-}
-
+    .datahidden {
+        display: none;
+    }
+    
+    .small {
+        font-size: 70%;
+    }
+    
+    .bitsmall {
+        font-size: 86%;
+    }
+    
+    .grayed {
+        color: gray;
+    }
+    
+    .center {
+        text-align: center;
+    }
+    
+    .mono {
+        font-family: 'Courier New', monospace;
+        font-size: 85%;
+    }
+    
+    .LoxoneDetails_table {
+        min-width: 400px;
+        width: 400px;
+        border-collapse: collapse;
+        border-bottom: 1px solid gray;
+    }
+    
+    .LoxoneDetails_tr {
+        padding: 2px 5px 2px 5px;
+    }
+    
+    .LoxoneDetails_td {
+        padding: 2px 5px 2px 5px;
+        border-collapse: collapse;
+        border-top: 1px solid gray;
+        // border-bottom: 1px solid gray;
+    }
+    
+    .controlstable {
+        border-bottom: 1px solid gray;
+        width: 100%;
+    }
+    
+    .controlstable tr {
+        padding: 2px 5px 2px 5px;
+    }
+    
+    .controlstable td {
+        padding: 2px 5px 2px 5px;
+        border-collapse: collapse;
+        border-top: 1px solid gray;
+        /* border-bottom: 1px solid gray; */
+    }
+    
+    tr:nth-child(even).controlstable_tr {
+        background: #EEE
+    }
+    
+    tr:nth-child(odd).controlstable_tr {
+        background: #FFF
+    }
+    
+    .s4l_interval_highlight {
+        background-color: #0059b3 !important;
+        text-shadow: none !important;
+        color: white !important;
+    }
+    
+    .popuptitle {
+        background-color: #6dac20;
+        color: white;
+        text-shadow: 1px 1px 2px black;
+        padding: 5px;
+    }
+    
+    #progressState {
+        min-width: 200px;
+        min-height: 70px;
+    }
+    
+    .hintbox {
+        background-color: #ffff73;
+        padding: 15px;
+        border: 1px solid gray;
+    }
+    
+    .progress-border {
+        border: 1px solid #ccc;
+    }
+    
+    .progress-fill {
+        background-color: #6dac20;
+    }
+    
+    .mqttlivestate {
+        padding: 4px;
+    }
+    
+    .ui-icon-clipboard:after {
+        background-image: url("images/clipboard_18.svg");
+    }
 </style>
 
-<div class="datahidden" id="mqttlivedata_json"><TMPL_VAR MQTTLIVEDATA></div>
-<div class="datahidden" id="statsjson_json"><TMPL_VAR STATSJSON></div>
+<div class="datahidden" id="mqttlivedata_json">
+    <TMPL_VAR MQTTLIVEDATA>
+</div>
+<div class="datahidden" id="statsjson_json">
+    <TMPL_VAR STATSJSON>
+</div>
 
 
 <h3>MQTT LiveUpdate Data</h3>
 <p>
-	This listing shows, what data you have already submitted via MQTT LiveUpdate to your Loxone Statistics, and also, if your publishes might miss the correct topic.
+    This listing shows, what data you have already submitted via MQTT LiveUpdate to your Loxone Statistics, and also, if your publishes might miss the correct topic.
 </p>
 <p>
-	Below, you'll find <i>all available outputs</i> of Loxone blocks that you have enabled, to directly copy/paste. An output gets enabled by enabling it in the Detail View of the Statistics configuration. See the <a href="https://www.loxwiki.eu/x/-YRWBQ" target="_blank">LoxWiki step-by-step guide</a> for assistance.
+    Below, you'll find <i>all available outputs</i> of Loxone blocks that you have enabled, to directly copy/paste. An output gets enabled by enabling it in the Detail View of the Statistics configuration. See the <a href="https://www.loxwiki.eu/x/-YRWBQ"
+        target="_blank">LoxWiki step-by-step guide</a> for assistance.
 </p>
 
 
 <!-- Hints: Select stats -->
 <div id="hint_mqttliveupdate_intro" class="hintbox" style="display:none;">
-<b>What is MQTT LiveUpdate good for?</b><br>
-<p>
-	The normal Statistics Grabber collects data in your defined interval (5 mins, 10 mins etc.). Data, that rapidly update, like power metering, or presses of a button, cannot be collected in that way. With MQTT LiveUpdate (<a href="https://www.loxwiki.eu/x/S4ZYAg" target="_blank">MQTT Gateway</a> plugin required), you create a virtual output command to MQTT Gateway and connect this to the block output with rapid updates (e.g. "Current power"). Every change of this output directly sends the data to your Stats4Lox statistic ("LiveUpdate"). For S4L, to match your <i>published data</i> &rarr; <i>Stats4Lox statistic</i>, the publish syntax listed below is required.
-</p>
-<a href="#" class="ui-btn ui-btn-inline ui-mini" onclick="hint_hide('hint_mqttliveupdate_intro');">Hide</a>
+    <b>What is MQTT LiveUpdate good for?</b><br>
+    <p>
+        The normal Statistics Grabber collects data in your defined interval (5 mins, 10 mins etc.). Data, that rapidly update, like power metering, or presses of a button, cannot be collected in that way. With MQTT LiveUpdate (<a href="https://www.loxwiki.eu/x/S4ZYAg"
+            target="_blank">MQTT Gateway</a> plugin required), you create a virtual output command to MQTT Gateway and connect this to the block output with rapid updates (e.g. "Current power"). Every change of this output directly sends the data to your
+        Stats4Lox statistic ("LiveUpdate"). For S4L, to match your <i>published data</i> &rarr; <i>Stats4Lox statistic</i>, the publish syntax listed below is required.
+    </p>
+    <a href="#" class="ui-btn ui-btn-inline ui-mini" onclick="hint_hide('hint_mqttliveupdate_intro');">Hide</a>
 </div>
 
 <h3 class="popuptitle" style="margin:10px 0 0 0;">MQTT Live State</h4>
 
-<div style="display:flex; flex-wrap:wrap; justify-content:space-evenly; border:1px solid gray;background-color:#f4f4f4;margin:0 0 10 0;">
-	<div class="mqttlivestate">
-		<span class="small grayed">Topic</span><br>
-		<span id="mqttlivestate_broker_basetopic">&nbsp;</span>
-	</div>
-	<div class="mqttlivestate">
-		<span class="small grayed">Connected</span><br>
-		<span id="mqttlivestate_broker_connected">&nbsp;</span>
-	</div>
-	<div class="mqttlivestate">
-		<span class="small grayed">Errors</span><br>
-		<span id="mqttlivestate_broker_error">&nbsp;</span>
-	</div>
-</div>
+    <div style="display:flex; flex-wrap:wrap; justify-content:space-evenly; border:1px solid gray;background-color:#f4f4f4;margin:0 0 10 0;">
+        <div class="mqttlivestate">
+            <span class="small grayed">Topic</span><br>
+            <span id="mqttlivestate_broker_basetopic">&nbsp;</span>
+        </div>
+        <div class="mqttlivestate">
+            <span class="small grayed">Connected</span><br>
+            <span id="mqttlivestate_broker_connected">&nbsp;</span>
+        </div>
+        <div class="mqttlivestate">
+            <span class="small grayed">Errors</span><br>
+            <span id="mqttlivestate_broker_error">&nbsp;</span>
+        </div>
+    </div>
 
-<h3 class="popuptitle" style="margin:10px 0 0 0;">Received updates</h3>
-<!-- Table -->
-<div id="mqttlivediv" style="margin:auto;">
-	
-
-</div>
-<div style="margin:auto;width:95%">
-<p class="bitsmall grayed"><i>The color gives you advice when the last message arrived ("the louder the latter")</i></p>
-<a href="#" class="ui-btn ui-btn-inline ui-mini clearuidataButton">Clear Display</a>
-</div>
-
-<h3 class="popuptitle" style="margin:10px 0 0 0;">MQTT Live All Available Update Topics</h4>
-<div id="availabletopicsdiv" style="margin:auto;">
+    <h3 class="popuptitle" style="margin:10px 0 0 0;">Received updates</h3>
+    <!-- Table -->
+    <div id="mqttlivediv" style="margin:auto;">
 
 
-</div>
+    </div>
+    <div style="margin:auto;width:95%">
+        <p class="bitsmall grayed"><i>The color gives you advice when the last message arrived ("the louder the latter")</i></p>
+        <a href="#" class="ui-btn ui-btn-inline ui-mini clearuidataButton">Clear Display</a>
+    </div>
+
+    <h3 class="popuptitle" style="margin:10px 0 0 0;">MQTT Live All Available Update Topics</h4>
+        <a href="#" download="Stats4Lox-MQTT-Gateway.xml" class="ui-btn ui-btn-inline ui-mini createVirtualOutputTemplateButton">Create Virtual Output Template</a>
+        <div id="availabletopicsdiv" style="margin:auto;">
+
+
+        </div>

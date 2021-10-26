@@ -44,8 +44,58 @@ $(function() {
 			basetopic: mqttlivestate?.broker_basetopic
 		})
 	});
-	
+
+
+	// Setup Download of Virtual Input Template
+	$('.createVirtualOutputTemplateButton').attr("href", window.URL.createObjectURL(new Blob(['<?xml version="1.0" encoding="UTF-8"?>'+new XMLSerializer().serializeToString(createVirtualInputTemplateXML().documentElement)], {type: 'text/plain'})));
 });
+
+
+function createVirtualInputTemplateXML(){
+	var doc = document.implementation.createDocument("", "", null);
+	
+	// Base Gateway Information
+	var virtualInputElem = doc.createElement("VirtualOut");
+	virtualInputElem.setAttribute("Title","Stats4Lox-2-MQTT Gateway");
+	virtualInputElem.setAttribute("Comment","by Stats4Lox");
+	virtualInputElem.setAttribute("Address","*");
+	virtualInputElem.setAttribute("CmdInit","");
+	virtualInputElem.setAttribute("CloseAfterSend","true");
+	virtualInputElem.setAttribute("CmdSep",";");
+
+	var infoElem = doc.createElement("Info");
+	infoElem.setAttribute("templateType","3");
+	infoElem.setAttribute("minVersion","12010716");
+	virtualInputElem.appendChild(infoElem);
+
+	// Create Virtual Commands
+	$('.topicholder').each(function(){
+		var topic = this.value;
+		var title = "PUBLISH "+topic.match(/[^\/]*\/[^\/]*(?= <)/g).toString().replace("/"," ");
+
+		var virtualCommandElem = doc.createElement("VirtualOutCmd");
+		virtualCommandElem.setAttribute("Title", title);
+		virtualCommandElem.setAttribute("Comment","Automatically Created by Stats4Lox");
+		virtualCommandElem.setAttribute("CmdOnMethod","GET");
+		virtualCommandElem.setAttribute("CmdOffMethod","GET");
+		virtualCommandElem.setAttribute("CmdOn",topic);
+		virtualCommandElem.setAttribute("CmdOnHTTP","");
+		virtualCommandElem.setAttribute("CmdOnPost","");
+		virtualCommandElem.setAttribute("CmdOff","");
+		virtualCommandElem.setAttribute("CmdOffHTTP","");
+		virtualCommandElem.setAttribute("CmdOffPost","");
+		virtualCommandElem.setAttribute("Analog","true");
+		virtualCommandElem.setAttribute("Repeat","0");
+		virtualCommandElem.setAttribute("RepeatRate","0");
+		virtualCommandElem.setAttribute("SourceValHigh","1000000");
+		virtualCommandElem.setAttribute("DestValHigh","1000000");
+
+		virtualInputElem.appendChild(virtualCommandElem);
+	});
+
+	doc.appendChild(virtualInputElem);
+	return doc;
+}
 	
 	
 function getMqttliveData() {
@@ -302,7 +352,7 @@ function createStatsjsonTable()
 				html += `<div style="white-space: nowrap;">`
 				html += `<b>${label}</b>: publish ${livetopic} <i>${valconstant}</i>`;
 				html += `<a href="#" class="ui-mini ui-btn ui-shadow ui-icon-clipboard ui-btn-inline copyClipboard" style="padding:1px;font-size:86%;height:15px;width:32px;">Copy</a>`;
-				html += `<input type="text" value="publish ${livetopic} ${valconstant}" class="datahidden">`;
+				html += `<input type="text" value="publish ${livetopic} ${valconstant}" class="datahidden topicholder">`;
 				
 				// html += `&nbsp;<a href="#" data-inline="true" class="ui-btn ui-shadow ui-mini ui-btn-inline">Clipboard</a>`;
 				html += `</div>`
