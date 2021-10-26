@@ -55,10 +55,13 @@ function createVirtualInputTemplateXML(){
 	var doc = document.implementation.createDocument("", "", null);
 	
 	// Base Gateway Information
+	var lbhostname = $("#mqttgateway_hostname").text();
+	var udpinport = $("#mqttgateway_udpinport").text();
+	
 	var virtualInputElem = doc.createElement("VirtualOut");
 	virtualInputElem.setAttribute("Title","Stats4Lox-2-MQTT Gateway");
 	virtualInputElem.setAttribute("Comment","by Stats4Lox");
-	virtualInputElem.setAttribute("Address","*");
+	virtualInputElem.setAttribute("Address","/dev/udp/"+lbhostname+"/"+udpinport);
 	virtualInputElem.setAttribute("CmdInit","");
 	virtualInputElem.setAttribute("CloseAfterSend","true");
 	virtualInputElem.setAttribute("CmdSep",";");
@@ -75,7 +78,6 @@ function createVirtualInputTemplateXML(){
 
 		var virtualCommandElem = doc.createElement("VirtualOutCmd");
 		virtualCommandElem.setAttribute("Title", title);
-		virtualCommandElem.setAttribute("Comment","Automatically Created by Stats4Lox");
 		virtualCommandElem.setAttribute("CmdOnMethod","GET");
 		virtualCommandElem.setAttribute("CmdOffMethod","GET");
 		virtualCommandElem.setAttribute("CmdOn",topic);
@@ -87,8 +89,8 @@ function createVirtualInputTemplateXML(){
 		virtualCommandElem.setAttribute("Analog","true");
 		virtualCommandElem.setAttribute("Repeat","0");
 		virtualCommandElem.setAttribute("RepeatRate","0");
-		virtualCommandElem.setAttribute("SourceValHigh","1000000");
-		virtualCommandElem.setAttribute("DestValHigh","1000000");
+		virtualCommandElem.setAttribute("SourceValHigh","100");
+		virtualCommandElem.setAttribute("DestValHigh","100");
 
 		virtualInputElem.appendChild(virtualCommandElem);
 	});

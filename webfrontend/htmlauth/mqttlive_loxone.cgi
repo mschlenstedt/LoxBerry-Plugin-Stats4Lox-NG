@@ -3,6 +3,7 @@ use warnings;
 use strict;
 use LoxBerry::System;
 use LoxBerry::Web;
+use LoxBerry::IO;
 use JSON;
 use FindBin qw($Bin);
 use lib "$Bin/../../../../bin/plugins/stats4lox/libs/";
@@ -24,8 +25,12 @@ my $template = HTML::Template->new(
 );
 
 my $lang = LoxBerry::System::lblanguage();
+my $mqttcred = LoxBerry::IO::mqtt_connectiondetails();
+
 $template->param( 'MQTTLIVEDATA', LoxBerry::System::read_file( "$Globals::stats4lox->{s4ltmp}/mqttlive_uidata.json" ) );
 $template->param( 'STATSJSON', LoxBerry::System::read_file( "$lbpconfigdir/stats.json" ) );
+$template->param( 'MQTTGATEWAY_HOSTNAME',  lbhostname() );
+$template->param( 'MQTTGATEWAY_UDPINPORT', $mqttcred->{udpinport} );
 
 
 print $template->output();
