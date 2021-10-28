@@ -386,6 +386,7 @@ if( $q->{action} eq "stopgrafana-server" ) {
 }
 
 if( $q->{action} eq "startmqttlive" ) {
+	system ("pkill -f mqttlive.php >/dev/null 2>&1");
 	system ("$lbpbindir/mqtt/mqttlive.php >> $lbplogdir/mqttlive.log 2>&1 &");
 	$response = $?;
 }
