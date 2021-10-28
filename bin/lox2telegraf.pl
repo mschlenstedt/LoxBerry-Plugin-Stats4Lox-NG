@@ -19,8 +19,8 @@ if( -e $args ) {
 	$dataobj = LoxBerry::JSON->new();
 	$data = $dataobj->open(filename => $filename, lockexclusive => 1, locktimeout => 5);
 	
-	use Data::Dumper;
-	print Dumper( $data );
+	# use Data::Dumper;
+	# print Dumper( $data );
 
 } 
 else {
@@ -39,15 +39,22 @@ else {
 # Process data
 
 	
-print STDERR "Processing data...\n";
+print STDERR LoxBerry::System::currtime() . " Calling Stats4Lox::lox2telegraf processor (" . scalar(@{$data}) . " elements queued) ...\n";
 
 my ($result) = Stats4Lox::lox2telegraf( $data );
-print "Result of lox2telegraf: $result\n";
+print "Result of lox2telegraf: ";
+if($result == 0) {
+	print "0 OK, successfully sent\n";
+} elsif ($result == 1) {
+	print "1 option NOSEND specified\n";
+} elsif ($result == 2) {
+	print "2 Error using UNIX socket\n";
+} else {
+	print "$result unknown result code\n";
+}
 if( $result == 0 and $filename ) {
 	unlink $filename;
 }
-	
-
 
 
 exit($result);

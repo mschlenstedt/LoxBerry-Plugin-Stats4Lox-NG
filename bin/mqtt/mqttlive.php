@@ -397,6 +397,12 @@ function callPerlProcessor() {
 	global $data_transferfile;
 	global $lbplogdir;
 	
+	LOGINF("callPerlProcessor started");
+	if( !file_exists( $data_transferfile ) ) {
+		LOGINF("Currently no datafile present. Skipping this round.");
+		return;
+	}
+	
 	LOGINF("PID running? " . posix_getpgid($perlprocessor_pid));
 	if( empty($perlprocessor_pid) or empty(posix_getpgid($perlprocessor_pid)) ) {
 		LOGINF("RUNNING PERL PROCESSOR");
