@@ -11,7 +11,8 @@ $log = LBLog::newLog( [
 	"name" => "MQTTLive",
 	"addtime" => 1,
 	"append" => 1,
-	"filename" => LBPLOGDIR."/mqttlive.log"
+	"filename" => LBPLOGDIR."/mqttlive.log",
+	"stderr" => 1
 ] );
 LOGSTART("Stats4Lox MQTT Live");
 
@@ -30,6 +31,8 @@ $data_transferfolder = "/dev/shm/s4ltmp";
 $data_transferfile = $data_transferfolder."/mqttlive_dataspool.json";
 $perlprocessor_filename = LBPBINDIR."/lox2telegraf.pl";
 $uidata_file = $data_transferfolder."/mqttlive_uidata.json";
+$mqtt_subscriptions = array();
+$mqtt_subscriptions_changed = false;
 
 $mqtt_connected = false;
 
@@ -218,8 +221,68 @@ function s4llive_command($topic, $msg){
 
 
 
+//
+// Incoming generic mqtt messages (user defined subscriptions)
+//
+function mqtt_genericmsg($topic, $msg){
+	global $recordqueue;
+	global $uidata;
+	global $uidata_update;
+	LOGOK("mqtt_genericmsg topic $topic received: $msg");
+
+	// Check if payload is json
+	$payload = json_decode($msg, true);
+	if( !is_array( $payload ) ) {
+		LOGINF("Payload is not a json");
+		$payload = $msg;
+	}
+	else {
+		// Flatten the payload (in case of a json)
+		$payload = flatten($payload);
+	}
+		
+	$timestamp_epoch = microtime(true);
+	$timestamp_nsec = sprintf('%.0f', $timestamp_epoch*1000000000);
+	
+	$item = new stdClass();
+	$item->timestamp = $timestamp_nsec;
+	$item->timestamp_epoch = $timestamp_epoch;
+	$item->measurementname = $topic;
+	$item->source = "mqtt";
+	
+	if( !is_array( $payload ) ) {
+		// Single value
+		$item->values = array(
+							array(
+								'key' => $topic,
+								'value' => $payload
+							)
+						);
+	}
+	else {
+		// Payload was json
+		foreach( $payload as $name => $value ) {
+			$values[] = array( 
+				'key' => $name,
+				'value' => $value
+			);
+		}
+		$item->values = $values;
+	}
+	
+	// Add the item to the line queue
+	$recordqueue[] = $item;
+	// LOGDEB( "\n" . json_encode( array($item), JSON_INVALID_UTF8_IGNORE | JSON_PRETTY_PRINT | JSON_UNESCAPED_LINE_TERMINATORS | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) );
+	// var_dump( $item->values );
+	LOGDEB("linequeue length before sending: " . count($recordqueue));
+	
+}
+
+
+
 function tasks_1secs() {
 	global $uidata_update;
+	global $mqtt_subscriptions_changed;
 	global $filetracker;
 	
 	// echo "tasks_1secs\n";
@@ -228,6 +291,11 @@ function tasks_1secs() {
 
 	// readStatsjson(); 
 	outputLinequeue();
+	
+	if( $mqtt_subscriptions_changed ) {
+		mqttConnect();
+		$mqtt_subscriptions_changed = false;
+	}
 	
 	if( $uidata_update ) {
 		writeInfoForUI();
@@ -289,10 +357,14 @@ function readStats4loxjson( $stats4lox_json, $mtime ) {
 function readStatsjson( $stats_json, $mtime ) {
 	global $stats;
 	global $statsByMeasurement;
-
+	global $mqtt_subscriptions;
+	global $mqtt_subscriptions_changed;
+	
 	if( $mtime == false ) {
 		return;
 	}
+	
+	LOGINF("Reading stats.json");
 	$statscfg = json_decode( file_get_contents( $stats_json ) );
 		
 	$stats = new stdClass();
@@ -316,6 +388,19 @@ function readStatsjson( $stats_json, $mtime ) {
 			// For MQTT Gateway publishes, measurementname topic isn't allowed to have whitespaces
 			$measurementname_safe = str_replace( [' ','/','#'], '_', $measurementname );
 			$statsByMeasurement->{"${msno}_${measurementname_safe}"} = "${msno}_${uuid}";
+		}
+	}
+	
+	// Read MQTT subscriptions (for normal MQTT fetching)
+	$mqtt_subscriptions = array();
+	if( isset($statscfg->mqtt) and is_array( $statscfg->mqtt->subscriptions ) ) {
+		foreach( $statscfg->mqtt->subscriptions as $key => $topicarray ) {
+			$topic = $topicarray->id;
+			if( isset($topic) and !isset($mqtt_subscriptions[$topic] ) ) {
+				$mqtt_subscriptions[$topic] = $topicarray;
+				$mqtt_subscriptions[$topic]->subscribed = false;
+				$mqtt_subscriptions_changed = true;
+			}
 		}
 	}
 }
@@ -459,6 +544,7 @@ function mqttConnect() {
 	global $lwt_topic;
 	global $uidata;
 	global $uidata_update;
+	global $mqtt_subscriptions;
 	
 	LOGINF("mqttConnect $basetopic");
 	
@@ -506,8 +592,19 @@ function mqttConnect() {
 	
 	// Define and subscribe topic
 	unset($topics);
+	
 	$topics["$basetopic/#"] = array('qos' => 0, 'function' => 's4llive_mqttmsg');
+	
+	LOGINF("Subscribing MQTT Live topic '$basetopic/#'");
 	$mqtt->subscribe($topics, 0);
+	
+	// Userdefined (Generic) subscriptions
+	foreach( $mqtt_subscriptions as $topic => $topicdata ) {
+		unset($topics);
+		LOGINF("Subscribing generic topic '$topic'");
+		$topics[$topic] = array('qos' => 0, 'function' => 'mqtt_genericmsg');
+		$mqtt->subscribe($topics, 0);
+	}
 
 	// Publish will topic to be online
 	$mqtt->publish( $lwt_topic, "true", 0, true);
@@ -515,13 +612,31 @@ function mqttConnect() {
 } 
 
 
+/* Flat a multidimensional array to flat key_subkey_subkey=value pairs */
+/* Christian Fenzl for S4L */
 
+function flatten($arr, $parent = ""){
+  $result = array();
+  foreach ($arr as $key => $val) {
+    if (is_array($val)) {
+      $result = array_merge( $result, flatten($val, $key) );
+
+    } else {
+       if($parent) {
+           $key = $parent."_".$key;
+       }
+       $result[$key] = $val; 
+    }
+  }
+  return $result;
+}
 
 
 
 function exceptionHandler ( $ex ) {
+	global $log;
 	if( $log ) {
-		$log->CRIT("PHP EXCEPTION: " . $ex->getMessage());
+		$log->CRIT("PHP EXCEPTION: " . $ex->getMessage() . " in " . $ex->getFile() . " line " . $ex->getLine());
 	}
 	shutdownHandler();
 }
