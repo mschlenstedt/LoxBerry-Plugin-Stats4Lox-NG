@@ -61,13 +61,13 @@ rm -f /etc/systemd/system/telegraf.service.d/00-stats4lox.conf
 rm -f /etc/systemd/system/grafana-server.service.d/00-stats4lox.conf
 systemctl daemon-reload
 
-echo "<INFO> Starting influxdb and telegraf services."
-systemctl start influxdb
-systemctl start telegraf
-systemctl start grafana-server
+echo "<INFO> Disabling influxdb, grafana and telegraf services."
+systemctl disable influxdb
+systemctl disable telegraf
+systemctl disable grafana-server
 
-echo "<INFO> Stopping internal services for upgrade."
-pkill -f mqttlive.php > /dev/null 2>&1
+echo "<INFO> Stopping internal services."
+pkill -f mqttlive.php >/dev/null 2>&1
 pkill -f import_scheduler.pl > /dev/null 2>&1
 pkill -f import_loxone.pl> /dev/null 2>&1
 
