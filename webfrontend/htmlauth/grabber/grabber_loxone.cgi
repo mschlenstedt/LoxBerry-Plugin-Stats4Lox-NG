@@ -3,6 +3,7 @@
 use LoxBerry::System;
 use LoxBerry::JSON;
 use LoxBerry::IO;
+use LoxBerry::Log;
 use FindBin qw($Bin);
 use lib "$Bin/../../../../../bin/plugins/stats4lox/libs";
 use Globals;
@@ -11,8 +12,16 @@ use strict;
 use warnings;
 #use Data::Dumper;
 
-#$Stats4Lox::DEBUG = 1;
-my $DEBUG = 0;
+my $log = LoxBerry::Log->new ( 
+	name => 'grabber_loxone',
+	filename => "$lbplogdir/grabber_logone.log",
+	append => 1,
+	stderr => 1,
+	addtime => 1,
+	nosession => 1
+);
+
+LOGSTART "Grabber Loxone";
 
 # Plugin config
 my $pcfgfile = $lbpconfigdir . "/stats4lox.json";
@@ -27,7 +36,7 @@ print "Content-type: text/ascii; charset=UTF-8\n\n";
 
 # Skip if not enabled
 if ( ! is_enabled($pcfg->{loxone}->{active}) ) {
-	print STDERR "Loxone Grabber is disabled. Existing.\n" if $DEBUG;
+	LOGINF "Loxone Grabber is disabled. Existing.";
 	exit 0;
 }
 
@@ -45,14 +54,14 @@ my $mem = $jsonobjcfg->open(filename => $memfile, writeonclose => 1);
 my @data;
 for my $results( @{$cfg->{loxone}} ){
 	if (! $results->{uuid} || ! $results->{msno} || ! $results->{measurementname} ) {
-		print STDERR "$results->{name}: Data isn't complete. Skipping...\n" if $DEBUG;
+		LOGWARN "$results->{name}: Configuration data aren't complete. Skipping...";
 		next;
 	}
 	
-	print STDERR "Grabbing " . $results->{name} . "     $results->{uuid}\n" if $DEBUG;
+	LOGINF "$results->{name} -> UUID ($results->{uuid})";
 	
 	if ( ! is_enabled($results->{active}) ) {
-		print STDERR "   Statistic not activated - skipping\n" if $DEBUG;
+		LOGINF "$results->{name} -> Statistic not activated - skipping";
 		next;
 	}
 	
@@ -61,7 +70,7 @@ for my $results( @{$cfg->{loxone}} ){
 	# Checking if interval is reached
 	if ($mem->{$tag}) {
 		if ( $now < $mem->{$tag}->{nextrun} ) {
-			print STDERR "   Interval not reached - skipping this time\n" if $DEBUG;
+			LOGINF "$results->{name} -> Interval not reached - skipping this time";
 			next;
 		}
 	}
@@ -71,7 +80,7 @@ for my $results( @{$cfg->{loxone}} ){
 	# Grab data
 	my ($code, $resp) = Stats4Lox::msget_value($results->{msno}, $results->{uuid});
 	if ( !$resp || $code ne "200" ) {
-		print STDERR "   Could not grab data from Miniserver.\n" if $DEBUG;
+		LOGERR "$results->{name} -> Could not grab data from Miniserver $results->{msno}: HTTP $code";
 		next;
 	}
 	
@@ -93,7 +102,7 @@ for my $results( @{$cfg->{loxone}} ){
 	if( scalar(@outputs) == 0) {
 		# use all outputs
 		@outputs = ();
-		print STDERR "   Using ALL outputs - config is empty - \n" if $DEBUG;
+		LOGWARN "$results->{name} -> Using ALL outputs - config is empty";
 		foreach (@$resp) {
 			if ($_->{"Key"}) {
 				push @outputs, $_->{"Key"};
@@ -101,7 +110,7 @@ for my $results( @{$cfg->{loxone}} ){
 		}
 	}
 	else {
-		print STDERR "   Using defined outputs " . join(",", @outputs) . "\n" if $DEBUG;
+		# LOGINF "  Using defined outputs " . join(",", @outputs);
 	}
 	
 	my %fields = ();
@@ -112,11 +121,12 @@ for my $results( @{$cfg->{loxone}} ){
 				my $valname = $_->{"Name"};
 				my $val = $_->{"Value"};
 				$fields{"$valname"} = $val;
+				LOGDEB "$results->{name} -> $valname: $val";
 			}
 		}
 	}
 
-	my $lineprot = Stats4Lox::influx_lineprot(undef, $measurement, \%tags, \%fields);
+	my $lineprot = Stats4Lox::influx_lineprot(undef, $measurement, \%tags, \%fields);	
 	push @data, $lineprot;
 
 	# Slow down
@@ -126,8 +136,15 @@ for my $results( @{$cfg->{loxone}} ){
 #print STDERR Dumper @data;
 
 # Output
+LOGOK "Returning lineprot dataset (" . scalar @data . " measures)";
 foreach (@data) {
 	print $_ . "\n";
+	LOGDEB $_;
 }
 
 exit(0);
+
+# Script desctructor
+END {
+	LOGEND if($log);
+}

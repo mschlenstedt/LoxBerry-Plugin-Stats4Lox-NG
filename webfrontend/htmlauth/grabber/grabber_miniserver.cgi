@@ -3,6 +3,7 @@
 use LoxBerry::System;
 use LoxBerry::JSON;
 use LoxBerry::IO;
+use LoxBerry::Log;
 use FindBin qw($Bin);
 use lib "$Bin/../../../../../bin/plugins/stats4lox/libs";
 use Globals;
@@ -11,8 +12,16 @@ use strict;
 use warnings;
 #use Data::Dumper;
 
-#$Stats4Lox::DEBUG = 1;
-my $DEBUG = 0;
+my $log = LoxBerry::Log->new ( 
+	name => 'grabber_miniserver',
+	filename => "$lbplogdir/grabber_miniserver.log",
+	append => 1,
+	stderr => 1,
+	addtime => 1,
+	nosession => 1
+);
+
+LOGSTART "Grabber Miniserver";
 
 # Plugin config
 my $pcfgfile = $lbpconfigdir . "/stats4lox.json";
@@ -28,7 +37,7 @@ print "Content-type: text/ascii; charset=UTF-8\n\n";
 
 # Skip if not enabled
 if ( ! is_enabled($pcfg->{miniserver}->{active}) ) {
-	print STDERR "Miniserver Grabber is disabled. Existing.\n" if $DEBUG;
+	LOGINF "Miniserver Grabber is disabled. Existing.";
 	exit 0;
 }
   
@@ -64,19 +73,19 @@ my %stats2grab = (
 my %miniservers = LoxBerry::System::get_miniservers();
 
 if ( ! %miniservers ) {
-	print STDERR "No Miniservers configured. Existing.\n" if $DEBUG;
+	LOGINF "No Miniservers configured. Existing.";
 	exit 0;
 }
 
 # Loop through Miniservers
 my @data;
 foreach my $msno (sort keys %miniservers) {
-	print STDERR "Grabbing Miniserver " . $msno . "\n" if $DEBUG;
+	LOGINF "Grabbing Miniserver " . $msno;
 	my $now = time();
 	# Checking if interval is reached
 	if ($mem->{$msno}) {
 		if ( $now < $mem->{$msno}->{nextrun} ) {
-			print STDERR "   Interval not reached - skipping this time\n" if $DEBUG;
+			LOGINF "  Interval not reached - skipping this time";
 			next;
 		}
 	}
@@ -91,22 +100,31 @@ foreach my $msno (sort keys %miniservers) {
 	
 	# Grab stat data
 	my %fields = ();
+	my $ms_fetcherrors = 0;
+	my $ms_fetchoks = 0;
 	foreach my $key (keys %stats2grab) {
 		my $url = $stats2grab{$key};
 		# Grab data
 		my ($code, $resp) = Stats4Lox::msget_value($msno, $url);
 		if ( !$resp || $code ne "200" ) {
-			print STDERR "   Could not grab data from Miniserver.\n" if $DEBUG;
+			LOGWARN "  Could not grab data from Miniserver $msno: HTTP $code (URL $url)";
+			$ms_fetcherrors++;
 			next;
 		}
-		print STDERR "Value of " . $key . " is " . $resp->[0]->{Value} . "\n";
+		$ms_fetchoks++;
+		LOGDEB "  Miniserver $msno -> $key = $resp->[0]->{Value}";
 		my $valname = "msno_" . $msno . "_" . $key;
 		$fields{$valname} = $resp->[0]->{Value};
 
 		# Slow down
 		sleep (0.2);
 	}
-
+	if( $ms_fetcherrors > 0 and $ms_fetchoks > 0 ) {
+		LOGWARN "Miniserver $msno -> $ms_fetchoks values ok but $ms_fetcherrors values not reachable - possibly user not Miniserver Admin?";
+	}
+	elsif ( $ms_fetcherrors > 0 and $ms_fetchoks == 0 ) {
+		LOGWARN "Miniserver $msno -> $ms_fetcherrors errors. Miniserver not reachable?";
+	}
 	my $lineprot = Stats4Lox::influx_lineprot(undef, $measurement, \%tags, \%fields);
 	push @data, $lineprot;
 }
@@ -114,8 +132,15 @@ foreach my $msno (sort keys %miniservers) {
 #print STDERR Dumper @data;
 
 # Output
+LOGOK "Returning lineprot dataset (" . scalar @data . " measures)";
 foreach (@data) {
 	print $_ . "\n";
+	LOGDEB $_;
 }
 
 exit(0);
+
+# Script desctructor
+END {
+	LOGEND if($log);
+}
