@@ -30,9 +30,6 @@ my $pcfgfile = $lbpconfigdir . "/stats4lox.json";
 my $pjsonobj = LoxBerry::JSON->new();
 my $pcfg = $pjsonobj->open(filename => $pcfgfile, readonly => 1);
 
-# # Measurement name for Influx
-# my $measurement = $pcfg->{loxone}->{measurement};
-
 # Header
 print "Content-type: text/ascii; charset=UTF-8\n\n";
 
@@ -52,6 +49,22 @@ my $jsonobjmem = LoxBerry::JSON->new();
 my $memfile = "/dev/shm/stats4lox_mem_loxonegrabber.json";
 my $mem = $jsonobjcfg->open(filename => $memfile, writeonclose => 1);
 
+# Telegraf HTTP timeout 
+my $telegraf_http_timeout;
+eval {
+	use TOML::Parser;
+	my $tomlparser = TOML::Parser->new;
+	my $toml = $tomlparser->parse( LoxBerry::System::read_file("$lbpconfigdir/telegraf/telegraf.d/stats4lox_loxone.conf") );
+	$telegraf_http_timeout = trim($toml->{inputs}->{http}[0]->{timeout});
+	$telegraf_http_timeout = convert_duration_interval( $telegraf_http_timeout );
+	# LOGDEB "telegraf_http_timeout: $telegraf_http_timeout";
+};
+if( $@ ) {
+	LOGWARN "Could not parse telegraf/telegraf.d/stats4lox_loxone.conf: $@";
+	LOGWARN "Using default timeout: 5s";
+	$telegraf_http_timeout = 5;
+}
+
 # Temporary assign 'nextrun' time to measures
 for my $results( @{$cfg->{loxone}} ){
 	my $tag = $results->{measurementname};
@@ -62,7 +75,7 @@ for my $results( @{$cfg->{loxone}} ){
 @{$cfg->{loxone}} = sort { $a->{nextrun} <=> $b->{nextrun} } @{$cfg->{loxone}};
 
 # Loop through stats
-my $max_runtime = $Globals::loxone->{grabber_max_runtime} * 0.85;
+my $max_runtime = $telegraf_http_timeout-2;
 $max_runtime = $max_runtime < 3 ? 3 : $max_runtime;
 LOGOK "Starting data fetching (maximum runtime $max_runtime secs)";
 my @data;
@@ -162,6 +175,34 @@ foreach (@data) {
 }
 
 exit(0);
+
+
+# This converts Influx intervals ("20ms", "3s",...) to seconds
+# Influx intervals:
+# https://github.com/influxdata/telegraf/blob/master/docs/CONFIGURATION.md#intervals
+
+sub convert_duration_interval
+{
+	my $timestr = shift;
+	$timestr =~ /(\d+)(\w+)/;
+	my $timeval = $1;
+	my $interval = $2;
+	
+	
+	if( $interval eq "ns") { $timeval /= 1000000000; }
+	elsif( $interval eq "us" or $interval eq "µs") { $timeval /= 1000000; }
+	elsif( $interval eq "ms") { $timeval /= 1000; }
+	elsif( $interval eq "s") {  }
+	elsif( $interval eq "m") { $timeval *= 60; }
+	elsif( $interval eq "h") { $timeval *= 60*60; }
+	elsif( $interval ne "") { undef $timeval; }
+	
+	return $timeval;
+
+}
+
+
+
 
 # Script desctructor
 END {

@@ -83,7 +83,6 @@ our $loxberry = {
 our $loxone = {
 	active => "True",
 	mqttlive_basetopic => "s4l/mqttlive",
-	grabber_max_runtime => 4,
 };
 
 our $miniserver = {
