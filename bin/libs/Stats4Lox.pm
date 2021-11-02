@@ -196,7 +196,7 @@ sub influx_lineprot
 		} else {
 			$data = "$key=$fields{$key}";
 		}
-		$data =~ s/([ ,])/\\$1/g;
+		$data =~ s/([,])/\\$1/g;
 		$line .= "," if $i > 0;
 		$line .= "$data";
 		$i++;
