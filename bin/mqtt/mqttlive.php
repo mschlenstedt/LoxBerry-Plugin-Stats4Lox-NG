@@ -31,7 +31,12 @@ $data_transferfolder = "/dev/shm/s4ltmp";
 $data_transferfile = $data_transferfolder."/mqttlive_dataspool.json";
 $perlprocessor_filename = LBPBINDIR."/lox2telegraf.pl";
 $uidata_file = $data_transferfolder."/mqttlive_uidata.json";
+
+// This array holds the subscriptions with key=topic and object with settings
 $mqtt_subscriptions = array();
+// This simple array holds a list of topics ordered by number of hierarchy levels
+$mqtt_subscriptions_ordered = array();
+// This boolean is set, if subscriptions in the config have changed
 $mqtt_subscriptions_changed = false;
 
 $mqtt_connected = false;
@@ -228,7 +233,36 @@ function mqtt_genericmsg($topic, $msg){
 	global $recordqueue;
 	global $uidata;
 	global $uidata_update;
+	global $mqtt_subscriptions;
+	global $mqtt_subscriptions_ordered;
+	
+	
 	LOGOK("mqtt_genericmsg topic $topic received: $msg");
+
+	// Get settings for this subscription
+	foreach( $mqtt_subscriptions_ordered as $subscription ) {
+		$subsregex = preg_quote( $subscription );
+		
+		$subsregex = str_replace( '\+', '[^/]+', $subsregex );
+		if($subsregex == '\#') {
+			$subsregex = '.+';
+		}
+		elseif( substr($subsregex, -2) == '\#' ) {
+			$subsregex = substr($subsregex, 0, -2) . '.*';
+		}
+		
+		$subsregex = '#'.$subsregex.'#';
+
+		// Compare current $topic to created regex in $subscription
+		// LOGDEB("Created Regex: $subsregex");
+		
+		if( preg_match( $subsregex, $topic ) ) {
+			LOGINF( "Incoming topic $topic MATCHES subscription $subscription" );
+			$subscription_settings = $mqtt_subscriptions[$subscription];
+			break;
+		}
+	}
+
 
 	// Check if payload is json
 	$payload = json_decode($msg, true);
@@ -352,13 +386,13 @@ function readStats4loxjson( $stats4lox_json, $mtime ) {
 			mqttConnect();
 		}
 	}
-	
 }
 
 function readStatsjson( $stats_json, $mtime ) {
 	global $stats;
 	global $statsByMeasurement;
 	global $mqtt_subscriptions;
+	global $mqtt_subscriptions_ordered;
 	global $mqtt_subscriptions_changed;
 	
 	if( $mtime == false ) {
@@ -394,15 +428,26 @@ function readStatsjson( $stats_json, $mtime ) {
 	
 	// Read MQTT subscriptions (for normal MQTT fetching)
 	$mqtt_subscriptions = array();
+	$mqtt_subscriptions_ordered = array();
 	if( isset($statscfg->mqtt) and is_array( $statscfg->mqtt->subscriptions ) ) {
 		foreach( $statscfg->mqtt->subscriptions as $key => $topicarray ) {
 			$topic = $topicarray->id;
+			
 			if( isset($topic) and !isset($mqtt_subscriptions[$topic] ) ) {
 				$mqtt_subscriptions[$topic] = $topicarray;
 				$mqtt_subscriptions[$topic]->subscribed = false;
+				$mqtt_subscriptions[$topic]->hierarchyLevel = count_chars($topic, "/");
 				$mqtt_subscriptions_changed = true;
+				$mqtt_subscriptions_ordered[] = $topic;
 			}
 		}
+		// Sort Subscriptions by Topic Level (hierarchyLevel)
+		usort( $mqtt_subscriptions_ordered, function($a, $b) { 
+			if( count_chars($a, "/") < count_chars($b, "/") ) { return 1; }
+			else { return -1; }
+		} );
+		LOGDEB( "Ordered MQTT Subscription by topic hierarchy level:");
+		LOGDEB( print_r( $mqtt_subscriptions_ordered, true ) );
 	}
 }
 
