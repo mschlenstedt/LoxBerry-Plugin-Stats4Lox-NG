@@ -238,7 +238,9 @@ function mqtt_genericmsg($topic, $msg){
 	}
 	else {
 		// Flatten the payload (in case of a json)
+		LOGINF("Payload is JSON");
 		$payload = flatten($payload);
+		LOGDEB( print_r( $payload, true ) );
 	}
 		
 	$timestamp_epoch = microtime(true);
@@ -277,7 +279,6 @@ function mqtt_genericmsg($topic, $msg){
 	LOGDEB("linequeue length before sending: " . count($recordqueue));
 	
 }
-
 
 
 function tasks_1secs() {
