@@ -12,6 +12,8 @@ use strict;
 use warnings;
 #use Data::Dumper;
 
+my $starttime = time;
+
 my $log = LoxBerry::Log->new ( 
 	name => 'grabber_loxone',
 	filename => "$lbplogdir/grabber_logone.log",
@@ -50,7 +52,19 @@ my $jsonobjmem = LoxBerry::JSON->new();
 my $memfile = "/dev/shm/stats4lox_mem_loxonegrabber.json";
 my $mem = $jsonobjcfg->open(filename => $memfile, writeonclose => 1);
 
+# Temporary assign 'nextrun' time to measures
+for my $results( @{$cfg->{loxone}} ){
+	my $tag = $results->{measurementname};
+	$results->{nextrun} = defined $mem->{$tag}->{nextrun} ? $mem->{$tag}->{nextrun} : 0;
+}
+
+# Sorting measures by nextrun time
+@{$cfg->{loxone}} = sort { $a->{nextrun} <=> $b->{nextrun} } @{$cfg->{loxone}};
+
 # Loop through stats
+my $max_runtime = $Globals::loxone->{grabber_max_runtime} * 0.85;
+$max_runtime = $max_runtime < 3 ? 3 : $max_runtime;
+LOGOK "Starting data fetching (maximum runtime $max_runtime secs)";
 my @data;
 for my $results( @{$cfg->{loxone}} ){
 	if (! $results->{uuid} || ! $results->{msno} || ! $results->{measurementname} ) {
@@ -58,7 +72,7 @@ for my $results( @{$cfg->{loxone}} ){
 		next;
 	}
 	
-	LOGINF "$results->{name} -> UUID ($results->{uuid})";
+	LOGINF "$results->{name} -> Interval $results->{interval} UUID $results->{uuid}";
 	
 	if ( ! is_enabled($results->{active}) ) {
 		LOGINF "$results->{name} -> Statistic not activated - skipping";
@@ -69,7 +83,7 @@ for my $results( @{$cfg->{loxone}} ){
 	my $now = time();
 	# Checking if interval is reached
 	if ($mem->{$tag}) {
-		if ( $now < $mem->{$tag}->{nextrun} ) {
+		if ( defined $mem->{$tag}->{nextrun} and $now < $mem->{$tag}->{nextrun} ) {
 			LOGINF "$results->{name} -> Interval not reached - skipping this time";
 			next;
 		}
@@ -128,6 +142,11 @@ for my $results( @{$cfg->{loxone}} ){
 
 	my $lineprot = Stats4Lox::influx_lineprot(undef, $measurement, \%tags, \%fields);	
 	push @data, $lineprot;
+
+	if( time() > ($starttime+$max_runtime) ) {
+		LOGWARN "Early abandon fetching after reaching max_runtime";
+		last;
+	}
 
 	# Slow down
 	sleep (0.2);
