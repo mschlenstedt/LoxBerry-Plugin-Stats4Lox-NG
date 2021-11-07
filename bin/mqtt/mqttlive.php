@@ -288,16 +288,32 @@ function mqtt_genericmsg($topic, $msg){
 	
 	if( !is_array( $payload ) ) {
 		// Single value
+		
+		$value = process_msg_logic( $payload, $subscription_settings );
+		
+		if( $value == null ) {
+			LOGDEB("Payload ignored by settings");
+			return;
+		}
+		
 		$item->values = array(
-							array(
-								'key' => $topic,
-								'value' => $payload
-							)
-						);
+			array(
+				'key' => $topic,
+				'value' => $value
+			)
+		);
 	}
 	else {
 		// Payload was json
 		foreach( $payload as $name => $value ) {
+			
+			$value = process_msg_logic( $value, $subscription_settings );
+			
+			if( $value == null ) {
+				LOGDEB("Payload value ignored by settings");
+				continue;
+			}
+			
 			$values[] = array( 
 				'key' => $name,
 				'value' => $value
@@ -313,6 +329,51 @@ function mqtt_genericmsg($topic, $msg){
 	LOGDEB("linequeue length before sending: " . count($recordqueue));
 	
 }
+
+
+
+// Validate for number in string
+function process_msg_logic( $input, $subscription_settings ) {
+	
+	$result = null;
+	$logic_processed = false;
+		
+	// Is this already a number?
+	if( is_numeric( $input ) ) {
+		$result = $input;
+		$logic_processed = true;
+	}
+	
+	// If not a number, and number extraction enabled, try to get the number
+	if( !$logic_processed and isset($subscription_settings->extractNumbers) and is_enabled($subscription_settings->extractNumbers) ) {
+//		LOGDEB("Extracting number");
+		$number_found = preg_match( "/[-+]?[0-9]*\.?[0-9]+/", $input, $matches );
+		if( $number_found != 0 ) {
+			$result = $matches[0];
+			$logic_processed = true;
+//			LOGDEB("Number found: " . $result);
+		}
+		else { 
+//			LOGDEB("No number found");
+			$result = null;
+		}
+	}
+	
+	// If strings should be collected, use the input as result
+	if( !$logic_processed and isset($subscription_settings->collectStrings) and is_enabled($subscription_settings->collectStrings) ) {
+		$result = $input;
+	} 
+	
+	if( $result != null ) {
+		LOGDEB("Returning $result");
+	} else {
+		LOGDEB("Returning null");
+	}
+	return $result;
+	
+}
+
+
 
 
 function tasks_1secs() {
