@@ -9,10 +9,14 @@ use FindBin qw($Bin);
 use lib "$Bin/../../../../bin/plugins/stats4lox/libs/";
 use Globals;
 
+our $htmlhead="";
+$htmlhead .= '<script type="application/javascript" src="js/inputs_outputs_sub_navbar.js"></script>';
+
+
 LoxBerry::Web::lbheader("Stats4Lox", undef, undef);
 
 my $template = HTML::Template->new(
-    filename => "$lbptemplatedir/inputs_outputs.html",
+    filename => "$lbptemplatedir/output_influx.html",
     global_vars => 1,
     loop_context_vars => 1,
     die_on_bad_params => 0,

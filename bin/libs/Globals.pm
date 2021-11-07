@@ -14,7 +14,7 @@ our %navbar = (
 	},
 	30 => {
 			Name => "Inputs / Outputs",
-			URL => "inputs_outputs.cgi"
+			URL => "output_influx.cgi"
 	},
 	40 => {
 			Name => "Chart Engines",
