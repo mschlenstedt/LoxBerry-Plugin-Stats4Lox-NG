@@ -23,7 +23,7 @@ $(function() {
 			getMqttSubscriptions() {
 				  fetch('ajax.cgi?action=getstatsconfig')
 					.then( response => response.json() )
-					.then( data => ( this.subscriptions = data?.mqtt?.subscriptions ) )
+					.then( data => ( this.subscriptions = data?.mqtt?.subscriptions ? data?.mqtt?.subscriptions : [] ) )
 					.then( data => this.subscriptions.push( {  } ) );
 					
 			},
