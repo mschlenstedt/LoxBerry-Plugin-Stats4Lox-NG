@@ -494,17 +494,22 @@ function readStatsjson( $stats_json, $mtime ) {
 		foreach( $statscfg->mqtt->subscriptions as $key => $topicarray ) {
 			$topic = $topicarray->id;
 			
+			if( validateTopic( $topic ) ) {
+				LOGWARN( "Topic $topic ignored - non-valid subscription syntax" );
+				continue;
+			}
+			
 			if( isset($topic) and !isset($mqtt_subscriptions[$topic] ) ) {
 				$mqtt_subscriptions[$topic] = $topicarray;
 				$mqtt_subscriptions[$topic]->subscribed = false;
-				$mqtt_subscriptions[$topic]->hierarchyLevel = count_chars($topic, "/");
+				$mqtt_subscriptions[$topic]->hierarchyLevel = substr_count($topic, "/");
 				$mqtt_subscriptions_changed = true;
 				$mqtt_subscriptions_ordered[] = $topic;
 			}
 		}
 		// Sort Subscriptions by Topic Level (hierarchyLevel)
 		usort( $mqtt_subscriptions_ordered, function($a, $b) { 
-			if( count_chars($a, "/") < count_chars($b, "/") ) { return 1; }
+			if( substr_count($a, "/") < substr_count($b, "/") ) { return 1; }
 			else { return -1; }
 		} );
 		LOGDEB( "Ordered MQTT Subscription by topic hierarchy level:");
@@ -755,4 +760,37 @@ function shutdownHandler( $signal = null ) {
 	$log->LOGEND("MQTT Live: Shutdown");
 	
 	exit();
+}
+
+
+function validateTopic($topic) {
+
+	// Returns true on errors
+	$parts = explode('/', $topic);
+	$partcount = count($parts);
+	
+	LOGINF("Validating $topic");
+	
+	for ($i = 0; $i < $partcount; $i++) {
+		if ($parts[$i] == '+') {
+			LOGDEB("+ in Part $i + OK");
+			continue;
+		}
+		if ($parts[$i] == '#') {
+			if( $i == ($partcount-1) ) {
+				LOGDEB("# in Part $i / " . ($partcount-1) . " OK");
+				return false;
+			} else {
+				LOGDEB("# in Part $i / " . ($partcount-1) . " ERROR");
+				return true;
+			}
+		}
+
+		if ( strpos($parts[$i], '+') !== false || strpos($parts[$i], '#') !== false ) {
+			LOGDEB("+/# found inside level $i ERROR");
+			return true;
+		}
+	}
+	LOGDEB("OK");
+	return false;
 }
