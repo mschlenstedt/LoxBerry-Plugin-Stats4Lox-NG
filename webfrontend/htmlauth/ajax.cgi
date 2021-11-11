@@ -22,6 +22,7 @@ my $log = LoxBerry::Log->new (
 
 LOGSTART "Request $q->{action}";
 
+## getloxplan
 if( $q->{action} eq "getloxplan" ) {
 	require Loxone::GetLoxplan;
 	require Loxone::ParseXML;
@@ -105,6 +106,7 @@ if( $q->{action} eq "getloxplan" ) {
 	
 }
 
+## getstatsconfig
 if( $q->{action} eq "getstatsconfig" ) {
 	if ( -e $statsconfig ) {
 		$response = LoxBerry::System::read_file($statsconfig);
@@ -117,6 +119,7 @@ if( $q->{action} eq "getstatsconfig" ) {
 	}
 }
 
+## updatestat
 if( $q->{action} eq "updatestat" ) {
 	require LoxBerry::JSON;
 	my $jsonobjcfg = LoxBerry::JSON->new();
@@ -210,6 +213,7 @@ if( $q->{action} eq "updatestat" ) {
 	
 }
 	
+## lxlquery
 if( $q->{action} eq "lxlquery" ) {
 	require "$lbpbindir/libs/Stats4Lox.pm";
 	my ($code, $data) = Stats4Lox::msget_value( $q->{msno}, $q->{uuid} );
@@ -225,6 +229,7 @@ if( $q->{action} eq "lxlquery" ) {
 	$response = encode_json( \%response );
 }
 
+## import_scheduler_report
 if( $q->{action} eq "import_scheduler_report" ) {
 
 	if( ! -e $Globals::stats4lox->{s4ltmp}."/s4l_import_scheduler.json" ) {
@@ -239,6 +244,7 @@ if( $q->{action} eq "import_scheduler_report" ) {
 	}
 }
 
+## scheduleimport
 if( $q->{action} eq "scheduleimport" and $q->{msno} and $q->{uuid} ) {
 	my $msno = $q->{msno};
 	my $uuid = $q->{uuid};
@@ -269,6 +275,7 @@ if( $q->{action} eq "scheduleimport" and $q->{msno} and $q->{uuid} ) {
 	
 }
 
+## deleteimport
 if( $q->{action} eq "deleteimport" and $q->{msno} and $q->{uuid} ) {
 	my $msno = $q->{msno};
 	my $uuid = $q->{uuid};
@@ -298,6 +305,7 @@ if( $q->{action} eq "deleteimport" and $q->{msno} and $q->{uuid} ) {
 	}
 }
 
+## getmqttlivedata
 if( $q->{action} eq "getmqttlivedata" ) {
 	if ( -e $Globals::stats4lox->{s4ltmp}."/mqttlive_uidata.json" ) {
 		$response = LoxBerry::System::read_file($Globals::stats4lox->{s4ltmp}."/mqttlive_uidata.json");
@@ -310,6 +318,7 @@ if( $q->{action} eq "getmqttlivedata" ) {
 	}
 }
 
+## mqttlive_clearuidata
 if( $q->{action} eq "mqttlive_clearuidata" ) {
 	my $basetopic = $q->{basetopic};
 	if( !$basetopic ) {
@@ -348,49 +357,56 @@ if( $q->{action} eq "mqttlive_clearuidata" ) {
 	$response = "{ }";
 }
 
-
+## starttelegraf
 if( $q->{action} eq "starttelegraf" ) {
 	system ("sudo systemctl enable telegraf >/dev/null 2>&1");
 	system ("sudo systemctl restart telegraf >/dev/null 2>&1");
 	$response = $?;
 }
 
+## stoptelegraf
 if( $q->{action} eq "stoptelegraf" ) {
 	system ("sudo systemctl disable telegraf >/dev/null 2>&1");
 	system ("sudo systemctl stop telegraf >/dev/null 2>&1");
 	$response = $?;
 }
 
+## startinfluxdb
 if( $q->{action} eq "startinfluxdb" ) {
 	system ("sudo systemctl enable influxdb >/dev/null 2>&1");
 	system ("sudo systemctl restart influxdb >/dev/null 2>&1");
 	$response = $?;
 }
 
+## stopinfluxdb
 if( $q->{action} eq "stopinfluxdb" ) {
 	system ("sudo systemctl disable influxdb >/dev/null 2>&1");
 	system ("sudo systemctl stop influxdb >/dev/null 2>&1");
 	$response = $?;
 }
 
+## startgrafana-server
 if( $q->{action} eq "startgrafana-server" ) {
 	system ("sudo systemctl enable grafana-server >/dev/null 2>&1");
 	system ("sudo systemctl restart grafana-server >/dev/null 2>&1");
 	$response = $?;
 }
 
+## stopgrafana-server
 if( $q->{action} eq "stopgrafana-server" ) {
 	system ("sudo systemctl disable grafana-server >/dev/null 2>&1");
 	system ("sudo systemctl stop grafana-server >/dev/null 2>&1");
 	$response = $?;
 }
 
+## startmqttlive
 if( $q->{action} eq "startmqttlive" ) {
 	system ("pkill -f mqttlive.php >/dev/null 2>&1");
 	system ("$lbpbindir/mqtt/mqttlive.php >> $lbplogdir/mqttlive.log 2>&1 &");
 	$response = $?;
 }
 
+## stopmqttlive
 if( $q->{action} eq "stopmqttlive" ) {
 	system ("pkill -f mqttlive.php >/dev/null 2>&1");
 	if ($? < 3 || $? eq "15") { # Don't know why it give 15 as Exit Code back - on cmd it is 0, 1 or 2.
@@ -400,6 +416,7 @@ if( $q->{action} eq "stopmqttlive" ) {
 	}
 }
 
+## servicestatus
 if( $q->{action} eq "servicestatus" ) {
 	my $telegrafstat = `pgrep -f /usr/bin/telegraf`;
 	my $influxstat = `pgrep -f /usr/bin/influxd`;
@@ -415,6 +432,7 @@ if( $q->{action} eq "servicestatus" ) {
 	$response = encode_json( \%response );
 }
 
+## getpluginconfig
 if( $q->{action} eq "getpluginconfig" ) {
 	if ( -e $stats4loxconfig ) {
 		$response = LoxBerry::System::read_file($stats4loxconfig);
@@ -427,6 +445,7 @@ if( $q->{action} eq "getpluginconfig" ) {
 	}
 }
 
+## savepluginconfig
 if( $q->{action} eq "savepluginconfig" ) {
 	require LoxBerry::JSON;
 	my $errors = 0;
@@ -460,6 +479,7 @@ if( $q->{action} eq "savepluginconfig" ) {
 	$response = '{ "error":' . $errors . '}';
 }
 
+## config-handler-status
 if( $q->{action} eq "config-handler-status" ) {
 	my $section = $q->{section};
 	my $statfile = $Globals::stats4lox->{s4ltmp} . "/config-handler-status.json";
@@ -470,6 +490,39 @@ if( $q->{action} eq "config-handler-status" ) {
 		$response = "{ }";
 	}
 }
+
+## update_mqttsubscriptions
+if( $q->{action} eq "update_mqttsubscriptions" ) {
+	# The subscriptions are received via POST in form field 'subscriptions' as json
+	
+	my $subscriptions = from_json( $q->{subscriptions} );
+	
+	use Data::Dumper;
+	LOGDEB "ajax subscriptions: " . $q->{subscriptions};
+	# LOGDEB Dumper(\$subscriptions);
+	
+	# Remove empty elements
+	while( my ($index, $subscription) = each @{$subscriptions} ) {
+		LOGDEB $index . " " . $subscription;
+		if( !defined $subscription->{id} or $subscription->{id} eq "" ) {
+			LOGDEB "Removing empty subscription line (index $index)";
+			delete @{$subscriptions}[$index];
+		}
+	}
+	
+	# LOGDEB Dumper(\$subscriptions);
+	require LoxBerry::JSON;
+	my $jsonobjcfg = LoxBerry::JSON->new();
+	my $cfg = $jsonobjcfg->open(filename => $statsconfig, lockexclusive => 1);
+	$cfg->{mqtt}->{subscriptions} = $subscriptions;
+	$jsonobjcfg->write();
+	
+	$response = '{ }';
+
+
+}
+
+
 
 #####################################
 # Manage Response and error

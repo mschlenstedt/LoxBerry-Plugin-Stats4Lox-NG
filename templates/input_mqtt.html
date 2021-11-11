@@ -1,0 +1,191 @@
+<style>
+    .datahidden {
+        display: none;
+    }
+    
+    .small {
+        font-size: 70%;
+    }
+    
+    .bitsmall {
+        font-size: 86%;
+    }
+    
+    .grayed {
+        color: gray;
+    }
+    
+    .center {
+        text-align: center;
+    }
+    
+    .mono {
+        font-family: 'Courier New', monospace;
+        font-size: 85%;
+    }
+    
+    .LoxoneDetails_table {
+        min-width: 400px;
+        width: 400px;
+        border-collapse: collapse;
+        border-bottom: 1px solid gray;
+    }
+    
+    .LoxoneDetails_tr {
+        padding: 2px 5px 2px 5px;
+    }
+    
+    .LoxoneDetails_td {
+        padding: 2px 5px 2px 5px;
+        border-collapse: collapse;
+        border-top: 1px solid gray;
+        // border-bottom: 1px solid gray;
+    }
+    
+    .controlstable {
+        border-bottom: 1px solid gray;
+        width: 100%;
+    }
+    
+    .controlstable tr {
+        padding: 2px 5px 2px 5px;
+    }
+    
+    .controlstable td {
+        padding: 2px 5px 2px 5px;
+        border-collapse: collapse;
+        border-top: 1px solid gray;
+        /* border-bottom: 1px solid gray; */
+    }
+    
+	.topicline {
+		border-bottom: 1px solid gray;
+		padding: 5px 5px 5px 5px;
+	}
+
+    .topicline:nth-of-type(odd) {
+        background: #EEE
+    }
+    
+    .topicline:nth-of-type(even) {
+        background: #FFF
+    }
+
+	.topicerror { 
+		color:red;
+		font-size:85%;
+	}
+
+    .s4l_interval_highlight {
+        background-color: #0059b3 !important;
+        text-shadow: none !important;
+        color: white !important;
+    }
+    
+    .popuptitle {
+        background-color: #6dac20;
+        color: white;
+        text-shadow: 1px 1px 2px black;
+        padding: 5px;
+    }
+    
+    #progressState {
+        min-width: 200px;
+        min-height: 70px;
+    }
+    
+    .hintbox {
+        background-color: #ffff73;
+        padding: 15px;
+        border: 1px solid gray;
+    }
+    
+    .progress-border {
+        border: 1px solid #ccc;
+    }
+    
+    .progress-fill {
+        background-color: #6dac20;
+    }
+    
+    .mqttlivestate {
+        padding: 4px;
+    }
+    
+    .ui-icon-clipboard:after {
+        background-image: url("images/clipboard_18.svg");
+    }
+</style>
+
+<div class="datahidden" id="mqttgateway_hostname"><TMPL_VAR MQTTGATEWAY_HOSTNAME></div>
+<div class="datahidden" id="mqttgateway_udpinport"><TMPL_VAR MQTTGATEWAY_UDPINPORT></div>
+
+<h3>MQTT Collector</h3>
+<p>
+    Subscribe to MQTT topics that Stats4Lox should directly push to the Influx database.
+</p>
+
+<!-- Hints: Select stats -->
+<div id="hint_inputmqtt_intro" class="hintbox" style="display:none;">
+    <b>What is MQTT Collector good for?</b><br>
+    <p>
+        With Stats4Lox's MQTT Collector, you can directly send data from MQTT devices to your Influx database, bypassing the way to the Miniserver and back. 
+		You need to subscribe the topics you want to collect. The MQTT Collector automatically expands json payload and true/false values. By default, only
+		numeric values are collected. On a per-topic basis, you can enable value extraction from strings (e.g. get "12.4" value out of a "12.4°C" string), and also 
+		full string recording (Influx also supports strings as values).<br>
+		<b>MQTT Gateway is required</b>, but subscriptions in MQTT Gateway (that are forwarded to the Miniserver) are independent of subscriptions in here.
+    </p>
+    <a href="#" class="ui-btn ui-btn-inline ui-mini" onclick="hint_hide('hint_inputmqtt_intro');">Hide</a>
+</div>
+
+	<div id="subscriptionList">
+	<div style="display:flex;flex-wrap:wrap">
+		<div v-for="(subscription, index) in subscriptions" class="topicline" style="flex-basis:100%;width:100%" >
+			
+			<div style="display:flex">
+				<div style="flex:1;min-width:90%">
+					<input v-model="subscription.id" placeholder="Add new subscription" v-on:input="validate(index, $event)">
+				</div>
+				<div style="padding:3px;flex:1"> 
+					<button data-mini="true" data-inline="true" v-on:click="this.subscriptions.splice(index, 1);this.errors.splice(index,1);changedMsg();">Delete</button>
+				</div>
+			</div>
+			
+			<div class="topicerror">{{errors[index]}}</div>
+			
+			<div style="display:flex">
+				
+				<div style="padding:3px;">
+					<input type="checkbox" v-on:change="changedMsg();" v-model="subscription.extractNumbers" data-role="none"> Extract Numbers
+				</div>
+					
+				<div style="padding:3px;">
+					<input type="checkbox" data-role="none"
+					v-on:change="changedMsg();" v-model="subscription.collectStrings"> Collect Strings
+				</div>
+			</div>
+			
+		</div>
+	</div>
+	<div style="height:12px;padding:3px" v-html="statusLine"></div>
+	<button data-inline="true" v-on:click="subscriptions.push( {  } )">Add new line</button>
+	<button data-inline="true" v-on:click="saveApply();">Save and Apply</button>
+	</div>
+	
+
+
+<!-- <div style="display:flex; flex-wrap:wrap; justify-content:space-evenly; border:1px solid gray;background-color:#f4f4f4;margin:0 0 10 0;"> -->
+	<!-- <div class="mqttlivestate"> -->
+		<!-- <span class="small grayed">Topic</span><br> -->
+		<!-- <span id="mqttlivestate_broker_basetopic">&nbsp;</span> -->
+	<!-- </div> -->
+	<!-- <div class="mqttlivestate"> -->
+		<!-- <span class="small grayed">Connected</span><br> -->
+		<!-- <span id="mqttlivestate_broker_connected">&nbsp;</span> -->
+	<!-- </div> -->
+	<!-- <div class="mqttlivestate"> -->
+		<!-- <span class="small grayed">Errors</span><br> -->
+		<!-- <span id="mqttlivestate_broker_error">&nbsp;</span> -->
+	<!-- </div> -->
+<!-- </div> -->
+
