@@ -12,7 +12,8 @@ $log = LBLog::newLog( [
 	"addtime" => 1,
 	"append" => 1,
 	"filename" => LBPLOGDIR."/mqttlive.log",
-	"stderr" => 1
+	"stderr" => 1,
+	"nofile" => 1
 ] );
 LOGSTART("Stats4Lox MQTT Live");
 
