@@ -26,6 +26,8 @@ my $template = HTML::Template->new(
 
 my $lang = LoxBerry::System::lblanguage();
 
+$template->param("FINDERAVAILABLE", -e '/dev/shm/mqttfinder.json' ? "true" : "" );
+
 print $template->output();
 
 LoxBerry::Web::lbfooter();

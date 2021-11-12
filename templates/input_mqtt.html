@@ -138,22 +138,28 @@
     <a href="#" class="ui-btn ui-btn-inline ui-mini" onclick="hint_hide('hint_inputmqtt_intro');">Hide</a>
 </div>
 
+	<div style="display:none" id="isFinderAvailable"><TMPL_VAR FINDERAVAILABLE></div>
+	
 	<div id="subscriptionList">
 	<div style="display:flex;flex-wrap:wrap">
 		<div v-for="(subscription, index) in subscriptions" class="topicline" style="flex-basis:100%;width:100%" >
 			
-			<div style="display:flex">
-				<div style="flex:1;min-width:90%">
+			<div style="display:flex;flex-wrap:wrap;">
+				<div style="flex:10 1 auto;">
 					<input v-model="subscription.id" placeholder="Add new subscription" v-on:input="validate(index, $event)">
 				</div>
-				<div style="padding:3px;flex:1"> 
+				<div style="padding:3px;flex:1 5"> 
 					<button data-mini="true" data-inline="true" v-on:click="this.subscriptions.splice(index, 1);this.errors.splice(index,1);changedMsg();">Delete</button>
 				</div>
+				<div v-show="finderAvailable" style="padding:3px;flex:1 5"> 
+					<button data-mini="true" data-inline="true" v-on:click="openFinder(index)">Test</button>
+				</div>
+				
 			</div>
 			
 			<div class="topicerror">{{errors[index]}}</div>
 			
-			<div style="display:flex">
+			<div style="display:flex;flex-wrap:wrap;">
 				
 				<div style="padding:3px;">
 					<input type="checkbox" v-on:change="changedMsg();" v-model="subscription.extractNumbers" data-role="none"> Extract Numbers

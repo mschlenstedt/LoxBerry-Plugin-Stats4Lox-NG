@@ -9,13 +9,15 @@ $(function() {
 		$("#hint_inputmqtt_intro").show();
 	}
 	
+	
 	varSubscriptions = {
 	  
 		data() {
 			return {
 				subscriptions: [],
 				errors: [],
-				statusLine: ""
+				statusLine: "",
+				finderAvailable: document.getElementById('isFinderAvailable').innerHTML == 'true' ? true : false /* Pure JS */
 			}
 		},
 		methods: {
@@ -69,6 +71,11 @@ $(function() {
 						self.statusLine='<span style="color:green">Saved your changes.</span>';
 					}
 				});
+			},
+			
+			openFinder(index) {
+				console.log("Open finder with index", index);
+				window.open('/admin/system/tools/mqttfinder.cgi?e&q='+encodeURIComponent(this.subscriptions[index].id), 'mqttfinder');
 			}
 		},
 		mounted() { this.getMqttSubscriptions(); }
