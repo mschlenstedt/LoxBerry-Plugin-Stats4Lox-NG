@@ -1,11 +1,11 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 # Source: Sarnau https://github.com/sarnau/Inside-The-Loxone-Miniserver
 # Adaped for Stats4Lox by Christian Fenzl
 
 import struct
-from io import BytesIO
+# import StringIO
 import sys
 
 s4ltmp = '/dev/shm/s4ltmp'
@@ -17,7 +17,7 @@ except:
 	print ('Second argument is destination file')
 	sys.exit(1)
 
-with open(sourcefile, 'rb') as f:
+with open(sourcefile, 'r') as f:
 	header, = struct.unpack('<L', f.read(4))
 	if header == 0xaabbccee:	# magic word to detect a compressed file
 		compressedSize,header3,header4, = struct.unpack('<LLL', f.read(12))
@@ -25,7 +25,7 @@ with open(sourcefile, 'rb') as f:
 		# header4 could be a checksum, I don't know
 		data = f.read(compressedSize)
 		index = 0
-		resultStr = bytearray()
+		resultStr = ''
 		while index<len(data):
 			# the first byte contains the number of bytes to copy in the upper
 			# nibble. If this nibble is 15, then another byte follows with
@@ -37,7 +37,7 @@ with open(sourcefile, 'rb') as f:
 			copyBytes = byte >> 4
 			byte &= 0xf
 			if copyBytes == 15:
-				copyBytes += data[index]
+				copyBytes += ord(data[index])
 				index += 1
 			if copyBytes > 0:
 				resultStr += data[index:index+copyBytes]
@@ -67,7 +67,7 @@ with open(sourcefile, 'rb') as f:
 				else:
 					resultStr += resultStr[-bytesBack:-bytesBack+1]
 				bytesBackCopied -= 1
-		with open(destfile, "wb") as f:
+		with open(destfile, "w") as f:
 			f.write(resultStr)
 	else:
 		print('Could not open file')

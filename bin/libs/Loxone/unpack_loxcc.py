@@ -1,12 +1,13 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 # Source: Sarnau https://github.com/sarnau/Inside-The-Loxone-Miniserver
 # Adaped for Stats4Lox by Christian Fenzl
 
 import struct
-# import StringIO
+from io import BytesIO
 import sys
+import zlib
 
 s4ltmp = '/dev/shm/s4ltmp'
 try:
@@ -17,15 +18,13 @@ except:
 	print ('Second argument is destination file')
 	sys.exit(1)
 
-with open(sourcefile, 'r') as f:
+with open(sourcefile, 'rb') as f:
 	header, = struct.unpack('<L', f.read(4))
 	if header == 0xaabbccee:	# magic word to detect a compressed file
-		compressedSize,header3,header4, = struct.unpack('<LLL', f.read(12))
-		# header3 is roughly the length of the uncompressed data, but it is a bit higher
-		# header4 could be a checksum, I don't know
+		compressedSize,uncompressedSize,checksum, = struct.unpack('<LLL', f.read(12))
 		data = f.read(compressedSize)
 		index = 0
-		resultStr = ''
+		resultStr = bytearray()
 		while index<len(data):
 			# the first byte contains the number of bytes to copy in the upper
 			# nibble. If this nibble is 15, then another byte follows with
@@ -37,8 +36,12 @@ with open(sourcefile, 'r') as f:
 			copyBytes = byte >> 4
 			byte &= 0xf
 			if copyBytes == 15:
-				copyBytes += ord(data[index])
-				index += 1
+				while True:
+					addByte = data[index]
+					copyBytes += addByte
+					index += 1
+					if addByte != 0xff:
+						break
 			if copyBytes > 0:
 				resultStr += data[index:index+copyBytes]
 				index += copyBytes
@@ -67,7 +70,13 @@ with open(sourcefile, 'r') as f:
 				else:
 					resultStr += resultStr[-bytesBack:-bytesBack+1]
 				bytesBackCopied -= 1
-		with open(destfile, "w") as f:
+		if checksum != zlib.crc32(resultStr):
+			print('Checksum is wrong')
+			sys.exit(1)
+		if len(resultStr) != uncompressedSize:
+			print('Uncompressed filesize is wrong %d != %d' % (len(resultStr),uncompressedSize))
+			sys.exit(1)
+		with open(destfile, "wb") as f:
 			f.write(resultStr)
 	else:
 		print('Could not open file')
