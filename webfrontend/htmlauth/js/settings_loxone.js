@@ -71,7 +71,8 @@ $(function() {
 		uid = $(target).closest('table').data("uid");
 		msno = $(target).closest('table').data("msno");
 		var control = controls.find( obj => { return obj.UID === uid && obj.msno == msno })
-		
+		var stat = statsconfigLoxone.find(obj => {
+			return obj.uuid === control.UID && obj.msno == control.msno })
 		// Validations and changes of dependent inputs 
 		
 		if( target.id == "LoxoneDetails_s4lmeasurementname" ) {
@@ -93,7 +94,12 @@ $(function() {
 				// Activate interval field
 				$("#LoxoneDetails_s4lstatinterval").prop( "disabled", false ).textinput("refresh");
 				$('[name="LoxoneDetails_s4loutput"]').prop( "disabled", false );
-				$('[name="LoxoneDetails_s4loutput"][value="Default"').prop( "checked", true );
+				
+				// Enable "Default" setting only when nothing else is activated
+				if( !stat ) {
+					// This element does not exist in stats.json yet, therefore enable "Default" on activation
+					$('[name="LoxoneDetails_s4loutput"][value="Default"').prop( "checked", true );
+				}
 			} 
 			else {
 				// Disable interval field and outputs
