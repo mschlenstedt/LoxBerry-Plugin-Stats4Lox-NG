@@ -18,7 +18,7 @@ my $log = LoxBerry::Log->new (
 	name => 'grabber_loxone',
 	filename => "$lbplogdir/grabber_logone.log",
 	append => 1,
-	stderr => 1,
+	# stderr => 1,
 	addtime => 1,
 	nosession => 1
 );

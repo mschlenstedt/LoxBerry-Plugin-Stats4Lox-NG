@@ -16,7 +16,7 @@ my $log = LoxBerry::Log->new (
 	name => 'grabber_miniserver',
 	filename => "$lbplogdir/grabber_miniserver.log",
 	append => 1,
-	stderr => 1,
+	# stderr => 1,
 	addtime => 1,
 	nosession => 1
 );
