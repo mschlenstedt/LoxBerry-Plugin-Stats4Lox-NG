@@ -418,10 +418,19 @@ if( $q->{action} eq "stopmqttlive" ) {
 
 ## servicestatus
 if( $q->{action} eq "servicestatus" ) {
+	
 	my $telegrafstat = `pgrep -f /usr/bin/telegraf`;
 	my $influxstat = `pgrep -f /usr/bin/influxd`;
 	my $grafanastat = `pgrep -f /usr/sbin/grafana-server`;
-	my $mqttlivestat = `pgrep -f mqttlive.php`;
+	my $mqttlivestat;
+	
+	if( is_disabled( $Globals::stats4lox->{mqttlive_active} ) ) {
+		$mqttlivestat = 'disabled';
+	}
+	else {
+		$mqttlivestat = `pgrep -f mqttlive.php`;
+	}
+	
 	my %response = (
 		telegraf => $telegrafstat,
 		influx => $influxstat,

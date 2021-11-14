@@ -46,7 +46,9 @@ function servicestatus(update) {
 		} else {
 			$("#grafana-server_status").attr("style", "background:#FF6339; color:black").html("Stopped");
 		}
-		if (data.mqttlive) {
+		if (data.mqttlive == 'disabled') {
+			$("#mqttlive_status").attr("style", "background:#ffff00; color:black").html("Disabled by config");
+		} else if (data.mqttlive) {
 			$("#mqttlive_status").attr("style", "background:#32DE00; color:black").html("Running (PID " + data.mqttlive + ")");
 		} else {
 			$("#mqttlive_status").attr("style", "background:#FF6339; color:black").html("Stopped");

@@ -98,6 +98,7 @@ our $stats4lox = {
 	import_max_parallel_processes => 4,
 	import_max_parallel_per_ms => 4,
 	importstatusdir => $LoxBerry::System::lbpdatadir.'/import',
+	mqttlive_active => "True"
 };
 
 our $telegraf = {

@@ -439,6 +439,11 @@ function readStats4loxjson( $stats4lox_json, $mtime ) {
 		$stats4loxcfg = json_decode( file_get_contents( $stats4lox_json ) );
 	}
 	
+	if( !empty( $stats4loxcfg->stats4lox->mqttlive_active) && is_disabled($stats4loxcfg->stats4lox->mqttlive_active) ) {
+		LOGINF("MQTT Live / MQTT Collector is disabled by config. Exiting.");
+		exit(0);
+	}
+	
 	$newbasetopic = !empty( $stats4loxcfg->loxone->mqttlive_basetopic ) ? trim( $stats4loxcfg->loxone->mqttlive_basetopic ) : 's4l/mqttlive';
 	$newbasetopic = rtrim( $newbasetopic, "#/" );
 	if( $newbasetopic != $basetopic) {
