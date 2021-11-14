@@ -402,12 +402,25 @@ if( $q->{action} eq "stopgrafana-server" ) {
 ## startmqttlive
 if( $q->{action} eq "startmqttlive" ) {
 	system ("pkill -f mqttlive.php >/dev/null 2>&1");
+
+	my $jsonobj = LoxBerry::JSON->new();
+	my $cfg = $jsonobj->open(filename => $stats4loxconfig, lockexclusive => 1);
+	$cfg->{stats4lox}->{mqttlive_active} = "True";
+	$jsonobj->write();
+	undef $jsonobj;
+
 	system ("$lbpbindir/mqtt/mqttlive.php >> $lbplogdir/mqttlive.log 2>&1 &");
 	$response = $?;
 }
 
 ## stopmqttlive
 if( $q->{action} eq "stopmqttlive" ) {
+	my $jsonobj = LoxBerry::JSON->new();
+	my $cfg = $jsonobj->open(filename => $stats4loxconfig, lockexclusive => 1);
+	$cfg->{stats4lox}->{mqttlive_active} = "False";
+	$jsonobj->write();
+	undef $jsonobj;
+	
 	system ("pkill -f mqttlive.php >/dev/null 2>&1");
 	if ($? < 3 || $? eq "15") { # Don't know why it give 15 as Exit Code back - on cmd it is 0, 1 or 2.
 		$response = 0;
