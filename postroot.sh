@@ -159,9 +159,15 @@ else
 fi
 
 # Correct permissions - influxdb must have write permissions to database folders
-echo "<INFO> Set permissions for user influxdb for all config/data folders..."
+echo "<INFO> Set permissions for user influxdb for all config/data folders: $PDATA/influxdb $PCONFIG/influxdb"
 chown -R influxdb:loxberry $PDATA/influxdb
 chown -R influxdb:loxberry $PCONFIG/influxdb
+
+# Debug:
+echo "<INFO> Current file permisssions in $PDATA/influxdb:"
+ls -l $PDATA/influxdb
+echo "<INFO> Current file permisssions in $PCONFIG/influxdb"
+ls -l $PCONFIG/influxdb
 
 # Enlarge UDP/IP receive buffer limit for import
 echo "<INFO> Enlarge Unix receive buffer limit..."
@@ -267,9 +273,15 @@ ln -s $PCONFIG/telegraf /etc/telegraf
 ln -s $PCONFIG/telegraf/telegraf.env /etc/default/telegraf
 
 # Correct permissions - influxdb must have write permissions to database folders
-echo "<INFO> Set permissions for user telegraf for all config/data folders..."
+echo "<INFO> Set permissions for user telegraf for all config/data folders: $PDATA/telegraf $PCONFIG/telegraf"
 chown -R telegraf:loxberry $PDATA/telegraf
 chown -R telegraf:loxberry $PCONFIG/telegraf
+
+# Debug:
+echo "<INFO> Current file permisssions in $PDATA/telegraf"
+ls -l $PDATA/telegraf
+echo "<INFO> Current file permisssions in $PCONFIG/telegraf"
+ls -l $PCONFIG/telegraf
 
 # Saving InfluxDB credentials in Telegraf config and set restrictive permissions to that file
 #
@@ -320,9 +332,15 @@ $PBIN/provisioning/set_datasource_influx.pl
 $PBIN/provisioning/set_dashboard_provider.pl
 
 # Correct permissions - influxdb must have write permissions to database folders
-echo "<INFO> Set permissions for user grafana for all config/data folders..."
+echo "<INFO> Set permissions for user grafana for all config/data folders: $PDATA/grafana $PCONFIG/grafana"
 chown -R grafana:loxberry $PDATA/grafana
 chown -R grafana:loxberry $PCONFIG/grafana
+
+# Debug:
+echo "<INFO> Current file permisssions in $PDATA/grafana:"
+ls -l $PDATA/grafana
+echo "<INFO> Current file permisssions in $PCONFIG/grafana"
+ls -l $PCONFIG/grafana
 
 # Activate Grafana
 echo "<INFO> Starting Grafana..."
