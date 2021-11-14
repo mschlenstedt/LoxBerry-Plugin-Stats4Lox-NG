@@ -98,8 +98,8 @@ sub msget_value
 
 	# Default value
 	my $value = $respjson->{LL}->{value};
-        $value =~ s/^([-\d\.]+)\s*(.*)/$1/g; # cut of unit
-	$value = $value + 0; # Convert from string
+    $value =~ m/([-+]?[0-9]*\.?[0-9]+)/; # cut of unit
+	$value = $1+0 ; # Convert from string
 	$data{Value} = $value;
 	$data{Name} = "Default";
 	$data{Key} = "Default";
