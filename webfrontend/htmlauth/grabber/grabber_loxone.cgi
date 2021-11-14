@@ -114,6 +114,7 @@ for my $results( @{$cfg->{loxone}} ){
 	# Collect data and create Influx lineformat
 	my $measurement = $results->{measurementname};
 	my %tags = ();
+	$tags{"source"} = "grabber";
 	$tags{"name"} =	$results->{name} if ($results->{name});
 	$tags{"description"} = $results->{description} if ($results->{description});
 	$tags{"uuid"} = $results->{uuid} if ($results->{uuid});

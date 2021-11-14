@@ -94,6 +94,7 @@ foreach my $msno (sort keys %miniservers) {
 	
 	# Collect data
 	my %tags = ();
+	$tags{"source"} = "grabber";
 	$tags{name} = $miniservers{$msno}{Name} if $miniservers{$msno}{Name};
 	$tags{note} = $miniservers{$msno}{Note} if $miniservers{$msno}{Note};
 	$tags{msno} = $msno;
