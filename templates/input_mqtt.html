@@ -145,13 +145,13 @@
 		<div v-for="(subscription, index) in subscriptions" class="topicline" style="flex-basis:100%;width:100%" >
 			
 			<div style="display:flex;flex-wrap:wrap;">
-				<div style="flex:10 1 auto;">
+				<div style="flex:10 1 0;">
 					<input v-model="subscription.id" placeholder="Add new subscription" v-on:input="validate(index, $event)">
 				</div>
-				<div style="padding:3px;flex:1 5"> 
+				<div style="padding:3px;flex:0 0;"> 
 					<button data-mini="true" data-inline="true" v-on:click="this.subscriptions.splice(index, 1);this.errors.splice(index,1);changedMsg();">Delete</button>
 				</div>
-				<div v-show="finderAvailable" style="padding:3px;flex:1 5"> 
+				<div v-show="finderAvailable" style="padding:3px;flex:0 0;"> 
 					<button data-mini="true" data-inline="true" v-on:click="openFinder(index)">Show</button>
 				</div>
 				
