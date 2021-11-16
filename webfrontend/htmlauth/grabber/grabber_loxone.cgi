@@ -20,11 +20,10 @@ my $log = LoxBerry::Log->new (
 	append => 1,
 	# stderr => 1,
 	addtime => 1,
-	nosession => 1
+	# nosession => 1
 );
 
 LOGSTART "Grabber Loxone";
-
 # Plugin config
 my $pcfgfile = $lbpconfigdir . "/stats4lox.json";
 my $pjsonobj = LoxBerry::JSON->new();

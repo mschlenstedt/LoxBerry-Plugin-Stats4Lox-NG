@@ -18,7 +18,7 @@ my $log = LoxBerry::Log->new (
 	append => 1,
 	# stderr => 1,
 	addtime => 1,
-	nosession => 1
+	# nosession => 1
 );
 
 LOGSTART "Grabber Miniserver";
