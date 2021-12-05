@@ -292,8 +292,8 @@ function mqtt_genericmsg($topic, $msg){
 		
 		$value = process_msg_logic( $payload, $subscription_settings );
 		
-		if( $value == null ) {
-			LOGDEB("Payload ignored by settings");
+		if( is_null( $value ) ) {
+			LOGDEB("Single payload ignored by settings");
 			return;
 		}
 		
@@ -310,8 +310,8 @@ function mqtt_genericmsg($topic, $msg){
 			
 			$value = process_msg_logic( $value, $subscription_settings );
 			
-			if( $value == null ) {
-				LOGDEB("Payload value ignored by settings");
+			if( is_null( $value ) ) {
+				LOGDEB("Json attribute value ignored by settings");
 				continue;
 			}
 			
@@ -320,11 +320,15 @@ function mqtt_genericmsg($topic, $msg){
 				'value' => $value
 			);
 		}
-		$item->values = $values;
+		if( isset( $values ) ) {
+			$item->values = $values;
+		}
 	}
 	
 	// Add the item to the line queue
-	$recordqueue[] = $item;
+	if( isset( $item->values ) ) {
+		$recordqueue[] = $item;
+	}
 	// LOGDEB( "\n" . json_encode( array($item), JSON_INVALID_UTF8_IGNORE | JSON_PRETTY_PRINT | JSON_UNESCAPED_LINE_TERMINATORS | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) );
 	// var_dump( $item->values );
 	LOGDEB("linequeue length before sending: " . count($recordqueue));
@@ -336,7 +340,7 @@ function mqtt_genericmsg($topic, $msg){
 // Validate for number in string
 function process_msg_logic( $input, $subscription_settings ) {
 	
-	$result = null;
+	$result = NULL;
 	$logic_processed = false;
 		
 	// Is this already a number?
@@ -356,7 +360,7 @@ function process_msg_logic( $input, $subscription_settings ) {
 		}
 		else { 
 //			LOGDEB("No number found");
-			$result = null;
+			$result = NULL;
 		}
 	}
 	
@@ -365,11 +369,12 @@ function process_msg_logic( $input, $subscription_settings ) {
 		$result = $input;
 	} 
 	
-	if( $result != null ) {
+	if( !is_null($result) ) {
 		LOGDEB("Returning $result");
 	} else {
 		LOGDEB("Returning null");
 	}
+	
 	return $result;
 	
 }
