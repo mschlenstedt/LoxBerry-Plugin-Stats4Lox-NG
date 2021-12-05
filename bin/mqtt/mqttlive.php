@@ -310,7 +310,7 @@ function mqtt_genericmsg($topic, $msg){
 		if(empty( $measurementname ) ) {
 			$measurementname = $topic;
 		}
-		$measturementname = ltrim( $measturementname, '/' );
+		$measurementname = ltrim( $measurementname, '/' );
 		LOGDEB("measurementname: " . $measurementname); 
 		LOGDEB("field: " . $lastlevel);
 		
@@ -331,7 +331,7 @@ function mqtt_genericmsg($topic, $msg){
 	}
 	else {
 		// Payload was json
-		$item->measurementname = $measturementname = ltrim( $topic, '/' );
+		$item->measurementname = ltrim( $topic, '/' );
 		foreach( $payload as $name => $value ) {
 			
 			$value = process_msg_logic( $value, $subscription_settings );
@@ -342,7 +342,7 @@ function mqtt_genericmsg($topic, $msg){
 			}
 			
 			$values[] = array( 
-				'key' => $name,
+				'key' => $name, 
 				'value' => $value
 			);
 		}
