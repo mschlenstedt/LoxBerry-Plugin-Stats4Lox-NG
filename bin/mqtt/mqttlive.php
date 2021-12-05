@@ -284,12 +284,36 @@ function mqtt_genericmsg($topic, $msg){
 	$item = new stdClass();
 	$item->timestamp = $timestamp_nsec;
 	$item->timestamp_epoch = $timestamp_epoch;
-	$item->measurementname = $topic;
 	$item->source = "mqtt";
 	
 	if( !is_array( $payload ) ) {
 		// Single value
+
+		/* 
+		How leasurementname is generated:
+		A topic 
+			shelly/shelly-123/power 
+		will get
+			measurementname: shelly/shelly-123
+			field:			 power
+		Exceptional the topic level is the first level, then measurementname and field are equal, e.g.
+			power
+		will get
+			measturementname: power
+			field:			  power
+		*/
+
+		// Split topic by last level 
+		$levels = explode('/', $topic);
+		$lastlevel = array_pop($levels);
+		$measurementname = implode('/', $levels);
+		if(empty( $measurementname ) ) {
+			$measurementname = $topic;
+		}
+		LOGDEB("measurementname: " . $measurementname); 
+		LOGDEB("field: " . $lastlevel);
 		
+		$item->measurementname = $measurementname; 
 		$value = process_msg_logic( $payload, $subscription_settings );
 		
 		if( is_null( $value ) ) {
@@ -299,13 +323,14 @@ function mqtt_genericmsg($topic, $msg){
 		
 		$item->values = array(
 			array(
-				'key' => $topic,
+				'key' => $lastlevel,
 				'value' => $value
 			)
 		);
 	}
 	else {
 		// Payload was json
+		$item->measurementname = $topic;
 		foreach( $payload as $name => $value ) {
 			
 			$value = process_msg_logic( $value, $subscription_settings );
