@@ -6,12 +6,14 @@ require_once "loxberry_log.php";
 require_once "phpMQTT/phpMQTT.php";
 require_once LBPBINDIR . "/libs/filechangeTracker.php";
 
+$logfilename = LBPLOGDIR."/mqttlive.log";
+
 // Create logfile
 $log = LBLog::newLog( [ 
 	"name" => "MQTTLive",
 	"addtime" => 1,
 	"append" => 1,
-	"filename" => LBPLOGDIR."/mqttlive.log",
+	"filename" => $logfilename,
 	"stderr" => 1,
 	"nofile" => 1
 ] );
@@ -70,6 +72,9 @@ $cpu_usage = getrusage()["ru_utime.tv_usec"];
 // Initial push file-queued data to influx
 callPerlProcessor();
 
+$incoming_message_processed = true;
+$cpu_high_load = false;
+
 // Permanent loop
 while(1) {
 	if($mqtt_connected) {
@@ -90,8 +95,14 @@ while(1) {
 		// Calculate CPU usage
 		$cpu_usage_now = getrusage()["ru_utime.tv_usec"];
 		$newruntime=microtime(true);
-		LOGINF("CPU time: " . round( ($cpu_usage_now-$cpu_usage)/($newruntime-$runtime_1mins)/1000000*100, 2) ." %");
+		$cpu_usage_percent = round( ($cpu_usage_now-$cpu_usage)/($newruntime-$runtime_1mins)/1000000*100, 2);
+		LOGINF("CPU time: $cpu_usage_percent %");
 		$cpu_usage = $cpu_usage_now;
+		if( $cpu_usage > 20 ) {
+			$cpu_high_load = true;
+		} else {
+			$cpu_high_load = false;
+		}
 		
 		// Run 1 Min. task
 		tasks_1mins();
@@ -100,6 +111,18 @@ while(1) {
 		}
 		$runtime_1mins=$newruntime;
 	}
+	
+	// Sleep for a while
+	if( !$incoming_message_processed ) {
+		usleep(5);
+	}
+	else {
+		$incoming_message_processed = false;
+	}
+	if( $cpu_high_load ) {
+		usleep(100);
+	}
+	
 }
 
 $mqtt->close();
@@ -115,6 +138,9 @@ function s4llive_mqttmsg ($topic, $msg){
 	global $recordqueue;
 	global $uidata;
 	global $uidata_update;
+	global $incoming_message_processed;
+
+	$incoming_message_processed = true;
 	
 	if( substr($topic, -(strlen("/connected")), strlen("/connected")) == "/connected" ) {
 		return;
@@ -209,6 +235,10 @@ function s4llive_command($topic, $msg){
 	global $basetopic;
 	global $uidata;
 	global $uidata_update;
+	global $incoming_message_processed;
+
+	$incoming_message_processed = true;
+	
 	LOGOK("s4llive_command received: $msg");
 
 	switch($msg) {
@@ -236,7 +266,10 @@ function mqtt_genericmsg($topic, $msg){
 	global $uidata_update;
 	global $mqtt_subscriptions;
 	global $mqtt_subscriptions_ordered;
-	
+	global $incoming_message_processed;
+
+	$incoming_message_processed = true;
+
 	
 	LOGOK("mqtt_genericmsg topic $topic received: $msg");
 
@@ -457,6 +490,9 @@ function tasks_1mins() {
 		// Reduce queue to the 900 latest entries
 		$recordqueue = array_slice($recordqueue, $queue_size-900);
 	}
+	
+	truncate_log();
+	
 }
 
 function readStats4loxjson( $stats4lox_json, $mtime ) {
@@ -830,4 +866,28 @@ function validateTopic($topic) {
 	}
 	LOGDEB("OK");
 	return false;
+}
+
+function truncate_log() {
+	global $logfilename;
+	global $cpu_high_load;
+	
+	$max_size_mb = 20;
+	
+	if( file_exists( $logfilename ) ) {
+		clearstatcache(true, $logfilename);
+		$logfilesize=filesize($logfilename);
+		if( $logfilesize > ($max_size_mb*1024*1024) ) {
+			// Truncate log
+			@file_put_contents( 
+				$logfilename, 
+				"<WARN> Logfile was truncated internally by mqttlive (size " . round($logfilesize/1024/1024, 1, PHP_ROUND_HALF_UP) . " MB)"
+			);
+		}
+	}
+	
+	if( $cpu_high_load ) {
+		LOGWARN("MQTTLive CPU time is high, therefore is currently throttled"); 
+	}
+	
 }
