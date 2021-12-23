@@ -3,7 +3,7 @@
 require_once "loxberry_system.php";
 require_once "loxberry_io.php";
 require_once "loxberry_log.php";
-require_once "phpMQTT/phpMQTT.php";
+require_once "./phpMQTT.php";
 require_once LBPBINDIR . "/libs/filechangeTracker.php";
 
 $logfilename = LBPLOGDIR."/mqttlive.log";
@@ -15,12 +15,13 @@ $log = LBLog::newLog( [
 	"append" => 1,
 	"filename" => $logfilename,
 	"stderr" => 1,
-	"nofile" => 1
+	"nofile" => 1,
 ] );
 LOGSTART("Stats4Lox MQTT Live");
 
 register_shutdown_function('shutdownHandler');
 set_exception_handler ('exceptionHandler');
+set_error_handler("notice_handler", E_NOTICE);
 // pcntl_signal(SIGTERM, 'shutdownHandler');
 // pcntl_signal(SIGHUP,  'shutdownHandler');
 // pcntl_signal(SIGUSR1, 'shutdownHandler');
@@ -77,7 +78,7 @@ $cpu_high_load = false;
 
 // Permanent loop
 while(1) {
-	if($mqtt_connected) {
+	if($mqtt and $mqtt_connected) {
 		$mqtt->proc("false");
 	}
 	else {
@@ -98,7 +99,7 @@ while(1) {
 		$cpu_usage_percent = round( ($cpu_usage_now-$cpu_usage)/($newruntime-$runtime_1mins)/1000000*100, 2);
 		LOGINF("CPU time: $cpu_usage_percent %");
 		$cpu_usage = $cpu_usage_now;
-		if( $cpu_usage > 20 ) {
+		if( $cpu_usage_percent > 20 ) {
 			$cpu_high_load = true;
 		} else {
 			$cpu_high_load = false;
@@ -106,9 +107,6 @@ while(1) {
 		
 		// Run 1 Min. task
 		tasks_1mins();
-		if( $mqtt ) {
-			$mqtt->ping();
-		}
 		$runtime_1mins=$newruntime;
 	}
 	
@@ -153,7 +151,7 @@ function s4llive_mqttmsg ($topic, $msg){
 	
 	$timestamp_epoch = microtime(true);
 	$timestamp_nsec = sprintf('%.0f', $timestamp_epoch*1000000000);
-	LOGOK("{$topic}-->$msg ($timestamp_nsec)");
+	LOGOK("s4llive_mqttmsg ----> {$topic} : $msg ($timestamp_nsec)");
 	
 	$reltopic = substr( $topic, strlen($basetopic)+1 );
 	LOGDEB("Relative Topic $reltopic");
@@ -239,8 +237,8 @@ function s4llive_command($topic, $msg){
 
 	$incoming_message_processed = true;
 	
-	LOGOK("s4llive_command received: $msg");
-
+	LOGOK("s4llive_command ----> {$topic} : $msg");
+	
 	switch($msg) {
 		case "shutdown": 
 			LOGOK("Shutting down mqttlive");
@@ -270,8 +268,7 @@ function mqtt_genericmsg($topic, $msg){
 
 	$incoming_message_processed = true;
 
-	
-	LOGOK("mqtt_genericmsg topic $topic received: $msg");
+	LOGOK("mqtt_genericmsg ----> {$topic} : $msg");
 
 	// Get settings for this subscription
 	foreach( $mqtt_subscriptions_ordered as $subscription ) {
@@ -515,7 +512,7 @@ function readStats4loxjson( $stats4lox_json, $mtime ) {
 	$newbasetopic = rtrim( $newbasetopic, "#/" );
 	if( $newbasetopic != $basetopic) {
 		$basetopic = $newbasetopic;
-		LOGOK("Using Base topic $basetopic");
+		LOGOK("Using new Base topic $basetopic");
 		if( $mqtt ) {
 			mqttConnect();
 		}
@@ -605,10 +602,10 @@ function outputLinequeue() {
 	else {
 		LOGINF("Queue size: $queue_size elements"); 
 		if( $mqtt_connected ) {
-			LOGOK("MQTT connected");
+			LOGOK("MQTT is connected");
 		}
 		else {
-			LOGWARN("MQTT not connected");
+			LOGWARN("MQTT is not connected");
 		}
 	}
 
@@ -730,6 +727,7 @@ function mqttConnect() {
 	global $uidata;
 	global $uidata_update;
 	global $mqtt_subscriptions;
+	global $log;
 	
 	LOGINF("mqttConnect $basetopic");
 	
@@ -745,7 +743,8 @@ function mqttConnect() {
 	}
 	
 	// MQTT requires a unique client id
-	$client_id = uniqid(gethostname()."_s4lmqttlive".rand(1,999));
+	$client_id = uniqid("mqttlive_");
+	LOGINF("MQTT Client id is '$client_id'");
 	$lwt_topic = $basetopic."/connected";
 	
 	// Create mqtt connection
@@ -756,8 +755,11 @@ function mqttConnect() {
 		$mqtt = null;
 	}
 		
-	LOGINF("Creating new mqtt connection");
+	LOGINF("Creating new mqtt connection (lwt topic $lwt_topic)");
 	$mqtt = new Bluerhinos\phpMQTT($creds['brokerhost'],  $creds['brokerport'], $client_id);
+	if( $log->loglevel == 7 ) {
+		$mqtt->debug = true;
+	}
 	
 	$mqtt_connected = $mqtt->connect(true, [ "topic" => "$lwt_topic", "content" => "false", "qos" => 0, "retain" => true ] , $creds['brokeruser'], $creds['brokerpass'] );
 	if( !$mqtt_connected ) {
@@ -776,7 +778,7 @@ function mqttConnect() {
 	$uidata_update = true;
 	
 	// Define and subscribe topic
-	unset($topics);
+	$topics = array();
 	
 	$topics["$basetopic/#"] = array('qos' => 0, 'function' => 's4llive_mqttmsg');
 	
@@ -785,7 +787,7 @@ function mqttConnect() {
 	
 	// Userdefined (Generic) subscriptions
 	foreach( $mqtt_subscriptions as $topic => $topicdata ) {
-		unset($topics);
+		$topics = array();
 		LOGINF("Subscribing generic topic '$topic'");
 		$topics[$topic] = array('qos' => 0, 'function' => 'mqtt_genericmsg');
 		$mqtt->subscribe($topics, 0);
@@ -826,6 +828,27 @@ function exceptionHandler ( $ex ) {
 	shutdownHandler();
 }
 
+
+function notice_handler($errno, $errstr, $errfile, $errline, $errcontext) { 
+	global $log;
+	global $mqtt;
+	global $mqtt_connected;
+	$log->WARN("NOTICE $errno in line $errline: $errstr");
+	
+	if( strpos($errstr, "Broken pipe") !== false ) {
+		
+		if( $mqtt ) {
+			$log->WARN("notice_handler: Disconnecting mqtt");
+			$mqtt->close();
+			$mqtt = false;
+			$mqtt_connected = false;
+		}
+		sleep(5);
+		
+	}
+	
+}
+
 function shutdownHandler( $signal = null ) {
 	global $log;
 	
@@ -838,33 +861,35 @@ function shutdownHandler( $signal = null ) {
 
 function validateTopic($topic) {
 
+	$stack = callstack();
+	
 	// Returns true on errors
 	$parts = explode('/', $topic);
 	$partcount = count($parts);
+	LOGINF($stack . "Validating $topic");
 	
-	LOGINF("Validating $topic");
 	
 	for ($i = 0; $i < $partcount; $i++) {
 		if ($parts[$i] == '+') {
-			LOGDEB("+ in Part $i + OK");
+			LOGDEB($stack . "+ in Part $i + OK");
 			continue;
 		}
 		if ($parts[$i] == '#') {
 			if( $i == ($partcount-1) ) {
-				LOGDEB("# in Part $i / " . ($partcount-1) . " OK");
+				LOGDEB($stack . "# in Part $i / " . ($partcount-1) . " OK");
 				return false;
 			} else {
-				LOGDEB("# in Part $i / " . ($partcount-1) . " ERROR");
+				LOGDEB($stack . "# in Part $i / " . ($partcount-1) . " ERROR");
 				return true;
 			}
 		}
 
 		if ( strpos($parts[$i], '+') !== false || strpos($parts[$i], '#') !== false ) {
-			LOGDEB("+/# found inside level $i ERROR");
+			LOGDEB($stack . "+/# found inside level $i ERROR");
 			return true;
 		}
 	}
-	LOGDEB("OK");
+	LOGDEB($stack . "OK");
 	return false;
 }
 
@@ -890,4 +915,13 @@ function truncate_log() {
 		LOGWARN("MQTTLive CPU time is high, therefore is currently throttled"); 
 	}
 	
+}
+
+function callstack() {
+	global $log;
+	$callstack = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 0);
+	$callstack = array_column( $callstack, 'function' );
+	array_shift($callstack);
+	$log->INF(implode( ':', array_reverse($callstack) ) . " --> ");
+	return array_shift($callstack) . " -> ";
 }
