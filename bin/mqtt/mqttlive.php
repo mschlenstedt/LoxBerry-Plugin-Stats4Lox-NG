@@ -3,7 +3,7 @@
 require_once "loxberry_system.php";
 require_once "loxberry_io.php";
 require_once "loxberry_log.php";
-require_once "./phpMQTT.php";
+require_once "$lbpbindir/mqtt/phpMQTT.php";
 require_once LBPBINDIR . "/libs/filechangeTracker.php";
 
 $logfilename = LBPLOGDIR."/mqttlive.log";
