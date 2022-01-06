@@ -83,6 +83,7 @@ while(1) {
 	}
 	else {
 		sleep(5);
+		mqttConnect();
 	}
 	if( microtime(true)>=$runtime_1secs+1 ) {
 		// Run tasks every second
@@ -783,19 +784,25 @@ function mqttConnect() {
 	$topics["$basetopic/#"] = array('qos' => 0, 'function' => 's4llive_mqttmsg');
 	
 	LOGINF("Subscribing MQTT Live topic '$basetopic/#'");
-	$mqtt->subscribe($topics, 0);
+	if( $mqtt ) {
+		$mqtt->subscribe($topics, 0);
+	}
 	
 	// Userdefined (Generic) subscriptions
 	foreach( $mqtt_subscriptions as $topic => $topicdata ) {
 		$topics = array();
 		LOGINF("Subscribing generic topic '$topic'");
 		$topics[$topic] = array('qos' => 0, 'function' => 'mqtt_genericmsg');
-		$mqtt->subscribe($topics, 0);
+		if( $mqtt ) {
+			$mqtt->subscribe($topics, 0);
+		}
 	}
 
 	// Publish will topic to be online
-	$mqtt->publish( $lwt_topic, "true", 0, true);
-	
+	if( $mqtt ) {
+		$mqtt->publish( $lwt_topic, "true", 0, true);
+	}
+
 } 
 
 
