@@ -16,7 +16,7 @@ my $starttime = time;
 
 my $log = LoxBerry::Log->new ( 
 	name => 'grabber_loxone',
-	filename => "$lbplogdir/grabber_logone.log",
+	filename => "$lbplogdir/grabber_loxone.log",
 	append => 1,
 	# stderr => 1,
 	addtime => 1,
