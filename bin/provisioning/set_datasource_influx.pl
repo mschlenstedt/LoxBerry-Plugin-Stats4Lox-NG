@@ -28,14 +28,18 @@ datasources:
   isDefault: true
   orgId: 1
   database: $stats4lox->{influx}->{influxdatabase}
-  basicAuth: true
+  basicAuth: false
   basicAuthUser: $stats4loxcredentials->{influx}->{influxdbuser}
   basicAuthPassword: $stats4loxcredentials->{influx}->{influxdbpass}
+  database: $stats4lox->{influx}->{influxdatabase}
+  user: $stats4loxcredentials->{influx}->{influxdbuser}
   url: $stats4lox->{influx}->{influxurl}
   uid: $stats4lox->{influx}->{grafana}->{dsuid}
   jsonData:
     httpMode: GET
     tlsSkipVerify: true
+   secureJsonData:
+    password: $stats4loxcredentials->{influx}->{influxdbpass}
 EOF
 
 my $dsfile = $Globals::grafana->{graf_provisioning_dir}.'/datasources/stats4lox.yaml';
