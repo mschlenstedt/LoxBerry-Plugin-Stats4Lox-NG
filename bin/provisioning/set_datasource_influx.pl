@@ -38,7 +38,7 @@ datasources:
   jsonData:
     httpMode: GET
     tlsSkipVerify: true
-   secureJsonData:
+  secureJsonData:
     password: $stats4loxcredentials->{influx}->{influxdbpass}
 EOF
 
