@@ -100,7 +100,7 @@ if [ -d $LBHOMEDIR/data/plugins/$PTEMPDIR\_upgrade ]; then
 	# Config
 	if [ -n "$(ls -A "$LBHOMEDIR/data/plugins/${PTEMPDIR}_upgrade/config/" 2>/dev/null)" ]; then
 		chown -R loxberry:loxberry $PCONFIG
-		rsync -Iav $LBHOMEDIR/data/plugins/${PTEMPDIR}_upgrade/config/* $PCONFIG/
+		rsync -Iav --exclude "systemd/*" --exclude "sysctl.conf" $LBHOMEDIR/data/plugins/${PTEMPDIR}_upgrade/config/* $PCONFIG/
 		if [ $? -ne 0 ]; then
 			echo "<FAIL> Restoring config files failed. Giving up."
 			#pause 'Press [Enter] key to continue...'
