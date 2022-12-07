@@ -38,8 +38,8 @@ fi
 # Installing InfluxDB and Grafana in newer versions than Debian included
 echo "<INFO> Adding/Updating Influx repository..."
 wget -qO- https://repos.influxdata.com/influxdb.key | sudo apt-key add - 2>/dev/null
-source /etc/os-release
-echo "deb https://repos.influxdata.com/debian $(lsb_release -cs) stable main" | sudo tee /etc/apt/sources.list.d/influxdb.list
+. /etc/os-release
+echo "deb https://repos.influxdata.com/debian $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/influxdb.list
 
 echo "<INFO> Using Influx Version 1.8.x..."
 rm -f /etc/apt/preferences.d/influxdb
