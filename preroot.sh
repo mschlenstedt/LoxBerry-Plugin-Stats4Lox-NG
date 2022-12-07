@@ -41,11 +41,19 @@ wget -qO- https://repos.influxdata.com/influxdb.key | sudo apt-key add - 2>/dev/
 #source /etc/os-release
 echo "deb https://repos.influxdata.com/debian stable main" | sudo tee /etc/apt/sources.list.d/influxdb.list
 
-echo "<INFO> Using Influx Version 1.8.x..."
+echo "<INFO> Using Influx Version 1.8.10..."
 rm -f /etc/apt/preferences.d/influxdb
 cat <<EOT >> /etc/apt/preferences.d/influxdb
 Package: influxdb
-Pin: version 1.8.*
+Pin: version 1.8.10*
+Pin-Priority: 1000
+EOT
+
+echo "<INFO> Using Telegraf Version 1.24.4..."
+rm -f /etc/apt/preferences.d/telegraf
+cat <<EOT >> /etc/apt/preferences.d/telegraf
+Package: telegraf
+Pin: version 1.24.4*
 Pin-Priority: 1000
 EOT
 
@@ -53,7 +61,7 @@ echo "<INFO> Using Grafana Version 9.2.x..."
 rm -f /etc/apt/preferences.d/grafana
 cat <<EOT >> /etc/apt/preferences.d/grafana
 Package: grafana
-Pin: version 9.2.*
+Pin: version 9.2.7*
 Pin-Priority: 1000
 EOT
 
