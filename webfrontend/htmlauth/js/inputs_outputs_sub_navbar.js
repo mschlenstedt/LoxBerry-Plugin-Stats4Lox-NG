@@ -11,7 +11,7 @@ $(function() {
 	`;
 	
 	// $(`[data-role="header"]`).after(navbarHtml);
-	$("[data-role=navbar]").after(navbarHtml);
+	$("#page_content").before(navbarHtml);
 	console.log("window.location.pathname", window.location.pathname)
 	if( window.location.pathname.lastIndexOf("influx.cgi") != -1 ) {
 		console.log("submenu1");
