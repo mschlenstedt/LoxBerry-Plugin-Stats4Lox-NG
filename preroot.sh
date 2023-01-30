@@ -37,9 +37,11 @@ fi
 
 # Installing InfluxDB and Grafana in newer versions than Debian included
 echo "<INFO> Adding/Updating Influx repository..."
-wget -qO- https://repos.influxdata.com/influxdb.key | apt-key add - 2>/dev/null
+#wget -qO- https://repos.influxdata.com/influxdb.key | apt-key add - 2>/dev/null
 #source /etc/os-release
-echo "deb https://repos.influxdata.com/debian stable main" | tee /etc/apt/sources.list.d/influxdb.list
+#echo "deb https://repos.influxdata.com/debian stable main" | tee /etc/apt/sources.list.d/influxdb.list
+curl https://repos.influxdata.com/influxdata-archive_compat.key | gpg --dearmor | tee /etc/apt/trusted.gpg.d/influxdata-archive_compat.gpg > /dev/null
+echo 'deb [signed-by=/etc/apt/trusted.gpg.d/influxdata-archive_compat.gpg] https://repos.influxdata.com/debian stable main' | sudo tee /etc/apt/sources.list.d/influxdb.list
 
 echo "<INFO> Using Influx Version 1.8.10..."
 rm -f /etc/apt/preferences.d/influxdb
@@ -58,8 +60,10 @@ Pin-Priority: 1000
 EOT
 
 echo "<INFO> Adding/Updating Grafana repository..."
-wget -q -O - https://apt.grafana.com/gpg.key | apt-key add - 2>/dev/null
-echo "deb https://apt.grafana.com stable main" | tee /etc/apt/sources.list.d/grafana.list
+#wget -q -O - https://apt.grafana.com/gpg.key | apt-key add - 2>/dev/null
+#echo "deb https://apt.grafana.com stable main" | tee /etc/apt/sources.list.d/grafana.list
+curl https://apt.grafana.com/gpg.key | gpg --dearmor | tee /etc/apt/trusted.gpg.d/grafanadata-archive_compat.gpg > /dev/null
+echo "deb [signed-by=/etc/apt/trusted.gpg.d/grafanadata-archive_compat.gpg] https://apt.grafana.com stable main" | tee /etc/apt/sources.list.d/grafana.list
 
 echo "<INFO> Using Grafana Version 9.3.x..."
 rm -f /etc/apt/preferences.d/grafana
