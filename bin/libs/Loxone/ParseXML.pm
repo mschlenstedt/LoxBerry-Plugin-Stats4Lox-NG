@@ -118,6 +118,8 @@ sub readloxplan
 		$xmlstr = correctXML_removeAttributeDuplicates( $xmlstr, "LoxAIR", $log );
 		# Corrects duplicate attributes in LoxAIRDevice (Devices connected to Tree2Air Bridge)
 		$xmlstr = correctXML_removeAttributeDuplicates( $xmlstr, "LoxAIRDevice", $log );
+		# Corrects duplicate attributes in User (Phn)
+		$xmlstr = correctXML_removeAttributeDuplicates( $xmlstr, "User", $log );
 		
 		#######################################
 		## Finally, load the XML
