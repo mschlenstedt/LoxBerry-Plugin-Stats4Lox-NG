@@ -75,7 +75,7 @@ $(function() {
 			
 			openFinder(index) {
 				console.log("Open finder with index", index);
-				window.open('/admin/system/tools/mqttfinder.cgi?e&q='+encodeURIComponent(this.subscriptions[index].id), 'mqttfinder');
+				window.open('/admin/system/mqttfinder.cgi?e&q='+encodeURIComponent(this.subscriptions[index].id), 'mqttfinder');
 			}
 		},
 		mounted() { this.getMqttSubscriptions(); }
