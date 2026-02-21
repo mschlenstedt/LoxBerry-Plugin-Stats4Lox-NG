@@ -27,7 +27,6 @@ datasources:
   access: proxy
   isDefault: true
   orgId: 1
-  database: $stats4lox->{influx}->{influxdatabase}
   basicAuth: false
   basicAuthUser: $stats4loxcredentials->{influx}->{influxdbuser}
   basicAuthPassword: $stats4loxcredentials->{influx}->{influxdbpass}
