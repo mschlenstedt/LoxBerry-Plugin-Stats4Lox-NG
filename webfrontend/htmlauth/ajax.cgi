@@ -434,7 +434,7 @@ if( $q->{action} eq "servicestatus" ) {
 	
 	my $telegrafstat = `pgrep -f /usr/bin/telegraf`;
 	my $influxstat = `pgrep -f /usr/bin/influxd`;
-	my $grafanastat = `pgrep -f /usr/sbin/grafana-server`;
+	my $grafanastat = `pgrep -f /usr/share/grafana/bin/grafana`;
 	my $mqttlivestat;
 	
 	if( is_disabled( $Globals::stats4lox->{mqttlive_active} ) ) {
