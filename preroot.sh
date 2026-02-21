@@ -65,11 +65,11 @@ rm -f /usr/share/keyrings/grafana-archive-keyring.gpg
 curl -fsSL https://apt.grafana.com/gpg.key | gpg --dearmor > /usr/share/keyrings/grafana-archive-keyring.gpg
 echo 'deb [signed-by=/usr/share/keyrings/grafana-archive-keyring.gpg] https://apt.grafana.com stable main' > /etc/apt/sources.list.d/grafana.list
 
-echo "<INFO> Using Grafana Version 9.3.x..."
+echo "<INFO> Using Grafana Version 12.3.x..."
 rm -f /etc/apt/preferences.d/grafana
 cat <<EOT >> /etc/apt/preferences.d/grafana
 Package: grafana
-Pin: version 9.3.2*
+Pin: version 12.3.*
 Pin-Priority: 1000
 EOT
 
