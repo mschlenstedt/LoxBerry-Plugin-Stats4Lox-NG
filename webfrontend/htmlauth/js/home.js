@@ -9,10 +9,10 @@ $(function() {
 function servicestatus(update) {
 
 	if (update) {
-		$("#telegraf_status").attr("style", "background:#dfdfdf").html("Updating...");
-		$("#influx_status").attr("style", "background:#dfdfdf").html("Updating...");
-		$("#grafana-server_status").attr("style", "background:#dfdfdf").html("Updating...");
-		$("#mqttlive_status").attr("style", "background:#dfdfdf").html("Updating...");
+		$("#telegraf_status").attr("style", "background:#dfdfdf").html($('#lang_status_updating').text());
+		$("#influx_status").attr("style", "background:#dfdfdf").html($('#lang_status_updating').text());
+		$("#grafana-server_status").attr("style", "background:#dfdfdf").html($('#lang_status_updating').text());
+		$("#mqttlive_status").attr("style", "background:#dfdfdf").html($('#lang_status_updating').text());
 	}
 
 	$.ajax( { 
@@ -24,34 +24,34 @@ function servicestatus(update) {
 		} )
 	.fail(function( data ) {
 		console.log( "Servicestatus Fail", data );
-		$("#telegraf_status").attr("style", "background:#dfdfdf; color:red").html("Failed");
-		$("#influx_status").attr("style", "background:#dfdfdf; color:red").html("Failed");
-		$("#grafana-server_status").attr("style", "background:#dfdfdf; color:red").html("Failed");
-		$("#mqttlive_status").attr("style", "background:#dfdfdf; color:red").html("Failed");
+		$("#telegraf_status").attr("style", "background:#dfdfdf; color:red").html($('#lang_status_failed').text());
+		$("#influx_status").attr("style", "background:#dfdfdf; color:red").html($('#lang_status_failed').text());
+		$("#grafana-server_status").attr("style", "background:#dfdfdf; color:red").html($('#lang_status_failed').text());
+		$("#mqttlive_status").attr("style", "background:#dfdfdf; color:red").html($('#lang_status_failed').text());
 	})
 	.done(function( data ) {
 		console.log( "Servicestatus Success", data );
 		if (data.telegraf) {
-			$("#telegraf_status").attr("style", "background:#32DE00; color:black").html("Running (PID " + data.telegraf + ")");
+			$("#telegraf_status").attr("style", "background:#32DE00; color:black").html($('#lang_status_running').text().replace('__PID__', data.telegraf));
 		} else {
-			$("#telegraf_status").attr("style", "background:#FF6339; color:black").html("Stopped");
+			$("#telegraf_status").attr("style", "background:#FF6339; color:black").html($('#lang_status_stopped').text());
 		}
 		if (data.influx) {
-			$("#influx_status").attr("style", "background:#32DE00; color:black").html("Running (PID " + data.influx + ")");
+			$("#influx_status").attr("style", "background:#32DE00; color:black").html($('#lang_status_running').text().replace('__PID__', data.influx));
 		} else {
-			$("#influx_status").attr("style", "background:#FF6339; color:black").html("Stopped");
+			$("#influx_status").attr("style", "background:#FF6339; color:black").html($('#lang_status_stopped').text());
 		}
 		if (data.grafanaserver) {
-			$("#grafana-server_status").attr("style", "background:#32DE00; color:black").html("Running (PID " + data.grafanaserver + ")");
+			$("#grafana-server_status").attr("style", "background:#32DE00; color:black").html($('#lang_status_running').text().replace('__PID__', data.grafanaserver));
 		} else {
-			$("#grafana-server_status").attr("style", "background:#FF6339; color:black").html("Stopped");
+			$("#grafana-server_status").attr("style", "background:#FF6339; color:black").html($('#lang_status_stopped').text());
 		}
 		if (data.mqttlive == 'disabled') {
-			$("#mqttlive_status").attr("style", "background:#ffff00; color:black").html("Disabled by config");
+			$("#mqttlive_status").attr("style", "background:#ffff00; color:black").html($('#lang_status_disabled').text());
 		} else if (data.mqttlive) {
-			$("#mqttlive_status").attr("style", "background:#32DE00; color:black").html("Running (PID " + data.mqttlive + ")");
+			$("#mqttlive_status").attr("style", "background:#32DE00; color:black").html($('#lang_status_running').text().replace('__PID__', data.mqttlive));
 		} else {
-			$("#mqttlive_status").attr("style", "background:#FF6339; color:black").html("Stopped");
+			$("#mqttlive_status").attr("style", "background:#FF6339; color:black").html($('#lang_status_stopped').text());
 		}
 	})
 	.always(function( data ) {
@@ -76,7 +76,7 @@ function service(command) {
 		service = "mqttlive";
 	}
 
-	$("#" + service + "_hint").attr("style", "color:blue").html("Executing...");
+	$("#" + service + "_hint").attr("style", "color:blue").html($('#lang_status_executing').text());
 	$.ajax( { 
 			url:  'ajax.cgi',
 			type: 'POST',
@@ -86,7 +86,7 @@ function service(command) {
 		} )
 	.fail(function( data ) {
 		console.log( "Service " + command + " Fail", data );
-		$("#" + service + "_hint").attr("style", "color:red").html("Failed: "+data.statusText);
+		$("#" + service + "_hint").attr("style", "color:red").html($('#lang_status_failed').text() + ": " + data.statusText);
 	})
 	.done(function( data ) {
 		console.log( "Service " + command + " Success", data );
@@ -94,7 +94,7 @@ function service(command) {
 	})
 	.always(function( data ) {
 		if (data != 0) {
-			$("#" + service + "_hint").attr("style", "color:red").html("Error");
+			$("#" + service + "_hint").attr("style", "color:red").html($('#lang_status_error').text());
 		}
 		console.log( "Service " + command + " Finished", data );
 		servicestatus(1);
