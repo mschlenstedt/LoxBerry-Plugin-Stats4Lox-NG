@@ -2,29 +2,26 @@
 use LoxBerry::System;
 use LoxBerry::JSON;
 
-# Load language file for navbar translations (in main:: scope)
-my %L = LoxBerry::System::readlanguage(undef, "language.ini");
-
-# NAVBAR definition (in scope main)
+# NAVBAR definition (in scope main) - English defaults, translated by init_navbar_i18n()
 our %navbar = (
 	1 => {
-			Name => $L{'NAVBAR.NAV_HOME'},
+			Name => "Home",
 			URL => "index.cgi"
 	},
 	10 => {
-			Name => $L{'NAVBAR.NAV_LOXONE_IMPORT'},
+			Name => "Loxone and Import",
 			URL => "main_loxone.cgi"
 	},
 	30 => {
-			Name => $L{'NAVBAR.NAV_INPUTS_OUTPUTS'},
+			Name => "Inputs / Outputs",
 			URL => "output_influx.cgi"
 	},
 	40 => {
-			Name => $L{'NAVBAR.NAV_CHART_ENGINES'},
+			Name => "Chart Engines",
 			URL => "chartengines.cgi"
 	},
 	90 => {
-			Name => $L{'NAVBAR.NAV_LOGS'},
+			Name => "Logs",
 			URL => "logs.cgi"
 	}
 );
@@ -48,6 +45,7 @@ our @EXPORT = qw (
 	$stats4loxcredentials
 	whoami
 	merge_config
+	init_navbar_i18n
 );
 
 # Internal variable, if merge_config was already called
@@ -116,6 +114,22 @@ our $telegraf = {
 
 ### Run merge_config ###
 Globals::merge_config();
+
+
+##################################################
+# Translate navbar labels using readlanguage
+# Must be called from CGI context before lbheader()
+##################################################
+
+sub init_navbar_i18n
+{
+	my %L = LoxBerry::System::readlanguage(undef, "language.ini");
+	$main::navbar{1}{Name} = $L{'NAVBAR.NAV_HOME'} if $L{'NAVBAR.NAV_HOME'};
+	$main::navbar{10}{Name} = $L{'NAVBAR.NAV_LOXONE_IMPORT'} if $L{'NAVBAR.NAV_LOXONE_IMPORT'};
+	$main::navbar{30}{Name} = $L{'NAVBAR.NAV_INPUTS_OUTPUTS'} if $L{'NAVBAR.NAV_INPUTS_OUTPUTS'};
+	$main::navbar{40}{Name} = $L{'NAVBAR.NAV_CHART_ENGINES'} if $L{'NAVBAR.NAV_CHART_ENGINES'};
+	$main::navbar{90}{Name} = $L{'NAVBAR.NAV_LOGS'} if $L{'NAVBAR.NAV_LOGS'};
+}
 
 
 
