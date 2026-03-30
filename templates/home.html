@@ -61,6 +61,8 @@
 <div class="datahidden" id="lang_button_restart"><TMPL_VAR COMMON.BUTTON_RESTART></div>
 <div class="datahidden" id="lang_button_stop"><TMPL_VAR COMMON.BUTTON_STOP></div>
 
+<p><TMPL_VAR HOME.DESCRIPTION></p>
+
 <div class="grid">
 	<div class="box">
 		<object data="<TMPL_VAR GRAFANA_URL>/d-solo/ff725681-27a4-408c-9491-772415f41412/plugin-home?orgId=1&refresh=60s&from=now-24h&to=now&theme=light&panelId=5" width="99%"></object>
@@ -78,6 +80,7 @@
 <div class="grid">
 	<div class="box">
 		<div class="center middle bold margin">Telegraf</div>
+		<div class="margin small grayed"><TMPL_VAR HOME.DESC_TELEGRAF></div>
 		<div class="status center" id="telegraf_status"><TMPL_VAR COMMON.STATUS_UPDATING></div>
 		<a href="#" onclick="service('starttelegraf');return false;"
 			class="ui-btn ui-corner-all margin ui-icon-check ui-btn-icon-left"><TMPL_VAR COMMON.BUTTON_RESTART></a>
@@ -86,7 +89,8 @@
 		<div class="center margin" id="telegraf_hint">&nbsp;</div>
 	</div>
 	<div class="box">
-		<div class="center middle bold margin">Influx</div>
+		<div class="center middle bold margin">InfluxDB</div>
+		<div class="margin small grayed"><TMPL_VAR HOME.DESC_INFLUX></div>
 		<div class="status center" id="influx_status"><TMPL_VAR COMMON.STATUS_UPDATING></div>
 		<a href="#" onclick="service('startinfluxdb');return false;"
 			class="ui-btn ui-corner-all margin ui-icon-check ui-btn-icon-left"><TMPL_VAR COMMON.BUTTON_RESTART></a>
@@ -96,6 +100,7 @@
 	</div>
 	<div class="box">
 		<div class="center middle bold margin">Grafana</div>
+		<div class="margin small grayed"><TMPL_VAR HOME.DESC_GRAFANA></div>
 		<div class="status center" id="grafana-server_status"><TMPL_VAR COMMON.STATUS_UPDATING></div>
 		<a href="#" onclick="service('startgrafana-server');return false;"
 			class="ui-btn ui-corner-all margin ui-icon-check ui-btn-icon-left"><TMPL_VAR COMMON.BUTTON_RESTART></a>
@@ -105,6 +110,7 @@
 	</div>
 	<div class="box">
 		<div class="center middle bold margin">MQTT Live/Collector</div>
+		<div class="margin small grayed"><TMPL_VAR HOME.DESC_MQTT></div>
 		<div class="status center" id="mqttlive_status"><TMPL_VAR COMMON.STATUS_UPDATING></div>
 		<a href="#" onclick="service('startmqttlive');return false;"
 			class="ui-btn ui-corner-all margin ui-icon-check ui-btn-icon-left"><TMPL_VAR COMMON.BUTTON_RESTART></a>

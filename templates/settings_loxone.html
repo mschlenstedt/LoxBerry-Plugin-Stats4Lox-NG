@@ -138,12 +138,7 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 <div class="datahidden" id="lang_sub_mqtt_live"><TMPL_VAR NAVBAR.SUB_MQTT_LIVE></div>
 <div class="datahidden" id="lang_status_updating"><TMPL_VAR COMMON.STATUS_UPDATING></div>
 
-<!-- Hints: Select stats -->
-<div id="hint_activatestatistics" class="hintbox" style="display:none;">
-<b><TMPL_VAR SETTINGS.HINT_TITLE></b><br>
 <p><TMPL_VAR SETTINGS.HINT_TEXT></p>
-<a href="#" class="ui-btn ui-btn-inline ui-mini" onclick="hint_hide('hint_activatestatistics');"><TMPL_VAR COMMON.BUTTON_HIDE></a>
-</div>
 
 <div id="box_progress_errors" class="errorbox" style="display:none;">
 	<h4 style="background-color:red;color:white;padding:5px;margin:0;text-shadow:none"><TMPL_VAR SETTINGS.LABEL_PROCESSING_ERRORS></h4>
@@ -253,13 +248,9 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 						<p class="grayed small">
 							<TMPL_VAR SETTINGS.LABEL_IMPORT_OUTPUTS>
 						</p>					
-						<!-- Hints: Data import -->
-						<div id="hint_importbutton" class="hintbox small" style="display:none;padding:5px">
-							<p>
-								<TMPL_VAR SETTINGS.HINT_IMPORT_BUTTON>
-							</p>
-							<a href="#" class="ui-btn ui-btn-inline ui-mini" onclick="hint_hide('hint_importbutton');"><TMPL_VAR COMMON.BUTTON_HIDE></a>
-						</div>
+						<p class="small">
+							<TMPL_VAR SETTINGS.HINT_IMPORT_BUTTON>
+						</p>
 						
 						<a href="#" class="ui-btn ui-btn-inline ui-mini ui-disabled" id="LoxoneDetails_s4lstatimportbutton"><TMPL_VAR SETTINGS.BUTTON_IMPORT_NOW></a>
 						
