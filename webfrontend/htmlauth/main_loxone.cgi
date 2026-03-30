@@ -22,6 +22,8 @@ my $template = HTML::Template->new(
     die_on_bad_params => 0,
 );
 
+my %L = LoxBerry::System::readlanguage($template, "language.ini");
+
 my $lang = LoxBerry::System::lblanguage();
 $template->param( 'LOXONE_ELEMENTS', LoxBerry::System::read_file( "$lbptemplatedir/lang/loxelements_$lang.json" ) );
 

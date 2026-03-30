@@ -2,26 +2,29 @@
 use LoxBerry::System;
 use LoxBerry::JSON;
 
+# Load language file for navbar translations (in main:: scope)
+my %L = LoxBerry::System::readlanguage(undef, "language.ini");
+
 # NAVBAR definition (in scope main)
 our %navbar = (
 	1 => {
-			Name => "Home",
+			Name => $L{'NAVBAR.NAV_HOME'},
 			URL => "index.cgi"
 	},
 	10 => {
-			Name => "Loxone and Import",
+			Name => $L{'NAVBAR.NAV_LOXONE_IMPORT'},
 			URL => "main_loxone.cgi"
 	},
 	30 => {
-			Name => "Inputs / Outputs",
+			Name => $L{'NAVBAR.NAV_INPUTS_OUTPUTS'},
 			URL => "output_influx.cgi"
 	},
 	40 => {
-			Name => "Chart Engines",
+			Name => $L{'NAVBAR.NAV_CHART_ENGINES'},
 			URL => "chartengines.cgi"
 	},
 	90 => {
-			Name => "Logs",
+			Name => $L{'NAVBAR.NAV_LOGS'},
 			URL => "logs.cgi"
 	}
 );

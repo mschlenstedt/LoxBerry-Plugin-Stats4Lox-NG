@@ -24,6 +24,8 @@ my $template = HTML::Template->new(
     die_on_bad_params => 0,
 );
 
+my %L = LoxBerry::System::readlanguage($template, "language.ini");
+
 my $lang = LoxBerry::System::lblanguage();
 
 my %miniservers = LoxBerry::System::get_miniservers();

@@ -17,6 +17,8 @@ my $template = HTML::Template->new(
     die_on_bad_params => 0,
 );
 
+my %L = LoxBerry::System::readlanguage($template, "language.ini");
+
 $template->param( 'GRAFANA_URL', "http://" . LoxBerry::System::get_localip() . ":" . $Globals::grafana->{port} );
 
 print $template->output();
