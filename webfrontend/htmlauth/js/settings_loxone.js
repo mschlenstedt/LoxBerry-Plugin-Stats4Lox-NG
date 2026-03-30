@@ -238,7 +238,7 @@ $(function() {
 
 function getLoxplan() {
 	$("#popupProgress").popup("open");
-	var msupdateTextPre = "Fetching Loxone Config from Miniservers...";
+	var msupdateTextPre = $('#lang_fetching_config').text();
 	$("#progressState").html(msupdateTextPre);
 	
 	// Get elements of all Miniservers
@@ -270,9 +270,9 @@ function getLoxplan() {
 				
 	
 	$.when.apply( null, async_request).done( function(){
-		$("#progressState").html("Preparing controls...");
+		$("#progressState").html($('#lang_preparing').text());
 		consolidateLoxPlan( responses );
-		$("#progressState").html("Generating display...");
+		$("#progressState").html($('#lang_generating').text());
 		updateTable();
 		$("#popupProgress").popup("close");
 		$("#progressState").html("");
@@ -418,11 +418,11 @@ function createTableHead() {
 	controlstable += `
 	<table class="controlstable">
 	<tr>
-		<th>MS</th>
-		<th>Name (Type)</th>
-		<th>Location</th>
-		<th>Statistics</th>
-		<th>Import</th>
+		<th>${$('#lang_th_ms').text()}</th>
+		<th>${$('#lang_th_name_type').text()}</th>
+		<th>${$('#lang_th_location').text()}</th>
+		<th>${$('#lang_th_statistics').text()}</th>
+		<th>${$('#lang_th_import').text()}</th>
 	</tr>
 	`;
 	
@@ -549,7 +549,7 @@ function createTableBody() {
 		// Button section
 		controlstable += `
 			<td>
-			<a href="#" class="ui-btn ui-icon-eye ui-corner-all ui-mini ui-btn-inline btnLoxoneDetails">Settings</a>
+			<a href="#" class="ui-btn ui-icon-eye ui-corner-all ui-mini ui-btn-inline btnLoxoneDetails">${$('#lang_button_settings').text()}</a>
 			</td>`;
 		
 		
@@ -681,7 +681,7 @@ function popupLoxoneDetails( uid, msno ) {
 	
 	// Live Data from Miniserver
 	
-	$("#valuesLoxoneDetailsLive_title").html("Updating data...");
+	$("#valuesLoxoneDetailsLive_title").html($('#lang_status_updating').text());
 	liveTable = $("#valuesLoxoneDetailsLive_table");
 	liveTable.empty();
 	$.post( "ajax.cgi", { 

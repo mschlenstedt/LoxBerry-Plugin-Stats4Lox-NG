@@ -105,36 +105,65 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 <div class="datahidden" id="loxone_elements_json"><TMPL_VAR LOXONE_ELEMENTS></div>
 <div class="datahidden" id="miniservers_json"><TMPL_VAR LOXONE_MINISERVERS></div>
 
+<!-- Language strings for JavaScript -->
+<div class="datahidden" id="lang_fetching_config"><TMPL_VAR SETTINGS.LABEL_FETCHING_CONFIG></div>
+<div class="datahidden" id="lang_preparing"><TMPL_VAR SETTINGS.LABEL_PREPARING></div>
+<div class="datahidden" id="lang_generating"><TMPL_VAR SETTINGS.LABEL_GENERATING></div>
+<div class="datahidden" id="lang_th_ms"><TMPL_VAR SETTINGS.TH_MS></div>
+<div class="datahidden" id="lang_th_name_type"><TMPL_VAR SETTINGS.TH_NAME_TYPE></div>
+<div class="datahidden" id="lang_th_location"><TMPL_VAR SETTINGS.TH_LOCATION></div>
+<div class="datahidden" id="lang_th_statistics"><TMPL_VAR SETTINGS.TH_STATISTICS></div>
+<div class="datahidden" id="lang_th_import"><TMPL_VAR SETTINGS.TH_IMPORT></div>
+<div class="datahidden" id="lang_button_settings"><TMPL_VAR SETTINGS.BUTTON_SETTINGS></div>
+<div class="datahidden" id="lang_label_details"><TMPL_VAR SETTINGS.LABEL_DETAILS></div>
+<div class="datahidden" id="lang_label_visualisation"><TMPL_VAR SETTINGS.LABEL_VISUALISATION></div>
+<div class="datahidden" id="lang_label_loxone_statistic"><TMPL_VAR SETTINGS.LABEL_LOXONE_STATISTIC></div>
+<div class="datahidden" id="lang_label_s4l_statistic"><TMPL_VAR SETTINGS.LABEL_S4L_STATISTIC></div>
+<div class="datahidden" id="lang_label_s4l_activate"><TMPL_VAR SETTINGS.LABEL_S4L_ACTIVATE></div>
+<div class="datahidden" id="lang_label_interval_minutes"><TMPL_VAR SETTINGS.LABEL_INTERVAL_MINUTES></div>
+<div class="datahidden" id="lang_label_measurement_name"><TMPL_VAR SETTINGS.LABEL_MEASUREMENT_NAME></div>
+<div class="datahidden" id="lang_hint_measurement_name"><TMPL_VAR SETTINGS.HINT_MEASUREMENT_NAME></div>
+<div class="datahidden" id="lang_label_import_outputs"><TMPL_VAR SETTINGS.LABEL_IMPORT_OUTPUTS></div>
+<div class="datahidden" id="lang_hint_import_button"><TMPL_VAR SETTINGS.HINT_IMPORT_BUTTON></div>
+<div class="datahidden" id="lang_button_import_now"><TMPL_VAR SETTINGS.BUTTON_IMPORT_NOW></div>
+<div class="datahidden" id="lang_label_processing_errors"><TMPL_VAR SETTINGS.LABEL_PROCESSING_ERRORS></div>
+<div class="datahidden" id="lang_label_progress"><TMPL_VAR SETTINGS.LABEL_PROGRESS></div>
+<div class="datahidden" id="lang_button_hide"><TMPL_VAR COMMON.BUTTON_HIDE></div>
+<div class="datahidden" id="lang_button_close"><TMPL_VAR COMMON.BUTTON_CLOSE></div>
+<div class="datahidden" id="lang_label_all"><TMPL_VAR SETTINGS.LABEL_ALL></div>
+<div class="datahidden" id="lang_label_on"><TMPL_VAR COMMON.LABEL_ON></div>
+<div class="datahidden" id="lang_label_off"><TMPL_VAR COMMON.LABEL_OFF></div>
+<div class="datahidden" id="lang_sub_statistic_selection"><TMPL_VAR NAVBAR.SUB_STATISTIC_SELECTION></div>
+<div class="datahidden" id="lang_sub_import_report"><TMPL_VAR NAVBAR.SUB_IMPORT_REPORT></div>
+<div class="datahidden" id="lang_sub_mqtt_live"><TMPL_VAR NAVBAR.SUB_MQTT_LIVE></div>
+<div class="datahidden" id="lang_status_updating"><TMPL_VAR COMMON.STATUS_UPDATING></div>
+
 <!-- Hints: Select stats -->
 <div id="hint_activatestatistics" class="hintbox" style="display:none;">
-<b>Statistic Selection hint</b><br>
-<p>Filter or search for Loxone elements you want to activate statistics for. 
-Press the Details button to get live data from the Miniserver, and select the
-interval and outputs you want to record.
-Changes in the Details view are applied immediately (no "Save" button). 
-</p>
-<a href="#" class="ui-btn ui-btn-inline ui-mini" onclick="hint_hide('hint_activatestatistics');">Hide</a>
+<b><TMPL_VAR SETTINGS.HINT_TITLE></b><br>
+<p><TMPL_VAR SETTINGS.HINT_TEXT></p>
+<a href="#" class="ui-btn ui-btn-inline ui-mini" onclick="hint_hide('hint_activatestatistics');"><TMPL_VAR COMMON.BUTTON_HIDE></a>
 </div>
 
 <div id="box_progress_errors" class="errorbox" style="display:none;">
-	<h4 style="background-color:red;color:white;padding:5px;margin:0;text-shadow:none">Processing Errors</h4>
+	<h4 style="background-color:red;color:white;padding:5px;margin:0;text-shadow:none"><TMPL_VAR SETTINGS.LABEL_PROCESSING_ERRORS></h4>
 	<div id="progress_errors" style="padding:10px;">
 	</div>
-	<a href="#" class="ui-btn ui-btn-inline ui-mini" onclick="$('#box_progress_errors').fadeOut();">Hide</a>
+	<a href="#" class="ui-btn ui-btn-inline ui-mini" onclick="$('#box_progress_errors').fadeOut();"><TMPL_VAR COMMON.BUTTON_HIDE></a>
 </div>
 
 
 <!-- Progress popup -->
 <div data-role="popup" id="popupProgress" data-dismissible="false" style="max-width:400px">
 	<div style="padding: 20px 20px;">
-		<h4 class="ui-title popuptitle">Progress</h4>
+		<h4 class="ui-title popuptitle"><TMPL_VAR SETTINGS.LABEL_PROGRESS></h4>
 		<div id="progressState"></div>
 	</div>
 </div>
 
 <!-- Loxone Details popup -->
 <div data-role="popup" id="popupLoxoneDetails" data-dismissible="true" >
-	<a href="#" data-rel="back" class="ui-btn ui-corner-all ui-shadow ui-btn-a ui-icon-delete ui-btn-icon-notext ui-btn-right">Close</a>
+	<a href="#" data-rel="back" class="ui-btn ui-corner-all ui-shadow ui-btn-a ui-icon-delete ui-btn-icon-notext ui-btn-right"><TMPL_VAR COMMON.BUTTON_CLOSE></a>
 	<div style="padding: 10px 10px; display:flex;flex-wrap:wrap;justify-content:center;width:900px;">
 		<h4 class="ui-title popuptitle" id="titleLoxoneDetails" style="flex-basis:100%;margin:10px">
 			<span id="LoxoneDetails_titletitle">&nbsp;</span><br>
@@ -143,7 +172,7 @@ Changes in the Details view are applied immediately (no "Save" button).
 		
 		<div id="contentLoxoneDetails" style="margin:3px;">
 			<h4 class="popuptitle" style="margin:5px">
-				Details
+				<TMPL_VAR SETTINGS.LABEL_DETAILS>
 			</h4>
 			
 			<input class="small" id="LoxoneDetails_uid" type="text" value="" size="36" style="outline: none;box-shadow:none;margin:5px;width:95%;" data-role="none">
@@ -170,7 +199,7 @@ Changes in the Details view are applied immediately (no "Save" button).
 				
 				<tr class="LoxoneDetails_tr">
 					<td class="center LoxoneDetails_td">
-						<span class="grayed small">Miniserver</span><br>
+						<span class="grayed small"><TMPL_VAR IMPORT.LABEL_MINISERVER></span><br>
 						<span id="LoxoneDetails_miniserver">&nbsp;</span>
 					</td>
 					<td class="center LoxoneDetails_td">
@@ -185,11 +214,11 @@ Changes in the Details view are applied immediately (no "Save" button).
 				
 				<tr class="LoxoneDetails_tr">
 					<td class="center LoxoneDetails_td">
-						<span class="grayed small" id="LoxoneDetails_visulabel">Visualisation</span><br>
+						<span class="grayed small" id="LoxoneDetails_visulabel"><TMPL_VAR SETTINGS.LABEL_VISUALISATION></span><br>
 						<span id="LoxoneDetails_visu">&nbsp;</span>
 					</td>
 					<td class="center LoxoneDetails_td">
-						<span class="grayed small" id="LoxoneDetails_loxstatlabel">Loxone Statistics</span><br>
+						<span class="grayed small" id="LoxoneDetails_loxstatlabel"><TMPL_VAR SETTINGS.LABEL_LOXONE_STATISTIC></span><br>
 						<span id="LoxoneDetails_loxstat">&nbsp;</span>
 					</td>
 					<td class="center LoxoneDetails_td">
@@ -200,20 +229,20 @@ Changes in the Details view are applied immediately (no "Save" button).
 				
 				<tr class="LoxoneDetails_tr">
 					<td class="center LoxoneDetails_td" colspan="2">
-						<span class="grayed small" id="LoxoneDetails_s4lstatlabel">Stats4Lox Statistics</span><br>
+						<span class="grayed small" id="LoxoneDetails_s4lstatlabel"><TMPL_VAR SETTINGS.LABEL_S4L_STATISTIC></span><br>
 						<input type="checkbox" id="LoxoneDetails_s4lstatactive" name="LoxoneDetails_s4lstatactive" data-mini="true" class="s4lchange">
-						<label for="LoxoneDetails_s4lstatactive">activate</label>
+						<label for="LoxoneDetails_s4lstatactive"><TMPL_VAR SETTINGS.LABEL_S4L_ACTIVATE></label>
 					</td>
 					<td class="center LoxoneDetails_td">
-						<span class="grayed small" id="LoxoneDetails_s4lstatintervallabel">Interval (minutes)</span><br>
+						<span class="grayed small" id="LoxoneDetails_s4lstatintervallabel"><TMPL_VAR SETTINGS.LABEL_INTERVAL_MINUTES></span><br>
 						<input type="number" data-clear-btn="true" name="LoxoneDetails_s4lstatinterval" id="LoxoneDetails_s4lstatinterval" pattern="[0-9]*" value="" class="s4lchange" min="0" max="9999">
 					</td>
 				</tr>
 				
 				<tr class="LoxoneDetails_tr">
 					<td class="center LoxoneDetails_td" colspan="3">
-						<span class="grayed small" id="LoxoneDetails_s4lmeasurementnamelabel">Measurement Label in Statistic</span><br>
-						<span class="small">This uniquely identifies data in your statistic. The field is mandatory. <b>If you change this, all further data will be stored to the new label.</b></span><br>
+						<span class="grayed small" id="LoxoneDetails_s4lmeasurementnamelabel"><TMPL_VAR SETTINGS.LABEL_MEASUREMENT_NAME></span><br>
+						<span class="small"><TMPL_VAR SETTINGS.HINT_MEASUREMENT_NAME></span><br>
 						<input type="text" name="LoxoneDetails_s4lmeasurementname" id="LoxoneDetails_s4lmeasurementname" value="" class="s4lchange ui-mini">
 					</td>
 				</tr>
@@ -222,20 +251,17 @@ Changes in the Details view are applied immediately (no "Save" button).
 					<td class="center LoxoneDetails_td" colspan="3">
 
 						<p class="grayed small">
-							Import selected outputs from your Loxone Statistic
+							<TMPL_VAR SETTINGS.LABEL_IMPORT_OUTPUTS>
 						</p>					
 						<!-- Hints: Data import -->
 						<div id="hint_importbutton" class="hintbox small" style="display:none;padding:5px">
 							<p>
-								<b>Import button hint:</b> To import your Loxone Statistics, you need to activate <i>Stats4Lox Statistics</i> and
-								select outputs on the right. Loxone statistics only contain a subset of available outputs. A
-								symbol on every output signals that this data will be imported to that output <i>if checked</i>.
-								If you press "Import Now", the import is queued and imported in the background.
+								<TMPL_VAR SETTINGS.HINT_IMPORT_BUTTON>
 							</p>
-							<a href="#" class="ui-btn ui-btn-inline ui-mini" onclick="hint_hide('hint_importbutton');">Hide</a>
+							<a href="#" class="ui-btn ui-btn-inline ui-mini" onclick="hint_hide('hint_importbutton');"><TMPL_VAR COMMON.BUTTON_HIDE></a>
 						</div>
 						
-						<a href="#" class="ui-btn ui-btn-inline ui-mini ui-disabled" id="LoxoneDetails_s4lstatimportbutton">Import Now</a>
+						<a href="#" class="ui-btn ui-btn-inline ui-mini ui-disabled" id="LoxoneDetails_s4lstatimportbutton"><TMPL_VAR SETTINGS.BUTTON_IMPORT_NOW></a>
 						
 						<div id="LoxoneDetails_importstatus" style="margin:5px;">
 						</div>
@@ -307,22 +333,22 @@ Changes in the Details view are applied immediately (no "Save" button).
 
 <!-- Filter Miniserver / Room / Category / Type -->
 <fieldset data-role="controlgroup" data-type="horizontal" data-mini="true">
-    <legend>Filter</legend>
+    <legend><TMPL_VAR SETTINGS.LABEL_FILTER></legend>
     <label for="filter_miniserver">Miniserver</label>
     <select name="filter_miniserver" id="filter_miniserver" class="filter_select">
-        <option value="all">All Miniservers</option>
+        <option value="all"><TMPL_VAR SETTINGS.LABEL_ALL_MINISERVERS></option>
     </select>
     <label for="filter_room">Room</label>
     <select name="filter_room" id="filter_room" class="filter_select">
-        <option value="all">All rooms</option>
+        <option value="all"><TMPL_VAR SETTINGS.LABEL_ALL_ROOMS></option>
     </select>
     <label for="filter_category">Category</label>
     <select name="filter_category" id="filter_category" class="filter_select">
-        <option value="all">All categories</option>
+        <option value="all"><TMPL_VAR SETTINGS.LABEL_ALL_CATEGORIES></option>
     </select>
     <label for="filter_element">Element</label>
     <select name="filter_element" id="filter_element" class="filter_select">
-        <option value="all">All elements</option>
+        <option value="all"><TMPL_VAR SETTINGS.LABEL_ALL_ELEMENTS></option>
     </select>
 
 
@@ -334,39 +360,39 @@ Changes in the Details view are applied immediately (no "Save" button).
 <div style="display:flex;align-items:flex-end;">
 	<div style="padding:5px;">
 	<fieldset data-role="controlgroup" data-type="horizontal" data-mini="true">
-		<legend>Loxone Visu</legend>
+		<legend><TMPL_VAR SETTINGS.LABEL_LOXONE_VISU></legend>
 		<input type="radio" name="filter_loxvisu" id="filter_loxvisu_all" value="all" checked="checked" class="filter_radio">
-		<label for="filter_loxvisu_all">All</label>
+		<label for="filter_loxvisu_all"><TMPL_VAR SETTINGS.LABEL_ALL></label>
 		<input type="radio" name="filter_loxvisu" id="filter_loxvisu_on" value="on" class="filter_radio">
-		<label for="filter_loxvisu_on">On</label>
+		<label for="filter_loxvisu_on"><TMPL_VAR COMMON.LABEL_ON></label>
 		<input type="radio" name="filter_loxvisu" id="filter_loxvisu_off" value="off" class="filter_radio">
-		<label for="filter_loxvisu_off">Off</label>
+		<label for="filter_loxvisu_off"><TMPL_VAR COMMON.LABEL_OFF></label>
 	</fieldset>
 	</div>
 
 	<!-- Filter Loxone Stat enabled -->
 	<div style="padding:5px;">
 	<fieldset data-role="controlgroup" data-type="horizontal" data-mini="true">
-		<legend>Loxone Statistic</legend>
+		<legend><TMPL_VAR SETTINGS.LABEL_LOXONE_STATISTIC></legend>
 		<input type="radio" name="filter_loxstat" id="filter_loxstat_all" value="all" checked="checked" class="filter_radio">
-		<label for="filter_loxstat_all">All</label>
+		<label for="filter_loxstat_all"><TMPL_VAR SETTINGS.LABEL_ALL></label>
 		<input type="radio" name="filter_loxstat" id="filter_loxstat_on" value="on" class="filter_radio">
-		<label for="filter_loxstat_on">On</label>
+		<label for="filter_loxstat_on"><TMPL_VAR COMMON.LABEL_ON></label>
 		<input type="radio" name="filter_loxstat" id="filter_loxstat_off" value="off" class="filter_radio">
-		<label for="filter_loxstat_off">Off</label>
+		<label for="filter_loxstat_off"><TMPL_VAR COMMON.LABEL_OFF></label>
 	</fieldset>
 	</div>
 
 	<!-- Filter S4L Stat enabled -->
 	<div style="padding:5px;">
 	<fieldset data-role="controlgroup" data-type="horizontal" data-mini="true">
-		<legend>Stats4Lox Statistic</legend>
+		<legend><TMPL_VAR SETTINGS.LABEL_S4L_STATISTIC></legend>
 		<input type="radio" name="filter_s4lstat" id="filter_s4lstat_all" value="all" checked="checked" class="filter_radio">
-		<label for="filter_s4lstat_all">All</label>
+		<label for="filter_s4lstat_all"><TMPL_VAR SETTINGS.LABEL_ALL></label>
 		<input type="radio" name="filter_s4lstat" id="filter_s4lstat_on" value="on" class="filter_radio">
-		<label for="filter_s4lstat_on">On</label>
+		<label for="filter_s4lstat_on"><TMPL_VAR COMMON.LABEL_ON></label>
 		<input type="radio" name="filter_s4lstat" id="filter_s4lstat_off" value="off" class="filter_radio">
-		<label for="filter_s4lstat_off">Off</label>
+		<label for="filter_s4lstat_off"><TMPL_VAR COMMON.LABEL_OFF></label>
 	</fieldset>
 	</div>
 
