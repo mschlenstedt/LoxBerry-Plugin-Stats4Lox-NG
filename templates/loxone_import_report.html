@@ -98,16 +98,38 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 
 <div class="datahidden" id="miniservers_json"><TMPL_VAR LOXONE_MINISERVERS></div>
 
+<!-- Language strings for JavaScript -->
+<div class="datahidden" id="lang_import_miniserver"><TMPL_VAR IMPORT.LABEL_MINISERVER></div>
+<div class="datahidden" id="lang_import_started"><TMPL_VAR IMPORT.LABEL_STARTED></div>
+<div class="datahidden" id="lang_import_progress"><TMPL_VAR IMPORT.LABEL_PROGRESS></div>
+<div class="datahidden" id="lang_import_current_month"><TMPL_VAR IMPORT.LABEL_CURRENT_MONTH></div>
+<div class="datahidden" id="lang_import_estimated_end"><TMPL_VAR IMPORT.LABEL_ESTIMATED_END></div>
+<div class="datahidden" id="lang_import_finished"><TMPL_VAR IMPORT.LABEL_FINISHED></div>
+<div class="datahidden" id="lang_import_duration"><TMPL_VAR IMPORT.LABEL_DURATION></div>
+<div class="datahidden" id="lang_import_records"><TMPL_VAR IMPORT.LABEL_IMPORTED_RECORDS></div>
+<div class="datahidden" id="lang_import_error_month"><TMPL_VAR IMPORT.LABEL_ERROR_MONTH></div>
+<div class="datahidden" id="lang_import_last_update"><TMPL_VAR IMPORT.LABEL_LAST_UPDATE></div>
+<div class="datahidden" id="lang_import_open_log"><TMPL_VAR IMPORT.BUTTON_OPEN_LOG></div>
+<div class="datahidden" id="lang_import_reimport"><TMPL_VAR IMPORT.BUTTON_REIMPORT></div>
+<div class="datahidden" id="lang_import_retry"><TMPL_VAR IMPORT.BUTTON_RETRY></div>
+<div class="datahidden" id="lang_import_delete"><TMPL_VAR COMMON.BUTTON_DELETE></div>
+<div class="datahidden" id="lang_import_no_running"><TMPL_VAR IMPORT.NO_RUNNING></div>
+<div class="datahidden" id="lang_import_no_waiting"><TMPL_VAR IMPORT.NO_WAITING></div>
+<div class="datahidden" id="lang_import_no_finished"><TMPL_VAR IMPORT.NO_FINISHED></div>
+<div class="datahidden" id="lang_import_no_errors"><TMPL_VAR IMPORT.NO_ERRORS></div>
+<div class="datahidden" id="lang_import_no_dead"><TMPL_VAR IMPORT.NO_DEAD></div>
+<div class="datahidden" id="lang_import_popup_delete_title"><TMPL_VAR IMPORT.POPUP_DELETE_TITLE></div>
+<div class="datahidden" id="lang_import_popup_delete_text"><TMPL_VAR IMPORT.POPUP_DELETE_TEXT></div>
+<div class="datahidden" id="lang_button_hide"><TMPL_VAR COMMON.BUTTON_HIDE></div>
+<div class="datahidden" id="lang_sub_statistic_selection"><TMPL_VAR NAVBAR.SUB_STATISTIC_SELECTION></div>
+<div class="datahidden" id="lang_sub_import_report"><TMPL_VAR NAVBAR.SUB_IMPORT_REPORT></div>
+<div class="datahidden" id="lang_sub_mqtt_live"><TMPL_VAR NAVBAR.SUB_MQTT_LIVE></div>
 
 <!-- Hints: Loxone Import report -->
 <div id="hint_importreport" class="hintbox" style="display:none;">
-<b>Statistic Selection hint</b><br>
-<p>Filter or search for Loxone elements you want to activate statistics for. 
-Press the Details button to get live data from the Miniserver, and select the
-interval and outputs you want to record.
-Changes in the Details view are applied immediately (no "Save" button). 
-</p>
-<a href="#" class="ui-btn ui-btn-inline ui-mini" onclick="hint_hide('hint_activatestatistics');">Hide</a>
+<b><TMPL_VAR IMPORT.TITLE></b><br>
+<p><TMPL_VAR IMPORT.DESCRIPTION></p>
+<a href="#" class="ui-btn ui-btn-inline ui-mini" onclick="hint_hide('hint_importreport');"><TMPL_VAR COMMON.BUTTON_HIDE></a>
 </div>
 
 
@@ -115,64 +137,58 @@ Changes in the Details view are applied immediately (no "Save" button).
 <!-- Delete popup -->
 <div data-role="popup" id="popupDeleteImport" data-dismissible="false" style="max-width:400px">
 	<div style="padding: 20px 20px;">
-		<h4 class="ui-title popuptitle">Delete Import Status?</h4>
+		<h4 class="ui-title popuptitle"><TMPL_VAR IMPORT.POPUP_DELETE_TITLE></h4>
 		<div id="deleteImportText">
 			<p>
 				<span id="popupDeleteImport_uid"></span><br>
 				<span id="popupDeleteImport_name"></span><br>
-			<p>
-				This will completely delete the Import <u>job</u> (if not executed yet), or the status information of a finished Import. After deletion, 
-				Stats4Lox does not remember that you have imported that statistics.
 			</p>
-			<p>
-				This does <i>not</i> touch your data in the database, the settings of activated statistic collection, and much less your statistics on your Miniserver.
-			</p>
-			
+			<TMPL_VAR IMPORT.POPUP_DELETE_TEXT>
 		</div>
 	</div>
 </div>
 
-<p>This page shows all Loxone statistic imports that are running, waiting and have finished. The page refreshes automatically.</p> 
+<p><TMPL_VAR IMPORT.DESCRIPTION></p> 
 
 <div data-role="collapsible" data-collapsed="false" id="coll_running" data-mini="true" data-inset="false" class="coll_heading_running">
-	<h4>Running</h4>
+	<h4><TMPL_VAR IMPORT.SECTION_RUNNING></h4>
 	<div>
 		<table class="importreport_table importreport_table_running" id="data_importreport_running">
 			<tbody>
-			<tr><td>Updating...</td></tr>
+			<tr><td><TMPL_VAR COMMON.STATUS_UPDATING></td></tr>
 			</tbody>
 		</table>
 	</div>
 </div>
 
 <div data-role="collapsible" data-collapsed="false" id="coll_scheduled" data-mini="true" data-inset="false" class="coll_heading_scheduled">
-    <h4>Waiting</h4>
+    <h4><TMPL_VAR IMPORT.SECTION_WAITING></h4>
    <div>
 		<table class="importreport_table importreport_table_scheduled" id="data_importreport_scheduled">
 			<tbody>
-			<tr><td>Updating...</td></tr>
+			<tr><td><TMPL_VAR COMMON.STATUS_UPDATING></td></tr>
 			</tbody>
 		</table>
 	</div>
 </div>
 
 <div data-role="collapsible" data-collapsed="false" id="coll_finished" data-mini="true" data-inset="false" class="coll_heading_finished">
-    <h4>Finished</h4>
+    <h4><TMPL_VAR IMPORT.SECTION_FINISHED></h4>
     <div>
 		<table class="importreport_table importreport_table_finished" id="data_importreport_finished">
 			<tbody>
-			<tr><td>Updating...</td></tr>
+			<tr><td><TMPL_VAR COMMON.STATUS_UPDATING></td></tr>
 			</tbody>
 		</table>
 	</div>
 </div>
 
 <div data-role="collapsible" data-collapsed="false" id="coll_error" data-mini="true" data-inset="false" class="coll_heading_error">
-    <h4>Error</h4>
+    <h4><TMPL_VAR IMPORT.SECTION_ERROR></h4>
     <div>
 		<table class="importreport_table importreport_table_error" id="data_importreport_error">
 			<tbody>
-			<tr><td>Updating...</td></tr>
+			<tr><td><TMPL_VAR COMMON.STATUS_UPDATING></td></tr>
 			</tbody>
 		</table>
 	</div>
@@ -180,11 +196,11 @@ Changes in the Details view are applied immediately (no "Save" button).
 
 
 <div data-role="collapsible" data-collapsed="false" id="coll_dead" data-mini="true" data-inset="false" class="coll_heading_dead">
-    <h4>Dead</h4>
+    <h4><TMPL_VAR IMPORT.SECTION_DEAD></h4>
     <div>
 		<table class="importreport_table importreport_table_dead" id="data_importreport_dead">
 			<tbody>
-			<tr><td>Updating...</td></tr>
+			<tr><td><TMPL_VAR COMMON.STATUS_UPDATING></td></tr>
 			</tbody>
 		</table>
 	</div>

@@ -110,8 +110,8 @@ function updateReportTables(data) {
 		
 		var name = status.name ? status.name : "<i>unknown</i>";
 		
-		var logbutton_html = `<a href="/admin/system/tools/logfile.cgi?logfile=${filekey}.log&header=html&format=template&only=once" class="ui-btn ui-btn-inline ui-mini" target="${filekey}">Open Logfile</a>`;
-		var deletebutton_html =`<a href="#" class="ui-btn ui-btn-inline ui-mini ui-icon-delete deleteImportButton">Delete</a>`;
+		var logbutton_html = `<a href="/admin/system/tools/logfile.cgi?logfile=${filekey}.log&header=html&format=template&only=once" class="ui-btn ui-btn-inline ui-mini" target="${filekey}">${$('#lang_import_open_log').text()}</a>`;
+		var deletebutton_html =`<a href="#" class="ui-btn ui-btn-inline ui-mini ui-icon-delete deleteImportButton">${$('#lang_import_delete').text()}</a>`;
 		
 		if( data.states?.running[imp.file] ) {
 		// Running
@@ -129,7 +129,7 @@ function updateReportTables(data) {
 			hR+=`
 			<tr data-filekey="${filekey}">
 				<td>
-					<span class="small grayed">Miniserver</span><br>
+					<span class="small grayed">${$('#lang_import_miniserver').text()}</span><br>
 					${imp.data.msno}
 				</td>
 				<td>
@@ -137,21 +137,21 @@ function updateReportTables(data) {
 					<span class="small grayed">${imp.data.uuid}</span>
 				</td>
 				<td>
-					<span class="small grayed">Started</span><br>
+					<span class="small grayed">${$('#lang_import_started').text()}</span><br>
 					${starttime}
 				</td>
 				<td style="min-width:80px;">
-					<span class="small grayed">Progress</span><br>
+					<span class="small grayed">${$('#lang_import_progress').text()}</span><br>
 					<div class="progress-border">
 						<div class="progress-fill" style="height:19px;width:${finished_percent}%">${finished_percent}%</div>
 					</div>
 				</td>
 				<td>
-					<span class="small grayed">Current month</span><br>
+					<span class="small grayed">${$('#lang_import_current_month').text()}</span><br>
 					${current}
 				</td>
 				<td>
-					<span class="small grayed">Estimated end</span><br>
+					<span class="small grayed">${$('#lang_import_estimated_end').text()}</span><br>
 					${estimatedEnd} ${estimatedTimeLeft_min}
 				</td>
 				<td>
@@ -166,7 +166,7 @@ function updateReportTables(data) {
 			hS+=`
 			<tr data-filekey="${filekey}">
 				<td>
-					<span class="small grayed">Miniserver</span><br>
+					<span class="small grayed">${$('#lang_import_miniserver').text()}</span><br>
 					${imp.data.msno}
 				</td>
 				<td>
@@ -190,7 +190,7 @@ function updateReportTables(data) {
 			hF+=`
 			<tr data-filekey="${filekey}">
 				<td>
-					<span class="small grayed">Miniserver</span><br>
+					<span class="small grayed">${$('#lang_import_miniserver').text()}</span><br>
 					${imp.data.msno}
 				</td>
 				<td>
@@ -198,23 +198,23 @@ function updateReportTables(data) {
 					<span class="small grayed">${imp.data.uuid}</span>
 				</td>
 				<td>
-					<span class="small grayed">Started</span><br>
+					<span class="small grayed">${$('#lang_import_started').text()}</span><br>
 					${starttime}
 				</td>
 				<td>
-					<span class="small grayed">Finished</span><br>
+					<span class="small grayed">${$('#lang_import_finished').text()}</span><br>
 					${endtime}
 				</td>
 				<td>
-					<span class="small grayed">Duration</span><br>
+					<span class="small grayed">${$('#lang_import_duration').text()}</span><br>
 					${duration}
 				</td>
 				<td>
-					<span class="small grayed">Imported records</span><br>
+					<span class="small grayed">${$('#lang_import_records').text()}</span><br>
 					${records}
 				</td>
 				<td>
-					<a href="#" class="ui-btn ui-btn-inline ui-mini rescheduleImportButton">Re-Import</a> 
+					<a href="#" class="ui-btn ui-btn-inline ui-mini rescheduleImportButton">${$('#lang_import_reimport').text()}</a> 
 					${logbutton_html} ${deletebutton_html}
 				</td>
 			</tr>
@@ -235,7 +235,7 @@ function updateReportTables(data) {
 			hE+=`
 			<tr data-filekey="${filekey}">
 				<td>
-					<span class="small grayed">Miniserver</span><br>
+					<span class="small grayed">${$('#lang_import_miniserver').text()}</span><br>
 					${imp.data.msno}
 				</td>
 				<td>
@@ -243,19 +243,19 @@ function updateReportTables(data) {
 					<span class="small grayed">${imp.data.uuid}</span>
 				</td>
 				<td>
-					<span class="small grayed">Started</span><br>
+					<span class="small grayed">${$('#lang_import_started').text()}</span><br>
 					${starttime}
 				</td>
 				<td>
-					<span class="small grayed">Finished (with error)</span><br>
+					<span class="small grayed">${$('#lang_import_finished').text()}</span><br>
 					${endtime}
 				</td>
 				<td>
-					<span class="small grayed">Error on month</span><br>
+					<span class="small grayed">${$('#lang_import_error_month').text()}</span><br>
 					${current}
 				</td>
 				<td>
-					<a href="#" class="ui-btn ui-btn-inline ui-mini rescheduleImportButton">Retry Import</a> ${logbutton_html} ${deletebutton_html}
+					<a href="#" class="ui-btn ui-btn-inline ui-mini rescheduleImportButton">${$('#lang_import_retry').text()}</a> ${logbutton_html} ${deletebutton_html}
 				</td>
 			</tr>
 			<tr data-filekey="${filekey}">
@@ -274,7 +274,7 @@ function updateReportTables(data) {
 			hD+=`
 			<tr data-filekey="${filekey}">
 				<td>
-					<span class="small grayed">Miniserver</span><br>
+					<span class="small grayed">${$('#lang_import_miniserver').text()}</span><br>
 					${imp.data.msno}
 				</td>
 				<td>
@@ -282,19 +282,19 @@ function updateReportTables(data) {
 					<span class="small grayed">${imp.data.uuid}</span>
 				</td>
 				<td>
-					<span class="small grayed">Started</span><br>
+					<span class="small grayed">${$('#lang_import_started').text()}</span><br>
 					${starttime}
 				</td>
 				<td>
-					<span class="small grayed">Last Update of Import</span><br>
+					<span class="small grayed">${$('#lang_import_last_update').text()}</span><br>
 					${statustime}
 				</td>
 				<td>
-					<span class="small grayed">Error on month</span><br>
+					<span class="small grayed">${$('#lang_import_error_month').text()}</span><br>
 					${current}
 				</td>
 				<td>
-					<a href="#" class="ui-btn ui-btn-inline ui-mini rescheduleImportButton">Retry Import</a> 
+					<a href="#" class="ui-btn ui-btn-inline ui-mini rescheduleImportButton">${$('#lang_import_retry').text()}</a> 
 					${logbutton_html} ${deletebutton_html}
 				</td>
 			</tr>
@@ -305,19 +305,19 @@ function updateReportTables(data) {
 	}
 	
 	if( !hR ) {
-		hR = `<tr><td>Currently no running imports.</td></tr>`
+		hR = `<tr><td>${$('#lang_import_no_running').text()}</td></tr>`
 	}
 	if( !hS ) {
-		hS = `<tr><td>Currently no waiting imports.</td></tr>`
+		hS = `<tr><td>${$('#lang_import_no_waiting').text()}</td></tr>`
 	}
 	if( !hF ) {
-		hF = `<tr><td>No imports finished yet.</td></tr>`
+		hF = `<tr><td>${$('#lang_import_no_finished').text()}</td></tr>`
 	}
 	if( !hE ) {
-		hE = `<tr><td>No imports with errors.</td></tr>`
+		hE = `<tr><td>${$('#lang_import_no_errors').text()}</td></tr>`
 	}
 	if( !hD ) {
-		hD = `<tr><td>No dead imports.</td></tr>`
+		hD = `<tr><td>${$('#lang_import_no_dead').text()}</td></tr>`
 	}
 	
 	
