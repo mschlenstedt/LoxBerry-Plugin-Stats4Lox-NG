@@ -16,7 +16,7 @@
 	}
 </style>
 
-<h3 class="ui-bar ui-bar-a ui-corner-all">Grafana</h3>
+<h3 class="ui-bar ui-bar-a ui-corner-all"><TMPL_VAR CHARTENGINES.TITLE></h3>
 
 <form>
 <div class="ui-body ui-body-a ui-corner-all">
@@ -26,7 +26,7 @@
 		</div>
 		<div	class="lb_flex-item-spacer"></div>
 		<div	class="lb_flex-item">
-			<a href="<TMPL_VAR GRAFANA_URL>" class="ui-btn ui-corner-all" target="_blank">Open Grafana Webinterface</a>
+			<a href="<TMPL_VAR GRAFANA_URL>" class="ui-btn ui-corner-all" target="_blank"><TMPL_VAR CHARTENGINES.BUTTON_OPEN></a>
 		</div>
 		<div	class="lb_flex-item-spacer"></div>
 		<div	class="lb_flex-item-help hint">
