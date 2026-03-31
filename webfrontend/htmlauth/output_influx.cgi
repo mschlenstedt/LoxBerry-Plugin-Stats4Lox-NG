@@ -13,6 +13,7 @@ our $htmlhead="";
 $htmlhead .= '<script type="application/javascript" src="js/inputs_outputs_sub_navbar.js"></script>';
 
 
+init_navbar_i18n();
 LoxBerry::Web::lbheader("Stats4Lox", undef, undef);
 
 my $template = HTML::Template->new(

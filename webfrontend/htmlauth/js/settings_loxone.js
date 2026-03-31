@@ -534,7 +534,7 @@ function createTableBody() {
 			// controlstable += "Statistics enabled";
 			
 		controlstable += checkedImg;
-		controlstable += `&nbsp;<span name="s4l_interval">${s4l_interval}</span> minutes`;
+		controlstable += `&nbsp;<span name="s4l_interval">${s4l_interval}</span> ${$('#lang_label_minutes').text()}`;
 		controlstable += `</div>`;
 		
 		controlstable += `</td>`;
@@ -589,7 +589,7 @@ function popupLoxoneDetails( uid, msno ) {
 	$("#LoxoneDetails_categorylabel").text(loxone_elements['CATEGORY'].localname);
 	$("#LoxoneDetails_category").html(control.Category ? control.Category : "&nbsp;");
 	
-	$("#LoxoneDetails_typelabel").text("Type");
+	$("#LoxoneDetails_typelabel").text($('#lang_label_type').text());
 	var TypeLocal = loxone_elements[control.Type?.toUpperCase()]?.localname;
 	if(typeof TypeLocal == "undefined") 
 		TypeLocal = control.Type?.toUpperCase();
@@ -694,7 +694,7 @@ function popupLoxoneDetails( uid, msno ) {
 		
 		var dataStr;
 		if( data.error == null && data?.code == "200" ) {
-			$("#valuesLoxoneDetailsLive_title").html(`Live Data from Miniserver ${miniservers[control.msno].Name}`);
+			$("#valuesLoxoneDetailsLive_title").html(`${$('#lang_label_live_data').text()} ${miniservers[control.msno].Name}`);
 			
 			// Get mapping for this control type
 			var typeMappings = typeof data.mappings[control.Type.toUpperCase()] != "undefined" ? data.mappings[control.Type.toUpperCase()] : data.mappings["Default"];
@@ -714,7 +714,7 @@ function popupLoxoneDetails( uid, msno ) {
 				// Special string for Default output
 				if( outputKey == "Default" ) {
 					data.response[key].localdesc = data.response[key].Unit ? data.response[key].Unit + " " : "";
-					data.response[key].localdesc += "(Decimal accuracy possibly limited. Use AQ/Q instead if available.)";
+					data.response[key].localdesc += $('#lang_hint_decimal_accuracy').text();
 				} 
 				else {
 					try {
@@ -786,17 +786,17 @@ function popupLoxoneDetails( uid, msno ) {
 // This function returns an error html if Detail Live data have errors
 function popupLoxoneDetails_LiveViewError( data ) {
 
-	$("#valuesLoxoneDetailsLive_title").html(`<span style="color:#f7443b;"><b>Error getting Live data</b></span>`);
+	$("#valuesLoxoneDetailsLive_title").html(`<span style="color:#f7443b;"><b>${$('#lang_error_live_data_title').text()}</b></span>`);
 	
 	dataStr = "";
 	
-	dataStr = `<tr class="LoxoneDetails_tr"><td class="LoxoneDetails_td">Information</td><td class="LoxoneDetails_td">Could not query Live data. Possibly S4L has no permissions to this block, or the block isself has no data to return.</td></tr>`;
+	dataStr = `<tr class="LoxoneDetails_tr"><td class="LoxoneDetails_td">${$('#lang_label_information').text()}</td><td class="LoxoneDetails_td">${$('#lang_error_live_query').text()}</td></tr>`;
 	
 	if( data.code ) {
-		dataStr += `<tr class="LoxoneDetails_tr"><td class="LoxoneDetails_td">Error</td><td class="LoxoneDetails_td">${data.code}</td></tr>`;
+		dataStr += `<tr class="LoxoneDetails_tr"><td class="LoxoneDetails_td">${$('#lang_label_error').text()}</td><td class="LoxoneDetails_td">${data.code}</td></tr>`;
 	}
 	if( data.response ) {
-		dataStr += `<tr class="LoxoneDetails_tr"><td class="LoxoneDetails_td">Original response</td><td class="LoxoneDetails_td"><span class="small">${data.response}</span></td></tr>`;
+		dataStr += `<tr class="LoxoneDetails_tr"><td class="LoxoneDetails_td">${$('#lang_label_original_response').text()}</td><td class="LoxoneDetails_td"><span class="small">${data.response}</span></td></tr>`;
 	}
 	
 	console.log("popupLoxoneDetails_LiveViewError", data);
@@ -970,16 +970,16 @@ function updateReportTables(data) {
 				html+= progress_html;
 				break;
 			case "finished":
-				html+= `<img src="images/checkbox_checked_20.png"> <span class="small grayed">Finished ${endtime}</span>`;
+				html+= `<img src="images/checkbox_checked_20.png"> <span class="small grayed">${$('#lang_status_finished').text()} ${endtime}</span>`;
 				break;
 				
 			case "error":
 			case "dead":
 				html+= `
-					<img src="images/checkbox_alert_20.png"> <span class="small grayed">Finished with error ${endtime}</span>`;
+					<img src="images/checkbox_alert_20.png"> <span class="small grayed">${$('#lang_status_finished_error').text()} ${endtime}</span>`;
 				break;
 			case "scheduled":
-				html+= `<img src="images/checkbox_scheduled_20.png"> <span class="small grayed">Queued</span>`;
+				html+= `<img src="images/checkbox_scheduled_20.png"> <span class="small grayed">${$('#lang_status_queued').text()}</span>`;
 				break;
 		}
 		

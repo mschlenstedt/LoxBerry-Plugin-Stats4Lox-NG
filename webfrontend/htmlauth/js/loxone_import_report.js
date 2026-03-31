@@ -108,7 +108,7 @@ function updateReportTables(data) {
 		var statustime_dt = new Date(Math.round(status?.statustime*1000));
 		var statustime = statustime_dt.toLocaleString();
 		
-		var name = status.name ? status.name : "<i>unknown</i>";
+		var name = status.name ? status.name : `<i>${$('#lang_import_unknown').text()}</i>`;
 		
 		var logbutton_html = `<a href="/admin/system/tools/logfile.cgi?logfile=${filekey}.log&header=html&format=template&only=once" class="ui-btn ui-btn-inline ui-mini" target="${filekey}">${$('#lang_import_open_log').text()}</a>`;
 		var deletebutton_html =`<a href="#" class="ui-btn ui-btn-inline ui-mini ui-icon-delete deleteImportButton">${$('#lang_import_delete').text()}</a>`;
@@ -122,7 +122,7 @@ function updateReportTables(data) {
 			var estimatedEnd_dt = new Date(Math.round((status?.starttime+status?.stats?.duration_time_secs+status?.stats?.estimate_time_left_secs)*1000));
 			estimatedEnd = estimatedEnd_dt.toLocaleString('en-GB', { hour:'numeric', minute:'numeric', second:'numeric', hour12:false } );
 			
-			var estimatedTimeLeft_min = status?.stats?.estimate_time_left_secs ? "("+Math.ceil((status?.stats?.estimate_time_left_secs/60)).toString()+" Min.)" : "";
+			var estimatedTimeLeft_min = status?.stats?.estimate_time_left_secs ? "("+Math.ceil((status?.stats?.estimate_time_left_secs/60)).toString()+" "+$('#lang_import_minutes_short').text()+")" : "";
 			
 			var current = status?.current != null ? status?.current.substr(0,4) + '/' + status?.current.substr(4,2) : "";
 			
@@ -184,7 +184,7 @@ function updateReportTables(data) {
 		else if ( data.states?.finished[imp.file] ) {
 		// Finished
 
-			var duration = status.duration ? Math.ceil(status.duration/60).toString()+" Min." : "N/A"; 
+			var duration = status.duration ? Math.ceil(status.duration/60).toString()+" "+$('#lang_import_minutes_short').text() : $('#lang_import_na').text();
 			var records = status?.stats?.record_count_finished ? status?.stats?.record_count_finished.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".") : 0;
 			
 			hF+=`
@@ -260,7 +260,7 @@ function updateReportTables(data) {
 			</tr>
 			<tr data-filekey="${filekey}">
 				<td colspan="6" class="noborder">
-					<span class="small grayed">Error</span><br>
+					<span class="small grayed">${$('#lang_import_error_label').text()}</span><br>
 					<span style="font-size:90%;">${errortext}</span>
 				</td>
 			</tr>

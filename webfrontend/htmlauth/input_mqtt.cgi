@@ -15,6 +15,7 @@ $htmlhead .= '<script type="application/javascript" src="js/input_mqtt.js"></scr
 $main::navbar{30}{active} = 1;
 
 
+init_navbar_i18n();
 LoxBerry::Web::lbheader("MQTT Collector - LoxBerry Stats4Lox", undef, undef);
 
 my $template = HTML::Template->new(

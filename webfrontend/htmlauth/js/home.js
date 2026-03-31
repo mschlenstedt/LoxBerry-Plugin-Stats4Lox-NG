@@ -90,7 +90,7 @@ function service(command) {
 	})
 	.done(function( data ) {
 		console.log( "Service " + command + " Success", data );
-		$("#" + service + "_hint").attr("style", "color:green").html("OK");
+		$("#" + service + "_hint").attr("style", "color:green").html($('#lang_label_ok').text());
 	})
 	.always(function( data ) {
 		if (data != 0) {

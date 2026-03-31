@@ -217,7 +217,7 @@ function updateTables() {
 			if( !topic.data?.error) {
 				// No error
 				html+= `	<div style="flex:1 10 2%;padding:5px;">`;
-				html+= `		<span class="small grayed">Miniserver</span><br>
+				html+= `		<span class="small grayed">${$('#lang_label_miniserver').text()}</span><br>
 								<span class="bitsmall">${topic.data.msno}</span>`;
 				html+= `	</div>`;
 				
@@ -316,7 +316,7 @@ function createStatsjsonTable()
 		
 		// Miniserver name
 		html+= `	<div style="flex:1 10 2%;padding:3px;">`;
-		html+= `	<span class="small grayed">Miniserver</span><br>	
+		html+= `	<span class="small grayed">${$('#lang_label_miniserver').text()}</span><br>
 					${element.msno}`;
 		html+= `	</div>`;
 		
@@ -334,11 +334,11 @@ function createStatsjsonTable()
 		
 		// Topics
 		html+= `	<div style="flex:5 1 30%;padding:3px;">`;
-		html+= `	<span class="small grayed">Available Topics</span><br>`;
+		html+= `	<span class="small grayed">${$('#lang_label_available_topics').text()}</span><br>`;
 		html+= `	<span class="bitsmall">`;
 		
 		if( !element.outputkeys || !element.outputlabels )
-			html+= `<span style="color:red">stats.json misses outputkeys and/or outputlabels</span>`;
+			html+= `<span style="color:red">${$('#lang_error_stats_json').text()}</span>`;
 		else {
 			
 			for( output of element.outputs ) {
@@ -353,7 +353,7 @@ function createStatsjsonTable()
 				valconstant = `&lt;v.3&gt;`;
 				html += `<div style="white-space: nowrap;">`
 				html += `<b>${label}</b>: publish ${livetopic} <i>${valconstant}</i>`;
-				html += `<a href="#" class="ui-mini ui-btn ui-shadow ui-icon-clipboard ui-btn-inline copyClipboard" style="padding:1px;font-size:86%;height:15px;width:32px;">Copy</a>`;
+				html += `<a href="#" class="ui-mini ui-btn ui-shadow ui-icon-clipboard ui-btn-inline copyClipboard" style="padding:1px;font-size:86%;height:15px;width:32px;">${$('#lang_label_copy').text()}</a>`;
 				html += `<input type="text" value="publish ${livetopic} ${valconstant}" class="datahidden topicholder">`;
 				
 				// html += `&nbsp;<a href="#" data-inline="true" class="ui-btn ui-shadow ui-mini ui-btn-inline">Clipboard</a>`;
