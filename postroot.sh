@@ -51,6 +51,50 @@ for s4l_entry in "influxd:$INFLUXDBIN" "influx:$INFLUXBIN" "telegraf:$TELEGRAFBI
 	fi
 done
 
+# Reports WHY a service did not come up. Without this the installation log
+# only stated that a service "could not be started", which is the reason the
+# recurring "Telegraf startet nicht" reports were never diagnosable.
+s4l_service_failed() {
+	local svc="$1"
+	echo "<FAIL> Seems that $svc could not be started. Giving up."
+	echo "<FAIL> ---------- systemctl status $svc ----------"
+	systemctl status "$svc" --no-pager -l 2>&1 | sed 's/^/<FAIL> /'
+	echo "<FAIL> ---------- last log lines of $svc ----------"
+	journalctl -u "$svc" --no-pager -n 30 2>&1 | sed 's/^/<FAIL> /'
+	echo "<FAIL> -------------------------------------------"
+}
+
+# Migrates Telegraf options that current Telegraf versions reject.
+#
+# This is required because an upgrade restores the previous configuration over
+# the freshly installed one, so correcting our shipped telegraf.conf alone
+# never reaches an existing installation. Exactly that happened in 2022: the
+# "1d" -> "24h" correction of logfile_rotation_interval shipped with 0.9.7 but
+# only ever helped fresh installations - upgraded systems kept reporting that
+# Telegraf could not be started, for years.
+#
+# Telegraf refuses to start on an unknown option, so every single one of these
+# leaves the service dead. The function is idempotent.
+s4l_migrate_telegraf_config() {
+	local f="$1"
+	[ -f "$f" ] || return 0
+
+	# "logtarget" was removed in Telegraf 1.32. Since then the destination is
+	# defined by "logfile" alone, which we always set.
+	if grep -qE '^[[:space:]]*logtarget[[:space:]]*=' "$f"; then
+		sed -i -E 's/^([[:space:]]*)logtarget([[:space:]]*=)/\1## obsolete since Telegraf 1.32, disabled by Stats4Lox: logtarget\2/' "$f"
+		echo "<INFO>   $(basename "$f"): disabled obsolete option 'logtarget'"
+	fi
+
+	# Shipped between 04/2021 and 03/2022 - "d" is not a valid duration unit.
+	if grep -qE '^[[:space:]]*logfile_rotation_interval[[:space:]]*=[[:space:]]*"1d"' "$f"; then
+		sed -i -E 's/^([[:space:]]*logfile_rotation_interval[[:space:]]*=[[:space:]]*)"1d"/\1"24h"/' "$f"
+		echo "<INFO>   $(basename "$f"): corrected logfile_rotation_interval from \"1d\" to \"24h\""
+	fi
+
+	return 0
+}
+
 # Stop all services
 echo "<INFO> Stopping InfluxDB and Telegraf."
 systemctl stop influxdb
@@ -205,9 +249,8 @@ systemctl start influxdb
 sleep 3
 
 # Check status
-systemctl status influxdb > /dev/null 2>&1
-if [ $? -gt 0 ]; then
-	echo "<FAIL> Seems that InfluxDB could not be started. Giving up."
+if ! systemctl is-active --quiet influxdb; then
+	s4l_service_failed influxdb
 	exit 2
 else
 	echo "<OK> InfluxDB service is running."
@@ -306,6 +349,15 @@ echo "<INFO> Activating LB Webserver Port in Telegraf configuration (telegraf.d/
 LBWEBSERVERPORT=`perl -e 'use LoxBerry::System; print lbwebserverport();'`
 sed -i "s/^  urls = .*$/  urls = [ \"http:\/\/localhost:$LBWEBSERVERPORT\/admin\/plugins\/$PDIR\/grabber\/grabber_loxone.cgi\" ]/g" $PCONFIG/telegraf/telegraf.d/stats4lox_loxone.conf
 
+# Migrate options that the installed Telegraf version does not accept any
+# more. Runs on every install and upgrade, so a configuration restored from an
+# older version is repaired before Telegraf is started for the first time.
+echo "<INFO> Checking Telegraf configuration for obsolete options..."
+s4l_migrate_telegraf_config "$PCONFIG/telegraf/telegraf.conf"
+for s4l_dropin in "$PCONFIG"/telegraf/telegraf.d/*.conf; do
+	s4l_migrate_telegraf_config "$s4l_dropin"
+done
+
 # Telegraf mit neuer Config starten
 echo "<INFO> Starting Telegraf..."
 systemctl unmask telegraf.service
@@ -315,9 +367,10 @@ systemctl start telegraf
 sleep 3
 
 # Check status
-systemctl status telegraf > /dev/null 2>&1
-if [ $? -gt 0 ]; then
-	echo "<FAIL> Seems that Telegraf could not be started. Giving up."
+if ! systemctl is-active --quiet telegraf; then
+	s4l_service_failed telegraf
+	echo "<FAIL> A common cause is an option in a telegraf.d/*.conf drop-in that"
+	echo "<FAIL> the installed Telegraf version does not know any more."
 	exit 2
 else
 	echo "<OK> Telegraf service is running."
@@ -352,7 +405,19 @@ echo "<INFO> Starting Grafana..."
 systemctl enable --now grafana-server
 systemctl daemon-reload
 systemctl start grafana-server
-sleep 3
+sleep 5
+
+# Check status. This check was missing completely before, so a Grafana that
+# refused to start was reported as a successful installation.
+if ! systemctl is-active --quiet grafana-server; then
+	s4l_service_failed grafana-server
+	echo "<FAIL> A common cause is an option in grafana.ini that the installed"
+	echo "<FAIL> Grafana version does not know any more, or an invalid file in"
+	echo "<FAIL> $PCONFIG/grafana/provisioning/."
+	exit 2
+else
+	echo "<OK> Grafana service is running."
+fi
 
 # Start/Stop MQTT Live Service
 echo "<INFO> Starting MQTTLive Service..."
