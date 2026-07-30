@@ -20,10 +20,10 @@ PCONFIG=$LBPCONFIG/$PDIR
 PSBIN=$LBPSBIN/$PDIR
 PBIN=$LBPBIN/$PDIR
 
-INFLUXDBIN=`which influxd`
-INFLUXBIN=`which influx`
-OPENSSLBIN=`which openssl`
-TELEGRAFBIN=`which telegraf`
+INFLUXDBIN=$(command -v influxd)
+INFLUXBIN=$(command -v influx)
+OPENSSLBIN=$(command -v openssl)
+TELEGRAFBIN=$(command -v telegraf)
 ERROR=0
 UPGRADE=0
 DATE=`date +%Y%m%d%H%M%S`
@@ -32,19 +32,24 @@ function pause(){
    read -p "$*"
 }
 
-# Checking for InfluxDB and Telegraf
-if [ ! -x $INFLUXDBIN ]; then
-	echo "<FAIL> Seems that InfluxDB was not installed correctly. Giving up."
-	exit 2
-fi
-if [ ! -x $INFLUXBIN ]; then
-	echo "<FAIL> Seems that InfluxDB was not installed correctly. Giving up."
-	exit 2
-fi
-if [ ! -x $TELEGRAFBIN ]; then
-	echo "<FAIL> Seems that Telegraf was not installed correctly. Giving up."
-	exit 2
-fi
+# Checking for InfluxDB, Telegraf and OpenSSL.
+#
+# Note: the variables MUST be quoted here. If a binary is missing, the
+# variable is empty and an unquoted [ ! -x $VAR ] collapses into [ ! -x ],
+# which bash evaluates as the negated string test of "-x" - always false.
+# That is why broken installations used to run on for another 200 lines and
+# then failed with a completely misleading message about the InfluxDB user.
+for s4l_entry in "influxd:$INFLUXDBIN" "influx:$INFLUXBIN" "telegraf:$TELEGRAFBIN" "openssl:$OPENSSLBIN"; do
+	s4l_name=${s4l_entry%%:*}
+	s4l_path=${s4l_entry#*:}
+	if [ -z "$s4l_path" ] || [ ! -x "$s4l_path" ]; then
+		echo "<FAIL> The program '$s4l_name' is not installed on your system."
+		echo "<FAIL> Most likely the InfluxData/Grafana apt repository was not usable"
+		echo "<FAIL> and therefore InfluxDB, Telegraf or Grafana could not be installed."
+		echo "<FAIL> Please check the BEGINNING of this installation log for the real cause."
+		exit 2
+	fi
+done
 
 # Stop all services
 echo "<INFO> Stopping InfluxDB and Telegraf."

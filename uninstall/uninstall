@@ -56,10 +56,33 @@ echo "<INFO> Removing sysctl config."
 rm -f /etc/sysctl.d/96-stats4lox.conf
 
 echo "<INFO> Removing sytemd config."
-rm -f /etc/systemd/system/influxdb.service.d/00-stats4lox.conf
-rm -f /etc/systemd/system/telegraf.service.d/00-stats4lox.conf
-rm -f /etc/systemd/system/grafana-server.service.d/00-stats4lox.conf
+# The wildcard covers both the old name (00-stats4lox.conf) and the current
+# ones (00-stats4lox-influxdb.conf and friends).
+rm -f /etc/systemd/system/influxdb.service.d/00-stats4lox*.conf
+rm -f /etc/systemd/system/telegraf.service.d/00-stats4lox*.conf
+rm -f /etc/systemd/system/grafana-server.service.d/00-stats4lox*.conf
 systemctl daemon-reload
+
+# Leaving our apt configuration behind breaks the package management of the
+# whole system - apt-get update then fails for the user as well.
+echo "<INFO> Removing apt repositories, pins and keyrings added by Stats4Lox."
+rm -f /etc/apt/sources.list.d/influxdata.sources
+rm -f /etc/apt/sources.list.d/influxdata.list
+rm -f /etc/apt/sources.list.d/influxdb.list
+rm -f /etc/apt/sources.list.d/grafana.sources
+rm -f /etc/apt/sources.list.d/grafana.list
+rm -f /etc/apt/preferences.d/stats4lox-influxdata
+rm -f /etc/apt/preferences.d/stats4lox-grafana
+rm -f /etc/apt/preferences.d/influxdb
+rm -f /etc/apt/preferences.d/telegraf
+rm -f /etc/apt/preferences.d/grafana
+rm -f /etc/apt/keyrings/influxdata-archive.asc
+rm -f /etc/apt/keyrings/grafana.asc
+rm -f /usr/share/keyrings/influxdata-archive-keyring.gpg
+rm -f /usr/share/keyrings/grafana-archive-keyring.gpg
+rm -f /etc/apt/trusted.gpg.d/influxdata-archive_compat.gpg
+rm -f /etc/apt/trusted.gpg.d/grafanadata-archive_compat.gpg
+APT_LISTCHANGES_FRONTEND=none DEBIAN_FRONTEND=noninteractive apt-get -q -y update || true
 
 echo "<INFO> Disabling influxdb, grafana and telegraf services."
 systemctl disable influxdb

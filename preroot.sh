@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Abort on failures inside pipelines as well - we check apt/gpg results below
+set -o pipefail
+
 # To use important variables from command line use the following code:
 COMMAND=$0    # Zero argument is shell command
 PTEMPDIR=$1   # First argument is temp folder during install
@@ -20,6 +23,52 @@ PCONFIG=$LBPCONFIG/$PDIR
 PSBIN=$LBPSBIN/$PDIR
 PBIN=$LBPBIN/$PDIR
 
+#########################################################################
+# Helpers for a safe repository setup
+#########################################################################
+
+# Documented location for locally managed apt keyrings. Do NOT use
+# /etc/apt/trusted.gpg.d - a key placed there is trusted for EVERY
+# repository on the system, which would allow a compromised InfluxData or
+# Grafana key to sign forged Debian system packages.
+S4L_KEYRING_DIR=/etc/apt/keyrings
+
+s4l_fail() {
+	echo "<FAIL> $*"
+	exit 2
+}
+
+# Downloads a repository signing key, verifies its fingerprint and installs
+# it as an ASCII armored keyring. Aborts the installation on any problem -
+# we must never trust a key we could not verify.
+#
+# s4l_install_repo_key <url> <expected fingerprint> <target .asc file>
+s4l_install_repo_key() {
+	local url="$1"
+	local fpr="$2"
+	local dest="$3"
+	local tmp
+
+	tmp=$(mktemp) || s4l_fail "Could not create a temporary file."
+
+	echo "<INFO> Downloading repository key from $url"
+	if ! curl -fsSL --retry 3 --retry-delay 2 -o "$tmp" "$url"; then
+		rm -f "$tmp"
+		s4l_fail "Could not download the repository key from $url. No internet connection?"
+	fi
+
+	echo "<INFO> Verifying key fingerprint $fpr"
+	if ! gpg --show-keys --with-fingerprint --with-colons "$tmp" 2>/dev/null | grep -q "^fpr:\+${fpr}:$"; then
+		rm -f "$tmp"
+		s4l_fail "Fingerprint $fpr was not found in the key from $url. Refusing to trust this key."
+	fi
+
+	install -d -m 0755 "$S4L_KEYRING_DIR" || { rm -f "$tmp"; s4l_fail "Could not create $S4L_KEYRING_DIR."; }
+	install -m 0644 "$tmp" "$dest" || { rm -f "$tmp"; s4l_fail "Could not install the keyring $dest."; }
+	rm -f "$tmp"
+	echo "<OK> Installed keyring $dest"
+}
+
 # Stop all services
 echo "<INFO> Stopping InfluxDB, Grafana and Telegraf."
 systemctl daemon-reload
@@ -36,50 +85,138 @@ if [ $INFLUXCLIENT -eq "1" ]; then
 fi
 
 # Installing InfluxDB and Grafana in newer versions than Debian included
-echo "<INFO> Adding/Updating Influx repository..."
+
+export APT_LISTCHANGES_FRONTEND=none
+export DEBIAN_FRONTEND=noninteractive
+
+# Step 1: start from a clean slate.
+#
+# This has to happen BEFORE the first apt-get call. A previous failed
+# installation may have left an unusable source behind (e.g. a repository
+# whose key could not be verified), and that alone makes every apt-get
+# command fail - including the system's own updates.
+echo "<INFO> Removing apt configuration of earlier Stats4Lox installations..."
 rm -f /etc/apt/sources.list.d/influxdb.list
+rm -f /etc/apt/sources.list.d/influxdata.list
+rm -f /etc/apt/sources.list.d/influxdata.sources
+rm -f /etc/apt/sources.list.d/grafana.list
+rm -f /etc/apt/sources.list.d/grafana.sources
 rm -f /usr/share/keyrings/influxdata-archive-keyring.gpg
-gpg --keyserver keyserver.ubuntu.com --recv-keys DA61C26A0585BD3B 2>/dev/null
-gpg --export DA61C26A0585BD3B > /usr/share/keyrings/influxdata-archive-keyring.gpg
-echo 'deb [signed-by=/usr/share/keyrings/influxdata-archive-keyring.gpg] https://repos.influxdata.com/debian stable main' > /etc/apt/sources.list.d/influxdb.list
-
-echo "<INFO> Using Influx Version 1.8.10..."
+rm -f /usr/share/keyrings/grafana-archive-keyring.gpg
+rm -f /etc/apt/trusted.gpg.d/influxdata-archive_compat.gpg
+rm -f /etc/apt/trusted.gpg.d/influxdb.gpg
+rm -f /etc/apt/trusted.gpg.d/grafanadata-archive_compat.gpg
 rm -f /etc/apt/preferences.d/influxdb
-cat <<EOT >> /etc/apt/preferences.d/influxdb
-Package: influxdb
-Pin: version 1.8.10*
-Pin-Priority: 1000
-EOT
-
-echo "<INFO> Using Telegraf Version 1.24.4..."
 rm -f /etc/apt/preferences.d/telegraf
-cat <<EOT >> /etc/apt/preferences.d/telegraf
-Package: telegraf
-Pin: version 1.24.4*
-Pin-Priority: 1000
+rm -f /etc/apt/preferences.d/grafana
+rm -f /etc/apt/preferences.d/stats4lox-influxdata
+rm -f /etc/apt/preferences.d/stats4lox-grafana
+
+# Step 2: make sure the tools for the repository setup are present.
+#
+# preroot.sh runs BEFORE the packages from dpkg/apt are installed, so we
+# cannot rely on that list here.
+S4L_PREREQ=""
+for pkg in gnupg ca-certificates curl; do
+	dpkg -s "$pkg" > /dev/null 2>&1 || S4L_PREREQ="$S4L_PREREQ $pkg"
+done
+if [ -n "$S4L_PREREQ" ]; then
+	echo "<INFO> Installing prerequisites for the repository setup:$S4L_PREREQ"
+	apt-get -q -y update || s4l_fail "apt-get update failed. Please check /etc/apt/sources.list.d/ first."
+	apt-get -y -q install $S4L_PREREQ || s4l_fail "Could not install the prerequisites:$S4L_PREREQ"
+fi
+
+# Step 3: add the repositories.
+echo "<INFO> Adding/Updating InfluxData repository..."
+# Fingerprint of the InfluxData package signing key as published in
+# https://docs.influxdata.com/influxdb/v1/introduction/install/
+# The full key bundle (influxdata-archive.key) is required: the older
+# influxdata-archive_compat.key does NOT contain the key that currently
+# signs the repository (DA61C26A0585BD3B) and expired on 2026-01-17.
+s4l_install_repo_key \
+	https://repos.influxdata.com/influxdata-archive.key \
+	24C975CBA61A024EE1B631787C3D57159FC2F927 \
+	"$S4L_KEYRING_DIR/influxdata-archive.asc"
+
+cat <<EOT > /etc/apt/sources.list.d/influxdata.sources
+# Added by the LoxBerry plugin Stats4Lox - removed again on uninstall
+Types: deb
+URIs: https://repos.influxdata.com/debian
+Suites: stable
+Components: main
+Signed-By: $S4L_KEYRING_DIR/influxdata-archive.asc
 EOT
 
 echo "<INFO> Adding/Updating Grafana repository..."
-rm -f /etc/apt/sources.list.d/grafana.list
-rm -f /usr/share/keyrings/grafana-archive-keyring.gpg
-curl -fsSL https://apt.grafana.com/gpg.key | gpg --dearmor > /usr/share/keyrings/grafana-archive-keyring.gpg
-echo 'deb [signed-by=/usr/share/keyrings/grafana-archive-keyring.gpg] https://apt.grafana.com stable main' > /etc/apt/sources.list.d/grafana.list
+# Fingerprint of the Grafana Labs signing key as published in
+# https://grafana.com/docs/grafana/latest/setup-grafana/installation/debian/
+# We use gpg-full.key (not gpg.key): it also contains the 2017 key which
+# never expires, so a rotation of the current key does not break us.
+s4l_install_repo_key \
+	https://apt.grafana.com/gpg-full.key \
+	B53AE77BADB630A683046005963FA27710458545 \
+	"$S4L_KEYRING_DIR/grafana.asc"
 
-echo "<INFO> Using Grafana Version 12.3.x..."
-rm -f /etc/apt/preferences.d/grafana
-cat <<EOT >> /etc/apt/preferences.d/grafana
-Package: grafana
-Pin: version 12.3.*
+cat <<EOT > /etc/apt/sources.list.d/grafana.sources
+# Added by the LoxBerry plugin Stats4Lox - removed again on uninstall
+Types: deb
+URIs: https://apt.grafana.com
+Suites: stable
+Components: main
+Signed-By: $S4L_KEYRING_DIR/grafana.asc
+EOT
+
+# Version pinning AND scope limitation. The negative priority makes sure
+# these third party repositories can only ever deliver the packages we
+# explicitly ask for - they must not be able to shadow any Debian system
+# package. Package specific stanzas take precedence over "Package: *".
+echo "<INFO> Using InfluxDB Version 1.12.x and Telegraf Version 1.39.x..."
+cat <<EOT > /etc/apt/preferences.d/stats4lox-influxdata
+# Added by the LoxBerry plugin Stats4Lox - removed again on uninstall
+Package: *
+Pin: release o=InfluxDB
+Pin-Priority: -1
+
+Package: influxdb
+Pin: version 1.12.*
+Pin-Priority: 1000
+
+Package: telegraf
+Pin: version 1.39.*
 Pin-Priority: 1000
 EOT
 
+echo "<INFO> Using Grafana Version 13.1.x..."
+cat <<EOT > /etc/apt/preferences.d/stats4lox-grafana
+# Added by the LoxBerry plugin Stats4Lox - removed again on uninstall
+Package: *
+Pin: origin "apt.grafana.com"
+Pin-Priority: -1
+
+Package: grafana
+Pin: version 13.1.*
+Pin-Priority: 1000
+EOT
 
 echo "<INFO> Updating apt database..."
-export APT_LISTCHANGES_FRONTEND=none
-export DEBIAN_FRONTEND=noninteractive
 dpkg --configure -a
-APT_LISTCHANGES_FRONTEND=none DEBIAN_FRONTEND=noninteractive apt-get -y -q --allow-unauthenticated --fix-broken --reinstall --allow-downgrades --allow-remove-essential --allow-change-held-packages --purge autoremove
-APT_LISTCHANGES_FRONTEND=none DEBIAN_FRONTEND=noninteractive apt-get -q -y --allow-unauthenticated --allow-downgrades --allow-remove-essential --allow-change-held-packages update
+apt-get -y -q --fix-broken install || s4l_fail "apt-get --fix-broken install failed. Please repair your package management first."
+apt-get -q -y update || s4l_fail "apt-get update failed. Please check /etc/apt/sources.list.d/ and the messages above."
+
+# The repositories have to be usable at this point. If they are not, the
+# packages from dpkg/apt would silently not be installed and postroot.sh
+# would only run into a wall much later with a misleading error message.
+for pkg in influxdb telegraf grafana; do
+	if ! apt-cache policy "$pkg" 2>/dev/null | grep -qE 'repos\.influxdata\.com|apt\.grafana\.com'; then
+		echo "<FAIL> Package '$pkg' is not available in the pinned version."
+		echo "<FAIL> Usually this means the repository signature could not be verified."
+		echo "<FAIL> Please also note: InfluxDB is only available up to 1.8.10 for the"
+		echo "<FAIL> 32-bit ARM architecture (armhf). Stats4Lox requires a 64-bit system"
+		echo "<FAIL> (arm64/aarch64 or amd64/x86_64)."
+		s4l_fail "Please check the apt messages above."
+	fi
+done
+echo "<OK> InfluxData and Grafana repositories are set up and usable."
 
 echo "<INFO> Deactivating existing plugin configuration for Influx, Grafana and Telegraf..."
 if [ -L /etc/influxdb ]; then
