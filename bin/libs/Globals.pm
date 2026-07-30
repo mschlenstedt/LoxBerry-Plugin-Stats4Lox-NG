@@ -40,6 +40,7 @@ package Globals;
 use base 'Exporter';
 our @EXPORT = qw (
 	@CONTROL_BLACKLIST
+	@CONTROL_MS_FALLBACK
 	$statsconfig
 	$stats4loxconfig
 	$stats4loxcredentials
@@ -250,6 +251,26 @@ $ImportMapping->{Default} = [
 # WIND="Windmesser"
 # WINDOWSMONITOR="Fenster- und Türüberwachung"
 # ZAMBELLI="Zambelli"
+
+# CONTROLS that get their Miniserver assigned as a fallback
+#
+# Some device containers - MTablet (Touch/Tablet), AudioServer, ... - are
+# children of the Document instead of the LoxLIVE node. Controls below them
+# find no Miniserver when walking up the tree, get no msno, and are then
+# silently dropped by the frontend (settings_loxone.js: controls.filter
+# msno > 0). Statistics enabled on such a block would disappear without a
+# trace.
+#
+# Deliberately a positive list: a general fallback would also surface a few
+# hundred structural objects (PuDe, RightGroup, Permission, ...) in the
+# statistics selection.
+our @CONTROL_MS_FALLBACK = qw/
+ONLINE
+APIACTOR
+GENSENSOR
+GENASENSOR
+AUDIOOUT
+/;
 
 our @CONTROL_BLACKLIST = qw/
 2POINT

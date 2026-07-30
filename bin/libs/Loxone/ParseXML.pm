@@ -72,6 +72,7 @@ sub readloxplan
 
 	# Uniquify CONTROL_BLACKLIST and convert to hash for faster search
 	my %CBLACKLIST = map { uc($_) => 1 } @main::CONTROL_BLACKLIST;
+	my %MSFALLBACK = map { uc($_) => 1 } @main::CONTROL_MS_FALLBACK;
 
 	### Get Miniservers 
 	$log->INF("Reading LoxBerry Miniserver list");
@@ -95,47 +96,26 @@ sub readloxplan
 	# For performance, it would be possibly better to switch from XML::LibXML to XML::Twig
 
 	# Prepare data from LoxPLAN file
-	#my $parser = XML::LibXML->new();
 	our $lox_xml;
-	my $parser;
+	my $xmlstr;
 	eval {
-		my $xmlstr = LoxBerry::System::read_file($loxconfig_path);
-		
+		$xmlstr = LoxBerry::System::read_file($loxconfig_path);
+
 		# LoxPLAN uses a BOM, that cannot be handled by the XML Parser
 		my $UTF8_BOM = chr(0xef) . chr(0xbb) . chr(0xbf);
-		if(substr( $xmlstr, 0, 3) eq $UTF8_BOM) {
+		if( defined $xmlstr and substr( $xmlstr, 0, 3) eq $UTF8_BOM) {
 			$log->INF("Removing BOM of LoxPLAN input");
 			$xmlstr = substr $xmlstr, 3;
 		}
-		$xmlstr = Encode::encode("utf8", $xmlstr);
-		
-		
-		#######################################
-		## FIXES of invalid Loxone Loxplan XML 
-		#######################################
-		
-		# Corrects duplicate attributes in LoxAIR (Tree2Air Bridge)
-		$xmlstr = correctXML_removeAttributeDuplicates( $xmlstr, "LoxAIR", $log );
-		# Corrects duplicate attributes in LoxAIRDevice (Devices connected to Tree2Air Bridge)
-		$xmlstr = correctXML_removeAttributeDuplicates( $xmlstr, "LoxAIRDevice", $log );
-		# Corrects duplicate attributes in User (Phn)
-		$xmlstr = correctXML_removeAttributeDuplicates( $xmlstr, "User", $log );
-		
-		#######################################
-		## Finally, load the XML
-		#######################################
-		
-		my %parseroptions = (
-		#	recover => 1
-		);
-		
-		$lox_xml = XML::LibXML->load_xml( string => $xmlstr, \%parseroptions );
+		$xmlstr = Encode::encode("utf8", $xmlstr) if defined $xmlstr;
 	};
-	if ($@) {
-		$log->CRIT( "import.cgi: Cannot parse LoxPLAN XML file: $@");
-		#exit(-1);
+	if( $@ or !defined $xmlstr or $xmlstr eq '' ) {
+		$log->CRIT("Could not read the LoxPLAN file $loxconfig_path" . ($@ ? ": $@" : " (file is empty)"));
 		return;
 	}
+
+	$lox_xml = loadLoxplanXML( $xmlstr, $loxconfig_path, $log );
+	return if( !$lox_xml );
 
 	
 
@@ -309,6 +289,14 @@ sub readloxplan
 			$ms_ref = $parent->{U};
 		} elsif ($parent) {
 			$ms_ref = $parent->{Ref};
+		}
+
+		# Controls below a device container outside of the LoxLIVE subtree
+		# (MTablet, AudioServer, ...) find no Miniserver above them.
+		if( !defined $ms_ref and exists $MSFALLBACK{ uc($object->{Type} // '') } ) {
+			$ms_ref = findMiniserverFallback( $object, \%lox_miniserver );
+			$log->DEB("Fallback: $object->{Type} '" . ($object->{Title}//'') . "' assigned to Miniserver "
+			          . (defined $ms_ref ? ($lox_miniserver{$ms_ref}{Title}//$ms_ref) : '<none found>'));
 		}
 		my $logmessage = "Object: ".($object->{Title}//"")." (".($object->{Type}//"").") --> MS "
 		                 . (defined $ms_ref && defined $lox_miniserver{$ms_ref}{Title} ? $lox_miniserver{$ms_ref}{Title} : "<none>");
@@ -486,6 +474,217 @@ sub loxplan2json
 	$log->OK("loxplan2json: $args{output} written") if ($log);
 	return 1;
 
+}
+
+#############################################################################
+# Determines the Miniserver for controls below a device container that sits
+# outside of the LoxLIVE subtree
+#############################################################################
+# 1. an ancestor carrying a "Master" attribute with a known Miniserver serial
+#    - that is how an AudioServer references its Miniserver
+# 2. if the plan contains exactly one Miniserver, that one
+# Returns the U of the Miniserver, or undef.
+
+sub findMiniserverFallback
+{
+	my ($object, $lox_miniserver) = @_;
+
+	my %serials;
+	foreach my $u ( keys %{$lox_miniserver} ) {
+		next if( !defined $lox_miniserver->{$u}->{Serial} or $lox_miniserver->{$u}->{Serial} eq '' );
+		$serials{ uc($lox_miniserver->{$u}->{Serial}) } = $u;
+	}
+
+	my $parent = $object;
+	for( 1..12 ) {
+		$parent = $parent->parentNode;
+		last if( !$parent or !$parent->can('getAttribute') );
+		my $master = $parent->getAttribute('Master');
+		next if( !defined $master or $master eq '' );
+		return $serials{ uc($master) } if( $serials{ uc($master) } );
+	}
+
+	my @all = grep { $_ ne '' } keys %{$lox_miniserver};
+	return $all[0] if( scalar(@all) == 1 );
+
+	return;
+}
+
+#############################################################################
+# Loads the LoxPLAN XML and repairs the invalid XML that Loxone Config
+# produces.
+#############################################################################
+#
+# Loxone Config has been emitting non-valid XML for years - duplicate
+# attributes are the most common case (Phn on User, Title on the API
+# Connector family, ...). Loxone's own software tolerates it, so it does not
+# get fixed on their side, and every new generation of blocks brings new
+# occurrences. Repairing only a hard coded list of element types meant that
+# a single unknown element killed the entire import.
+#
+# Three stages, each of them logged, so that a support case can be judged
+# from the logfile alone:
+#   1. strict - the normal case, costs nothing
+#   2. duplicate attributes removed from ALL elements
+#   3. libxml2 recover mode - keeps everything that is parseable
+#
+# Returns the DOM, or undef if even recover mode fails.
+
+sub loadLoxplanXML
+{
+	my ($xmlstr, $sourcefile, $log) = @_;
+
+	my $dom;
+
+	# Stage 1 - strict
+	eval { $dom = XML::LibXML->load_xml( string => $xmlstr ); };
+	return $dom if( $dom );
+	my $error_strict = $@;
+
+	$log->WARN("The LoxPLAN is not valid XML. Trying to repair it...") if ($log);
+	logXMLerror( $error_strict, $xmlstr, $log, "WARN" );
+
+	# Stage 2 - remove duplicate attributes everywhere
+	my $fixed = correctXML_removeAttributeDuplicates_all( $xmlstr, $log );
+	eval { $dom = XML::LibXML->load_xml( string => $fixed ); };
+	if( $dom ) {
+		$log->OK("The LoxPLAN could be repaired: duplicate attributes removed. Import continues normally.") if ($log);
+		return $dom;
+	}
+	my $error_fixed = $@;
+
+	# Stage 3 - recover mode
+	#
+	# Careful: recover mode also "succeeds" on a document where it had to
+	# throw almost everything away. A DOM with no Miniserver in it is
+	# useless to us and would only produce an empty statistics selection
+	# without any error - exactly the kind of silent failure we are getting
+	# rid of. So the result is checked before it is accepted.
+	eval { $dom = XML::LibXML->load_xml( string => $fixed, recover => 2 ); };
+	if( $dom ) {
+		my @recovered = $dom->findnodes('//C[@Type]');
+		my @live      = $dom->findnodes('//C[@Type="LoxLIVE"]');
+		my $expected  = () = $fixed =~ /<C\s[^>]*?Type="/g;
+
+		if( @live ) {
+			$log->WARN("The LoxPLAN could only be read in recover mode.") if ($log);
+			$log->WARN(sprintf("Recovered %d of %d elements - %d blocks are MISSING and will not be offered for statistics.",
+				scalar(@recovered), $expected, $expected - scalar(@recovered))) if ($log and $expected > scalar(@recovered));
+			logXMLerror( $error_fixed, $fixed, $log, "WARN" );
+			return $dom;
+		}
+
+		$log->CRIT(sprintf("Recover mode only salvaged %d of %d elements and not a single Miniserver - the result is unusable.",
+			scalar(@recovered), $expected)) if ($log);
+		undef $dom;
+	}
+
+	# Give up - but leave behind something that can actually be acted upon
+	$log->CRIT("Cannot parse the LoxPLAN of this Miniserver, not even in recover mode.") if ($log);
+	logXMLerror( ($@ ? $@ : $error_fixed), $fixed, $log, "CRIT" );
+
+	if( $sourcefile and $LoxBerry::System::lbpdatadir ) {
+		my $keep = "$LoxBerry::System::lbpdatadir/loxplan_parse_failed.xml";
+		eval {
+			require File::Copy;
+			File::Copy::copy( $sourcefile, $keep );
+		};
+		$log->CRIT("A copy of the file was saved as $keep - please attach it to a bug report.") if ($log and -e $keep);
+	}
+
+	return;
+}
+
+#############################################################################
+# Turns a libxml2 error message into something actionable
+#############################################################################
+# libxml2 only reports line and column. That alone told neither the user nor
+# us WHICH block is broken, which is why bug reports were never conclusive.
+# We additionally resolve the element type and title from the source line.
+
+sub logXMLerror
+{
+	my ($error, $xmlstr, $log, $level) = @_;
+	$level = "CRIT" if( !$level );
+	return if( !$error or !$log );
+
+	my @errors;
+	my %seen;
+	foreach my $line ( split(/\n/, "$error") ) {
+		next if( $line !~ /:(\d+):\s*(?:parser\s+|namespace\s+)?(?:error|warning)\s*:\s*(.+?)\s*$/i );
+		my ($lineno, $msg) = ($1, $2);
+		next if( $seen{"$lineno|$msg"}++ );
+		push @errors, [ $lineno, $msg ];
+	}
+
+	if( !@errors ) {
+		my $flat = "$error"; $flat =~ s/\s+/ /g;
+		xmllog( $log, $level, "XML parser reported: " . substr($flat, 0, 500) );
+		return;
+	}
+
+	my @src = split(/\n/, $xmlstr);
+	my $shown = 0;
+	foreach my $e ( @errors ) {
+		my ($lineno, $msg) = @{$e};
+		last if( $shown >= 10 );
+		$shown++;
+
+		# The element may start on an earlier line than the reported one
+		my ($type, $title);
+		for( my $i = $lineno-1; $i >= 0 && $i > $lineno-25; $i-- ) {
+			next if( !defined $src[$i] );
+			if( $src[$i] =~ /<C\s[^>]*?Type="([^"]*)"/ ) {
+				$type = $1;
+				($title) = $src[$i] =~ /<C\s[^>]*?Title="([^"]*)"/;
+				last;
+			}
+		}
+
+		my $srcline = defined $src[$lineno-1] ? $src[$lineno-1] : '';
+		$srcline =~ s/^\s+//;
+		$srcline = substr($srcline, 0, 300) . ' ...' if( length($srcline) > 300 );
+
+		xmllog( $log, $level, sprintf('LoxPLAN line %d: %s', $lineno, $msg) );
+		xmllog( $log, $level, sprintf('   affected block: Type="%s" Title="%s"',
+			(defined $type ? $type : '?'), (defined $title ? $title : '?')) );
+		xmllog( $log, $level, '   source line   : ' . $srcline );
+	}
+
+	if( scalar(@errors) > $shown ) {
+		xmllog( $log, $level, sprintf('... and %d further XML errors (not listed)', scalar(@errors) - $shown) );
+	}
+}
+
+sub xmllog
+{
+	my ($log, $level, $text) = @_;
+	return if( !$log );
+	if   ( $level eq "WARN" ) { $log->WARN($text) }
+	elsif( $level eq "INF" )  { $log->INF($text) }
+	else                      { $log->CRIT($text) }
+}
+
+### Loxone XML: Removes duplicate attributes in ALL elements
+# Previously only a hard coded list of types (LoxAIR, LoxAIRDevice, User) was
+# repaired, so every new Loxone block with the same defect broke the import
+# again - most recently the Fronius "API Connector" family.
+# Params: 1. full xml 2. $log object
+# Returns: corrected xml
+sub correctXML_removeAttributeDuplicates_all
+{
+	my ($xmlstr, $log) = @_;
+
+	my %types;
+	while( $xmlstr =~ /<C\s[^>]*?Type="([^"]*)"/g ) {
+		$types{$1} = 1;
+	}
+	$log->INF("Checking " . scalar(keys %types) . " element types for duplicate attributes") if ($log);
+
+	foreach my $type ( sort keys %types ) {
+		$xmlstr = correctXML_removeAttributeDuplicates( $xmlstr, $type, $log );
+	}
+	return $xmlstr;
 }
 
 ### Loxone XML: Corrects invalid duplicate attributes in XML element
