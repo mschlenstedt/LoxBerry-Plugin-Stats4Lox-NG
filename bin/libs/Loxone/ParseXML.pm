@@ -215,7 +215,11 @@ sub readloxplan
 		foreach my $msno ( keys %lb_miniservers ) {
 			
 			# Compare serials (1st)
-			if( $lb_miniservers{$msno}{serial} eq uc( $miniserver->{Serial} ) ) {
+			# The "defined" guards are not cosmetic: a Miniserver without a
+			# serial produced one warning per comparison, and a page load
+			# flooded the webserver log with thousands of them.
+			if( defined $lb_miniservers{$msno}{serial} and defined $miniserver->{Serial}
+			    and $lb_miniservers{$msno}{serial} eq uc( $miniserver->{Serial} ) ) {
 				$log->OK( "SERIAL match: LoxPlan-Miniserver '$miniserver->{Title}' matches LoxBerry Miniserver number $msno" );
 				$lox_miniserver{$miniserver->{U}}{msno} = $msno;
 				last;
@@ -223,7 +227,8 @@ sub readloxplan
 			
 			# Fallback to hostname (2nd)
 			
-			if( $lb_miniservers{$msno}{IPAddress} eq $lox_miniserver{$miniserver->{U}}{Host} ) {
+			if( defined $lb_miniservers{$msno}{IPAddress} and defined $lox_miniserver{$miniserver->{U}}{Host}
+			    and $lb_miniservers{$msno}{IPAddress} eq $lox_miniserver{$miniserver->{U}}{Host} ) {
 				$log->OK( "HOSTNAME match: LoxPlan-Miniserver '$miniserver->{Title}' matches LoxBerry Miniserver number $msno" );
 				$lox_miniserver{$miniserver->{U}}{msno} = $msno;
 				last;
@@ -231,7 +236,8 @@ sub readloxplan
 			
 			# Fallback to IP (3rd)
 			
-			if( $lb_miniservers{$msno}{IPAddress} eq $lox_miniserver{$miniserver->{U}}{IP} ) {
+			if( defined $lb_miniservers{$msno}{IPAddress} and defined $lox_miniserver{$miniserver->{U}}{IP}
+			    and $lb_miniservers{$msno}{IPAddress} eq $lox_miniserver{$miniserver->{U}}{IP} ) {
 				$log->OK( "IP match: LoxPlan-Miniserver '$miniserver->{Title}' matches LoxBerry Miniserver number $msno" );
 				$lox_miniserver{$miniserver->{U}}{msno} = $msno;
 				last;
@@ -293,15 +299,19 @@ sub readloxplan
 		# Therefore, we have to distinguish between connected in some parent, or referred by in some parent.	
 		my $ms_ref;
 		my $parent = $object;
+		# The "$parent" guard prevents walking off the top of the document:
+		# parentNode of the document node returns undef, and the next
+		# iteration would then die on an unblessed reference.
 		do {
 			$parent = $parent->parentNode;
-		} while ((!$parent->{Ref}) && defined $parent->{Type} && ($parent->{Type} ne "LoxLIVE"));
-		if ($parent->{Type} eq "LoxLIVE") {
+		} while ($parent && (!$parent->{Ref}) && defined $parent->{Type} && ($parent->{Type} ne "LoxLIVE"));
+		if ($parent && defined $parent->{Type} && $parent->{Type} eq "LoxLIVE") {
 			$ms_ref = $parent->{U};
-		} else {
+		} elsif ($parent) {
 			$ms_ref = $parent->{Ref};
 		}
-		my $logmessage = "Object: ".$object->{Title}." (".$object->{Type}.") --> MS ".$lox_miniserver{$ms_ref}{Title};
+		my $logmessage = "Object: ".($object->{Title}//"")." (".($object->{Type}//"").") --> MS "
+		                 . (defined $ms_ref && defined $lox_miniserver{$ms_ref}{Title} ? $lox_miniserver{$ms_ref}{Title} : "<none>");
 		$logmessage .= " StatsType = ".$object->{StatsType} if ($object->{StatsType});
 		# $log->DEB($logmessage);
 		
@@ -316,7 +326,10 @@ sub readloxplan
 		# $lox_statsobject{$object->{U}}{MSName} = $lox_miniserver{$ms_ref}{Title};
 		# $lox_statsobject{$object->{U}}{MSIP} = $lox_miniserver{$ms_ref}{IP};
 		# $lox_statsobject{$object->{U}}{MSNr} = $cfg_mslist{$lox_miniserver{$ms_ref}{IP}};
-		$lox_statsobject{$object->{U}}{msno} = $lox_miniserver{$ms_ref}{msno};
+		# Objects without a Miniserver ancestor (permissions, user devices,
+		# right groups, ...) simply have no msno. The frontend filters them
+		# out - see settings_loxone.js, controls.filter( msno > 0 ).
+		$lox_statsobject{$object->{U}}{msno} = defined $ms_ref ? $lox_miniserver{$ms_ref}{msno} : undef;
 		
 		# Unit
 		my @display = $object->getElementsByTagName("Display");
@@ -405,45 +418,72 @@ sub loxplan2json
 	my $ms_serials = $args{ms_serials};
 	
 	$log->INF("loxplan2json started") if ($log);
-	
-	$log->INF("Reading local Loxplan json");
-	my $loxplanobj = LoxBerry::JSON->new();
-	my $loxplan = $loxplanobj->open( filename => $args{output}, readonly => 1 );
-	
-	my $localTimestamp = $loxplan->{documentInfo}->{LoxAPPversion3timestamp};
-	my $lastChecked = $loxplan->{documentInfo}->{S4L_LastChecked};
-	
-	undef $loxplanobj;
-	undef $loxplan;
-	
+
+	# Read the timestamps of the locally stored json.
+	#
+	# This MUST be guarded. On the very first run the file does not exist
+	# yet, and a previously failed run may have left a truncated one behind.
+	# Because this block used to sit OUTSIDE of any eval - and ajax.cgi calls
+	# us without an eval as well - an exception here killed the CGI in the
+	# middle of its response. The web interface then waited forever on
+	# "Fetching Loxone Config from Miniservers..." without ever showing an
+	# error, and reinstalling did not help because the broken file is part of
+	# the plugin backup and gets restored on every upgrade.
+	my $localTimestamp;
+	my $lastChecked;
 	eval {
-		
-		my $result = readloxplan( log => $args{log}, filename => $args{filename}, ms_serials => $ms_serials);
-		if (!$result) {
-			$log->CRIT("Error parsing XML");
-			return undef;
+		$log->INF("Reading local Loxplan json") if ($log);
+		my $loxplanobj = LoxBerry::JSON->new();
+		my $loxplan = $loxplanobj->open( filename => $args{output}, readonly => 1 );
+		if( $loxplan ) {
+			$localTimestamp = $loxplan->{documentInfo}->{LoxAPPversion3timestamp};
+			$lastChecked    = $loxplan->{documentInfo}->{S4L_LastChecked};
 		}
-		
-		if( $remoteTimestamp ) {
-			$result->{documentInfo}->{LoxAPPversion3timestamp} = $remoteTimestamp;
-		}
-		else {
-			$result->{documentInfo}->{LoxAPPversion3timestamp} = $localTimestamp;
-		}
-		$result->{documentInfo}->{S4L_LastChecked} = $lastChecked;
-		
-		unlink $args{output};
-		open(my $fh, '>', $args{output});
-		print $fh JSON->new->pretty(1)->encode( $result );
-		close $fh;
-	
 	};
-	if ($@) {
-		print STDERR "loxplan2json: Error running procedure: $@\n";
-		$log->ERR("loxplan2json: Error running procedure: $@\n") if ($log);
+	if( $@ ) {
+		$log->WARN("loxplan2json: Could not read $args{output} ($@) - continuing without the local timestamps") if ($log);
+	}
+
+	# Parse the LoxPLAN.
+	#
+	# Note: the former "return undef" inside the eval only left the eval
+	# block, not this function - a failed parse was therefore reported as
+	# success to the caller.
+	my $result;
+	eval {
+		$result = readloxplan( log => $args{log}, filename => $args{filename}, ms_serials => $ms_serials);
+	};
+	if( $@ ) {
+		$log->CRIT("loxplan2json: Exception while parsing the LoxPLAN: $@") if ($log);
 		return undef;
 	}
-	
+	if( !$result ) {
+		$log->CRIT("loxplan2json: Could not parse the LoxPLAN of this Miniserver") if ($log);
+		return undef;
+	}
+
+	$result->{documentInfo}->{LoxAPPversion3timestamp} = $remoteTimestamp ? $remoteTimestamp : $localTimestamp;
+	$result->{documentInfo}->{S4L_LastChecked} = $lastChecked;
+
+	# Write atomically.
+	#
+	# The previous version deleted the target first and then wrote without
+	# any error handling. Any failure in between left an empty or truncated
+	# file - and from then on every further run failed while reading it.
+	my $tmpfile = $args{output} . ".tmp.$$";
+	eval {
+		open( my $fh, '>', $tmpfile ) or die "Could not open $tmpfile: $!\n";
+		print {$fh} JSON->new->pretty(1)->encode( $result ) or die "Could not write $tmpfile: $!\n";
+		close($fh) or die "Could not close $tmpfile: $!\n";
+		rename( $tmpfile, $args{output} ) or die "Could not rename $tmpfile to $args{output}: $!\n";
+	};
+	if( $@ ) {
+		unlink $tmpfile;
+		$log->CRIT("loxplan2json: Could not write $args{output}: $@") if ($log);
+		return undef;
+	}
+
+	$log->OK("loxplan2json: $args{output} written") if ($log);
 	return 1;
 
 }

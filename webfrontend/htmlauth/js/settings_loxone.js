@@ -244,32 +244,64 @@ function getLoxplan() {
 	// Get elements of all Miniservers
 	var async_request=[];
 	var responses=[];
-	for (msno in miniservers) {
-		async_request.push(
-			$.post( "ajax.cgi", { action : "getloxplan", msno : msno }, function(data){
+
+	// Every request is wrapped in a Deferred that ALWAYS resolves.
+	//
+	// $.when() rejects as soon as one request fails, and .done() then never
+	// runs - which means the "Fetching Loxone Config from Miniservers..."
+	// dialog would stay open forever. That is exactly what users saw when a
+	// Miniserver could not be read. By resolving in the fail handler as well
+	// the dialog always closes and the error is displayed instead.
+	function requestLoxplan( msno ) {
+		var deferred = $.Deferred();
+		$.post( "ajax.cgi", { action : "getloxplan", msno : msno } )
+			.done( function(data){
 				console.log(data);
 				responses.push(data);
+				deferred.resolve();
 			})
-		);
+			.fail( function(jqXHR){
+				var msg;
+				try { msg = JSON.parse( jqXHR.responseText ).error; } catch(e) { msg = undefined; }
+				if( !msg ) {
+					msg = "Miniserver " + msno + ": request failed (HTTP " + jqXHR.status + ")";
+				}
+				console.log( "getloxplan failed for MS" + msno, msg );
+				responses.push( { error: msg } );
+				deferred.resolve();
+			});
+		return deferred.promise();
 	}
-	async_request.push(
-		$.post( "ajax.cgi", { action : "getstatsconfig" }, function(data){
-			
-			try {
-				statsconfig = data;
-				statsconfigLoxone = Object.values( statsconfig.loxone );
-			}
-			catch(e) {
-				// $("#progress_errors").append( "<p>Could not get stats.json data. Assuming empty stats.json</p>");
-				// $("#box_progress_errors").fadeIn();
-				console.log( "statsconfigLoxone seems to be empty" );
+
+	for (msno in miniservers) {
+		async_request.push( requestLoxplan( msno ) );
+	}
+
+	async_request.push( (function(){
+		var deferred = $.Deferred();
+		$.post( "ajax.cgi", { action : "getstatsconfig" } )
+			.done( function(data){
+				try {
+					statsconfig = data;
+					statsconfigLoxone = Object.values( statsconfig.loxone );
+				}
+				catch(e) {
+					console.log( "statsconfigLoxone seems to be empty" );
+					statsconfigLoxone = [];
+				}
+				deferred.resolve();
+			})
+			.fail( function(jqXHR){
+				$("#progress_errors").append( "<p>Could not read stats.json (HTTP " + jqXHR.status + "). Assuming it is empty.</p>" );
+				$("#box_progress_errors").fadeIn();
 				statsconfigLoxone = [];
-			}
-		})
-	)
-				
-	
-	$.when.apply( null, async_request).done( function(){
+				deferred.resolve();
+			});
+		return deferred.promise();
+	})() );
+
+
+	$.when.apply( null, async_request).always( function(){
 		$("#progressState").html("Preparing controls...");
 		consolidateLoxPlan( responses );
 		$("#progressState").html("Generating display...");
@@ -278,8 +310,8 @@ function getLoxplan() {
 		$("#progressState").html("");
 		setTimer();
 		getImportSchedulerReport();
-		
-		
+
+
 	});
 }
 
@@ -291,9 +323,13 @@ function consolidateLoxPlan( data ) {
 		console.log( "Error", data[key] );
 		$("#progress_errors").append( "<p>"+data[key]?.error+"</p>" );
 		$("#box_progress_errors").fadeIn();
+		// Nothing else to merge from a failed Miniserver. Without this the
+		// undefined values below end up as an "undefined" entry in the
+		// element type filter.
+		continue;
 	  }
-	  
-	  
+
+
 	  rooms = $.extend( rooms, data[key].rooms );
 	  rooms_used = $.extend( rooms_used, data[key].rooms_used );
 	  categories = $.extend( categories, data[key].categories );

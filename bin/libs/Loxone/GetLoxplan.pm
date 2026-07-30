@@ -67,34 +67,56 @@ sub getLoxplan
 	# Unzip file
 	$log->INF("Cleaning up old files");
 	`rm -f -r "$Globals::stats4lox->{s4ltmp}/s4l_loxplan_ms$msno/"`;
-	
+	unlink $Loxplandest;
+
 	my ($name, $ext) = split(/.([^.]+)$/, $localfile);
 	if( lc($ext) eq "zip" ) {
 		$log->INF("$me Unzipping zip");
-		`unzip $localfile -d "$Globals::stats4lox->{s4ltmp}/s4l_loxplan_ms$msno/"`;
-	} 
+		my $unzipout = `unzip -o "$localfile" -d "$Globals::stats4lox->{s4ltmp}/s4l_loxplan_ms$msno/" 2>&1`;
+		if( $? != 0 ) {
+			$log->CRIT("$me Could not unzip $localfile: $unzipout");
+			return;
+		}
+	}
 	elsif ( lc($ext) eq "loxcc" ) {
 		$log->INF("$me File already is a LoxCC file");
 		$LoxCCsource = $localfile;
 	}
-	
+
 	# Check if we already have a .Loxone file, or need to unpack LoxCC
-	
+
 	if( -e $Loxplansource ) {
 		# If exists, copy to $Globals::stats4lox->{s4ltmp}
 		$log->INF("$me Copying Loxplan from zip");
 		require File::Copy;
-		File::Copy::copy( $Loxplansource, $Loxplandest );
+		if( ! File::Copy::copy( $Loxplansource, $Loxplandest ) ) {
+			$log->CRIT("$me Could not copy $Loxplansource to $Loxplandest: $!");
+			return;
+		}
 	}
 	elsif( -e $LoxCCsource ) {
 		# Unpack LoxCC file
 		$log->INF("$me Calling unpack_loxcc.py");
-		`${LoxBerry::System::lbpbindir}/libs/Loxone/unpack_loxcc.py "$LoxCCsource" "$Loxplandest"`;
-	} 
+		my $unpackout = `${LoxBerry::System::lbpbindir}/libs/Loxone/unpack_loxcc.py "$LoxCCsource" "$Loxplandest" 2>&1`;
+		if( $? != 0 ) {
+			# unpack_loxcc.py reports a wrong checksum or size this way. Without
+			# this check a failed unpacking looked like a successful run.
+			$log->CRIT("$me unpack_loxcc.py failed: $unpackout");
+			return;
+		}
+	}
 	else {
 		$log->CRIT("$me Could not find project file.");
+		return;
 	}
+
+	if( ! -s $Loxplandest ) {
+		$log->CRIT("$me $Loxplandest was not created or is empty.");
+		return;
+	}
+
 	$log->OK("$me Finished");
+	return 1;
 }
 
 sub getFilelist
@@ -175,7 +197,20 @@ sub getFile
 	my $localfile = "$Globals::stats4lox->{s4ltmp}/s4l_loxplan_ms$msno.$ext";
 	$log->INF("$me Uripart: $uripart Localfile: $localfile");
 	
-	my $ua = LWP::UserAgent->new( ssl_opts => { verify_hostname => 0} );
+	# A Miniserver usually presents a self-signed certificate, and even the
+	# Loxone supplied Let's Encrypt certificates are issued for a
+	# *.dyndns.loxonecloud.com name while we connect by IP address.
+	#
+	# verify_hostname alone is NOT sufficient: without SSL_verify_mode the
+	# certificate chain is still validated, and against a self-signed
+	# certificate the request fails with "certificate verify failed".
+	require IO::Socket::SSL;
+	my $ua = LWP::UserAgent->new(
+		ssl_opts => {
+			verify_hostname => 0,
+			SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
+		}
+	);
 	my $req = HTTP::Request->new( GET => $msuri.$uripart );
 	my $response = $ua->request($req);
 	
@@ -190,7 +225,10 @@ sub getFile
 		return( $localfile );
 	}
 	else {
-		$log->CRIT("$me Download error: $response->status_line");
+		# Note: a method call is NOT interpolated inside double quotes. The
+		# log used to read "Download error: HTTP::Response=HASH(0x...)" and
+		# the actual HTTP status never appeared anywhere.
+		$log->CRIT("$me Download error: " . $response->status_line);
 		unlink $localfile;
 		return;
 	}
@@ -230,7 +268,7 @@ sub checkLoxplanUpdate
 		if( defined $loxplan->{documentInfo}->{LoxAPPversion3timestamp} ) {
 			$localTimestamp = $loxplan->{documentInfo}->{LoxAPPversion3timestamp};
 		}
-		$log->DEB("$me Locally stored timestamp of last LoxPlan update : $localTimestamp");
+		$log->DEB("$me Locally stored timestamp of last LoxPlan update : " . (defined $localTimestamp ? $localTimestamp : "<none>"));
 	};
 	if( $@ ) {
 		$log->CRIT("$me Could not fetch local version info");

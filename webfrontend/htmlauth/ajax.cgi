@@ -74,36 +74,54 @@ if( $q->{action} eq "getloxplan" ) {
 		eval {
 			$remoteTimestamp = Loxone::GetLoxplan::checkLoxplanUpdate( $msno, $loxplanjson, $log );
 		};
-		if( $@ or $remoteTimestamp ne "" ) {
-			LOGINF "Loxplan file not up-to-date. Fetching from Miniserver\n";
-			Loxone::GetLoxplan::getLoxplan( 
-				ms => $msno, 
-				log => $log 
+		my $checkfailed = $@;
+
+		# Note: "ne" on an undefined value warns. checkLoxplanUpdate returns
+		# undef when the local copy is up-to-date.
+		if( $checkfailed or defined $remoteTimestamp ) {
+			LOGINF "Loxplan file not up-to-date. Fetching from Miniserver";
+
+			# Every failure has to reach the user. Previously the return
+			# values of both calls were discarded, this CGI answered HTTP 200
+			# with a stale or empty json, and the web interface kept waiting
+			# on "Fetching Loxone Config from Miniservers..." forever.
+			unlink $Loxplanfile;
+			my $fetched = Loxone::GetLoxplan::getLoxplan(
+				ms => $msno,
+				log => $log
 			);
-			
-			if( -e $Loxplanfile ) {
-				LOGOK "Loxplan for MS$msno found, parsing now...\n";
-				my $loxplan = Loxone::ParseXML::loxplan2json( 
+
+			if( !$fetched or ! -e $Loxplanfile ) {
+				$error = "Miniserver $msno: Could not fetch the Loxone configuration. See the 'AJAX' logfile for details.";
+			}
+			else {
+				LOGOK "Loxplan for MS$msno found, parsing now...";
+				my $loxplan = Loxone::ParseXML::loxplan2json(
 					filename => $Loxplanfile,
 					output => $loxplanjson,
 					log => $log,
 					remoteTimestamp => $remoteTimestamp,
 					ms_serials => \%ms_serials
 				);
+				if( !$loxplan ) {
+					$error = "Miniserver $msno: Could not parse the Loxone configuration. See the 'AJAX' logfile for details.";
+				}
 			}
-			
+
 		} else {
-			LOGINF "Loxplan file is up-to-date. Using local copy\n";
+			LOGINF "Loxplan file is up-to-date. Using local copy";
 		}
-		
-		if( -e $loxplanjson) { 
-			$response = LoxBerry::System::read_file($loxplanjson);
-		} else {
-			$response = '{ "error":"Could not fetch Loxone Config of MS No. '.$msno.'"}';
+
+		if( !$error ) {
+			if( -e $loxplanjson ) {
+				$response = LoxBerry::System::read_file($loxplanjson);
+			} else {
+				$error = "Miniserver $msno: Could not fetch the Loxone configuration.";
+			}
 		}
-	
+
 	}
-	
+
 }
 
 ## getstatsconfig
