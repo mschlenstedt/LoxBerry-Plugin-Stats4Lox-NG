@@ -77,6 +77,40 @@ systemctl stop telegraf
 systemctl stop grafana-server
 killall /usr/bin/influxd
 
+# Grafana's postinst moves its bundled plugins into the data directory with an
+# unguarded mv:
+#
+#   mv $GRAFANA_HOME/data/plugins-bundled $DATA_DIR
+#
+# which fails the moment the target already exists:
+#
+#   mv: cannot move '/usr/share/grafana/data/plugins-bundled' to
+#   '/var/lib/grafana/plugins-bundled': Directory not empty
+#   dpkg: error processing package grafana (--configure)
+#
+# This is a known packaging bug, referenced in their own postinst as
+# grafana/grafana#123110. It does not appear on the first installation but on
+# every REINSTALL of an already installed version - which is exactly what
+# LoxBerry does on every single plugin update.
+#
+# This has to be the FIRST thing we do, before any apt or dpkg call. Once the
+# package is stuck in "half-configured", dpkg refuses to carry out anything
+# else, so even "apt-get update" and "apt-get --fix-broken install" further
+# down fail and abort the installation before this point is ever reached.
+#
+# Deliberately moved and not deleted: if the package step does not run at all,
+# postroot.sh puts it back, so the bundled plugins cannot get lost.
+# The target is read the way the postinst reads it - DATA_DIR comes from
+# /etc/default/grafana-server, which is a conffile and may have been changed.
+S4L_GRAFANA_DATA_DIR=$( . /etc/default/grafana-server 2>/dev/null; echo "$DATA_DIR" )
+[ -n "$S4L_GRAFANA_DATA_DIR" ] || S4L_GRAFANA_DATA_DIR=/var/lib/grafana
+
+if [ -d "$S4L_GRAFANA_DATA_DIR/plugins-bundled" ]; then
+	echo "<INFO> Moving Grafana's plugins-bundled aside so its postinst can succeed (grafana/grafana#123110)."
+	rm -rf "$S4L_GRAFANA_DATA_DIR/plugins-bundled.stats4lox-bak"
+	mv "$S4L_GRAFANA_DATA_DIR/plugins-bundled" "$S4L_GRAFANA_DATA_DIR/plugins-bundled.stats4lox-bak"
+fi
+
 # Check for old debian influx-client package (V1.6.4 - out of date) which we do not want anymore
 INFLUXCLIENT=`dpkg -s influxdb-client 2>/dev/null | grep -c "ok installed"`
 if [ $INFLUXCLIENT -eq "1" ]; then
@@ -249,41 +283,6 @@ if [ -L /etc/grafana ]; then
 fi
 if [ -d /var/lib/grafana ]; then
 	chown -R grafana:grafana /var/lib/grafana
-fi
-
-# Grafana's postinst moves its bundled plugins into the data directory with an
-# unguarded mv:
-#
-#   mv $GRAFANA_HOME/data/plugins-bundled $DATA_DIR
-#
-# which fails the moment the target already exists:
-#
-#   mv: cannot move '/usr/share/grafana/data/plugins-bundled' to
-#   '/var/lib/grafana/plugins-bundled': Directory not empty
-#   dpkg: error processing package grafana (--configure)
-#
-# This is a known packaging bug, referenced in their own postinst as
-# grafana/grafana#123110. It does not appear on the first installation but on
-# every REINSTALL of an already installed version - which is exactly what
-# LoxBerry does on every single plugin update. The package then stays
-# half-configured and grafana-server does not come up.
-#
-# The directory is therefore moved out of the way before apt runs. Deliberately
-# moved and not deleted: if the package step does not run at all, postroot.sh
-# puts it back, so the bundled plugins cannot get lost.
-if [ -d /var/lib/grafana/plugins-bundled ]; then
-	echo "<INFO> Moving Grafana's plugins-bundled aside so its postinst can succeed (grafana/grafana#123110)."
-	rm -rf /var/lib/grafana/plugins-bundled.stats4lox-bak
-	mv /var/lib/grafana/plugins-bundled /var/lib/grafana/plugins-bundled.stats4lox-bak
-fi
-
-# A system that already ran into the above is left with grafana in state
-# "half-configured", and dpkg refuses to do anything else until that is
-# resolved. Now that the directory is out of the way, the pending configuration
-# can complete. Only attempted when grafana is actually in that state.
-if dpkg-query -W -f='${Status}' grafana 2>/dev/null | grep -qE 'half-configured|half-installed'; then
-	echo "<INFO> Grafana is half-configured from an earlier run - completing its configuration."
-	dpkg --configure -a
 fi
 
 echo "<INFO> Remove old Service DropIn Files..."

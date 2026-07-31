@@ -486,14 +486,17 @@ ls -l $PCONFIG/grafana
 # back in place and the copy we saved is obsolete. If it did not run - because
 # apt had nothing to do - we move ours back, so that the bundled plugins are
 # not lost.
-if [ -d /var/lib/grafana/plugins-bundled.stats4lox-bak ]; then
-	if [ -d /var/lib/grafana/plugins-bundled ]; then
-		rm -rf /var/lib/grafana/plugins-bundled.stats4lox-bak
+S4L_GRAFANA_DATA_DIR=$( . /etc/default/grafana-server 2>/dev/null; echo "$DATA_DIR" )
+[ -n "$S4L_GRAFANA_DATA_DIR" ] || S4L_GRAFANA_DATA_DIR=/var/lib/grafana
+
+if [ -d "$S4L_GRAFANA_DATA_DIR/plugins-bundled.stats4lox-bak" ]; then
+	if [ -d "$S4L_GRAFANA_DATA_DIR/plugins-bundled" ]; then
+		rm -rf "$S4L_GRAFANA_DATA_DIR/plugins-bundled.stats4lox-bak"
 	else
-		mv /var/lib/grafana/plugins-bundled.stats4lox-bak /var/lib/grafana/plugins-bundled
+		mv "$S4L_GRAFANA_DATA_DIR/plugins-bundled.stats4lox-bak" "$S4L_GRAFANA_DATA_DIR/plugins-bundled"
 		echo "<INFO> Restored Grafana's plugins-bundled - the package was not reconfigured."
 	fi
-	chown -R grafana:grafana /var/lib/grafana/plugins-bundled > /dev/null 2>&1
+	chown -R grafana:grafana "$S4L_GRAFANA_DATA_DIR/plugins-bundled" > /dev/null 2>&1
 fi
 
 # Activate Grafana
