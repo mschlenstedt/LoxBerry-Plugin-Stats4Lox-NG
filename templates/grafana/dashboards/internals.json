@@ -313,11 +313,11 @@
       "steppedLine": false,
       "targets": [
         {
-          "alias": "Writes InfluxDB",
+          "alias": "Gathered metrics/h",
           "groupBy": [
             {
               "params": [
-                "1h"
+                "$__interval"
               ],
               "type": "time"
             },
@@ -347,8 +347,10 @@
                 "type": "last"
               },
               {
-                "params": [],
-                "type": "difference"
+                "params": [
+                  "1h"
+                ],
+                "type": "non_negative_derivative"
               }
             ]
           ],
