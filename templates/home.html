@@ -31,8 +31,20 @@
 	grid-column-gap: 15px;
 	grid-row-gap: 15px;
 }
-.box { 
+.box {
 	border: 1px solid black;
+}
+
+/* The Grafana panels used to sit in <object> elements without a height
+   attribute, which makes them 150px tall - the browser default. That is not
+   enough for a panel with a title, an axis and a legend: the content did not
+   shrink to fit, it was simply cut off, so only the top left corner was
+   visible. */
+.box iframe.panel {
+	display: block;
+	width: 100%;
+	height: 300px;
+	border: 0;
 }
 
 .margin {
@@ -66,13 +78,13 @@
 
 <div class="grid">
 	<div class="box">
-		<object data="<TMPL_VAR GRAFANA_URL>/d-solo/ff725681-27a4-408c-9491-772415f41412/plugin-home?orgId=1&refresh=60s&from=now-24h&to=now&theme=light&panelId=5" width="99%"></object>
+		<iframe class="panel" src="<TMPL_VAR GRAFANA_URL>/d-solo/ff725681-27a4-408c-9491-772415f41412/plugin-home?orgId=1&refresh=60s&from=now-24h&to=now&theme=light&panelId=5" title="Grafana panel"></iframe>
 	</div>
 	<div class="box">
-		<object data="<TMPL_VAR GRAFANA_URL>/d-solo/ff725681-27a4-408c-9491-772415f41412/plugin-home?orgId=1&refresh=60s&from=now-24h&to=now&theme=light&panelId=2" width="99%"></object>
+		<iframe class="panel" src="<TMPL_VAR GRAFANA_URL>/d-solo/ff725681-27a4-408c-9491-772415f41412/plugin-home?orgId=1&refresh=60s&from=now-24h&to=now&theme=light&panelId=2" title="Grafana panel"></iframe>
 	</div>
 	<div class="box">
-		<object data="<TMPL_VAR GRAFANA_URL>/d-solo/ff725681-27a4-408c-9491-772415f41412/plugin-home?orgId=1&refresh=60s&from=now-24h&to=now&theme=light&panelId=4" width="99%"></object>
+		<iframe class="panel" src="<TMPL_VAR GRAFANA_URL>/d-solo/ff725681-27a4-408c-9491-772415f41412/plugin-home?orgId=1&refresh=60s&from=now-24h&to=now&theme=light&panelId=4" title="Grafana panel"></iframe>
 	</div>
 </div>
 
