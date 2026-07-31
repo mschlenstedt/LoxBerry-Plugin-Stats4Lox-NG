@@ -236,7 +236,7 @@ if [ -d /etc/influxdb ] && [ ! -L /etc/influxdb ]; then
 	mv /etc/influxdb /etc/influxdb.orig
 fi
 rm -rf /etc/influxdb > /dev/null 2>&1
-ln -s $PCONFIG/influxdb /etc/influxdb
+ln -sfn $PCONFIG/influxdb /etc/influxdb
 #chown -R loxberry:loxberry $PCONFIG/influxdb
 
 if [ ! -e $PCONFIG/influxdb/influxdb-selfsigned.key ]; then
@@ -382,7 +382,7 @@ if [ ! -L /etc/default/telegraf ]; then
 fi
 rm -rf /etc/telegraf > /dev/null 2>&1
 rm -f /etc/default/telegraf > /dev/null 2>&1
-ln -s $PCONFIG/telegraf /etc/telegraf
+ln -sfn $PCONFIG/telegraf /etc/telegraf
 ln -s $PCONFIG/telegraf/telegraf.env /etc/default/telegraf
 
 # Correct permissions - influxdb must have write permissions to database folders
@@ -448,7 +448,22 @@ if [ -d /etc/grafana ] && [ ! -L /etc/grafana ]; then
 	mv /etc/grafana /etc/grafana.orig
 fi
 rm -rf /etc/grafana > /dev/null 2>&1
-ln -s $PCONFIG/grafana /etc/grafana
+ln -sfn $PCONFIG/grafana /etc/grafana
+
+# Remove the self-referencing symlink that older plugin versions left behind.
+#
+# Those versions ran "ln -s $PCONFIG/grafana /etc/grafana" without removing
+# /etc/grafana first. When it already was a symlink to $PCONFIG/grafana, ln
+# followed it and created the link INSIDE the target - $PCONFIG/grafana/grafana
+# pointing at itself. It survives every upgrade because the configuration is
+# restored with rsync, so it is still sitting in installations from 2024.
+#
+# Harmless in daily use, but anything that resolves it runs into a loop. The
+# "ln -sfn" above keeps it from coming back.
+if [ -L "$PCONFIG/grafana/grafana" ]; then
+	rm -f "$PCONFIG/grafana/grafana"
+	echo "<INFO> Removed stale self-referencing symlink $PCONFIG/grafana/grafana."
+fi
 
 # Give grafana user permissions to data/provisioning
 $PBIN/provisioning/set_datasource_influx.pl
