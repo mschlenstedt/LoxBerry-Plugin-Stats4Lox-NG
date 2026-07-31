@@ -455,7 +455,11 @@ sub parseStatXML
 	foreach my $node ( @statsnodes ) {
 		# print STDERR "mainnode Node Name: ".$node->{T}."\n";
 		my %data;
-		my $data_time = createDateTime($node->{T}, 0, $log); 
+		my $data_time = createDateTime($node->{T}, 0, $log);
+		if( !$data_time ) {
+			$log->WARN("$me Skipping record with unusable timestamp '" . ($node->{T} // '') . "'");
+			next;
+		}
 		$data{T} =  $data_time->epoch;
 		$data{val} = ();
 		# foreach my $statattr ( $node->attributes ) {
@@ -547,7 +551,13 @@ sub parseStatXML_REGEX
 		$bulkcount++;
 		$log->DEB("$me Readed $bulkcount records") if( $bulkcount%2000 == 0 );
 		# print STDERR "data_time: $data_time\n";
-		$data_time = createDateTime($data_time, 0, $log); 
+		my $orig_time = $data_time;
+		$data_time = createDateTime($data_time, 0, $log);
+		if( !$data_time ) {
+			# Skip the single record instead of killing the whole month
+			$log->WARN("$me Skipping record with unusable timestamp '$orig_time'");
+			next;
+		}
 		$data{T} =  $data_time->epoch;
 		$data{val} = ();
 		# print STDERR "Time $data{T} ";
@@ -941,57 +951,55 @@ sub createDateTime
 {
 	my ($timestr, $retry, $log) = @_;
 	my $me = Globals::whoami();
-		
-	if( $timestr =~ /(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/ ) {
-		my $ye = $1;
-		my $mo = $2;
-		my $da = $3;
-		my $ho = $4;
-		my $mi = $5;
-		my $se = $6;
-		
-		my $dt;
-		
-		eval {
-					
-			$dt = DateTime->new(
-				year       => $ye,
-				month      => $mo,
-				day        => $da,
-				hour       => $ho,
-				minute     => $mi,
-				second     => $se,
-				time_zone  => $LocalTZ
-			);
-		};
-		
-		if( $@ and !$retry) {
-			$log->WARN("$me Exception on date conversion ($timestr): $@") if($log);
-			# print STDERR "Trying to modify timestamp (Loxone daylight saving issue)\n";
-			
-			# print "Offset: -1 minute\n";
-			$mi -= 1;
-			if( $mi < 0 ) {
-				$mi = 59;
-				$ho -= 1;
-			}
-			if( $ho < 0 ) {
-				$ho = 0;
-				$mi = 0;
-				$se = 0;
-			}
-			my $newtimestr = sprintf("%04d-%02d-%02d %02d:%02d:%02d", $ye, $mo, $da, $ho, $mi, $se);
-			$log->INF("$me Trying offset -1 minute: $newtimestr...") if($log);
-			$dt = createDateTime($newtimestr, 1);
-		}
-		elsif( $@ ) {
-			$log->CRIT("$me cannot parse timestamp $timestr after retry: $@") if($log);
-			die "$@";
-		}
-	
-		return $dt;
+
+	return if( !defined $timestr );
+	if( $timestr !~ /(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/ ) {
+		$log->WARN("$me Unparseable timestamp '$timestr'") if($log);
+		return;
 	}
-	
+	my ($ye, $mo, $da, $ho, $mi, $se) = ($1, $2, $3, $4, $5, $6);
+
+	my $dt;
+	eval {
+		$dt = DateTime->new(
+			year       => $ye,
+			month      => $mo,
+			day        => $da,
+			hour       => $ho,
+			minute     => $mi,
+			second     => $se,
+			time_zone  => $LocalTZ
+		);
+	};
+	return $dt if( $dt );
+
+	# The local time does not exist: on the day the clock jumps forward, an
+	# hour is missing. Loxone stores local times, and a statistics record
+	# inside that gap used to abort the import of the entire month with
+	# "Invalid local time for date in time zone: ...".
+	#
+	# The former workaround subtracted one minute and retried once. Measured
+	# against Europe/Berlin, that only ever helped for exactly 02:00:00 -
+	# anything later in the gap, 02:30:00 for instance, is still invalid and
+	# the import died (issue #136).
+	#
+	# Time::Local::timelocal never fails and yields the same instant as
+	# shifting forward by the DST offset: 02:30 becomes 03:30 local time, which
+	# is the sensible reading of a clock that jumped.
+	my $epoch;
+	eval {
+		require Time::Local;
+		$epoch = Time::Local::timelocal( $se, $mi, $ho, $da, $mo - 1, $ye );
+	};
+	if( defined $epoch ) {
+		my $fixed = DateTime->from_epoch( epoch => $epoch, time_zone => $LocalTZ );
+		$log->WARN("$me '$timestr' does not exist in this timezone (daylight saving change) - using "
+		           . $fixed->strftime('%Y-%m-%d %H:%M:%S')) if($log);
+		return $fixed;
+	}
+
+	$log->CRIT("$me Cannot convert timestamp '$timestr': $@") if($log);
+	return;
 }
 
 
