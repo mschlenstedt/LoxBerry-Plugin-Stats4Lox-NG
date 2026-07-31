@@ -590,6 +590,88 @@ sub getLoxoneLabels {
 	
 }
 
+# Derives the import mapping from the Miniserver instead of a hard coded table.
+#
+# LoxAPP3.json describes for every block with statistics which column holds
+# which output:
+#   statistic: { outputs: [ { id: 0, name: "Gesamtverbrauch", uuid: "...3893" },
+#                           { id: 1, name: "Leistung",        uuid: "...3894" } ] }
+# The uuid is the output connector; its key comes from ms<n>.json, which
+# readloxplan fills for blocks with statistics. id is the column index.
+#
+# This is what the hard coded $ImportMapping table always was - a manual
+# transcription of information the Miniserver supplies per block instance.
+# Derived from the instance it also covers blocks nobody entered into the
+# table, and it survives Loxone renaming its output labels (AQ -> Ct).
+#
+# Returns an arrayref like $ImportMapping, or undef.
+sub deriveMapping
+{
+	my $self = shift;
+	my $me = Globals::whoami();
+	my $log = $self->{log};
+	my $msno = $self->{msno};
+	my $uuid = $self->{uuid};
+
+	# Connector uuid -> key, from our parsed LoxPLAN
+	my $connectors;
+	eval {
+		my $loxplanjson = $Globals::stats4lox->{loxplanjsondir} . "/ms" . $msno . ".json";
+		my $obj = LoxBerry::JSON->new();
+		my $plan = $obj->open( filename => $loxplanjson, readonly => 1 );
+		$connectors = $plan->{controls}->{$uuid}->{connectors} if( $plan );
+	};
+	if( $@ or !$connectors or !%{$connectors} ) {
+		$log->DEB("$me No connector keys for $uuid in ms$msno.json - cannot derive a mapping");
+		return;
+	}
+
+	# Statistics definition from the Miniserver
+	my $app;
+	eval {
+		require JSON;
+		my ($raw, $status) = LoxBerry::IO::mshttp_call2( $msno, "/data/LoxAPP3.json" );
+		die "HTTP $status->{code}\n" if( !$raw );
+		$app = JSON::decode_json( $raw );
+	};
+	if( $@ or !$app ) {
+		$log->WARN("$me Could not read LoxAPP3.json from MS$msno: $@");
+		return;
+	}
+
+	# LoxAPP3 keys are the control uuids, but not necessarily in the same case
+	my $stat;
+	foreach my $k ( keys %{ $app->{controls} || {} } ) {
+		next if( lc($k) ne lc($uuid) );
+		$stat = $app->{controls}->{$k}->{statistic};
+		last;
+	}
+	if( !$stat or ref($stat->{outputs}) ne 'ARRAY' ) {
+		$log->DEB("$me LoxAPP3.json has no statistics definition for $uuid");
+		return;
+	}
+
+	my @mapping;
+	foreach my $o ( @{ $stat->{outputs} } ) {
+		next if( !defined $o->{id} );
+		my $key = defined $o->{uuid} ? $connectors->{ lc($o->{uuid}) } : undef;
+		if( !defined $key ) {
+			$log->WARN("$me Column $o->{id} ('" . ($o->{name}//'?') . "') could not be resolved to an output - skipped");
+			next;
+		}
+		push @mapping, { statpos => $o->{id}, lxlabel => $key };
+	}
+
+	if( !@mapping ) {
+		$log->DEB("$me Could not derive any mapping for $uuid");
+		return;
+	}
+
+	$log->OK("$me Mapping derived from the Miniserver: "
+	         . join("  ", map { "«$_->{statpos}»→«$_->{lxlabel}»" } @mapping));
+	return \@mapping;
+}
+
 sub setMappings {
 
 	my $self = shift;
@@ -635,14 +717,36 @@ sub setMappings {
 	}
 	
 	
+	# If nothing survived the filter, this block cannot be imported with the
+	# hard coded table - that is the case Loxone created by renaming its output
+	# labels (AQ -> Ct) and by adding blocks nobody entered into the table.
+	#
+	# Only then do we fall back to the derivation from the Miniserver. Doing it
+	# the other way round would rename the fields of measurements that work
+	# today, and break the dashboards built on them.
+	if( !@filtered_mappings ) {
+		$log->INF("$me No hard coded mapping matches - deriving it from the Miniserver");
+		my $derived = $self->deriveMapping();
+		if( $derived and @{$derived} ) {
+			my @dfiltered;
+			foreach my $mapping ( @{$derived} ) {
+				push @dfiltered, $mapping
+					if( grep { defined $statlabels{$_} and $statlabels{$_} eq $mapping->{lxlabel} } keys %statlabels );
+			}
+			# The outputs the user selected win; if none of them matches, the
+			# derived mapping is still better than importing nothing at all.
+			@filtered_mappings = @dfiltered ? @dfiltered : @{$derived};
+		}
+	}
+
 	my @printmappings;
 	foreach my $mapping ( @filtered_mappings ) {
 		push @printmappings, "«$mapping->{statpos}»→«$mapping->{lxlabel}»";
 	}
 	$log->INF("$me Used mapping is: " . join(" ", @printmappings));
-		
+
 	$self->{mapping} = \@filtered_mappings;
-	
+
 }
 
 sub submitData

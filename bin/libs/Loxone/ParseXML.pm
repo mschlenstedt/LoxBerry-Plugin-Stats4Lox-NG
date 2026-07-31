@@ -348,6 +348,23 @@ sub readloxplan
 			}
 		}
 		
+		# Connector keys of blocks that have statistics enabled.
+		#
+		# LoxAPP3.json describes a statistics column by the UUID of the output
+		# connector; only the LoxPLAN knows which key ("AQ", "AQp", "OYt", ...)
+		# belongs to that UUID. Storing the pairs here makes ms<n>.json
+		# self-sufficient for the import, without having to keep the LoxPLAN
+		# around. Only done for blocks with statistics - otherwise this would
+		# add ~17000 entries to the file for no benefit.
+		if( ($object->{StatsType} // 0) > 0 ) {
+			my %connectors;
+			foreach my $co ( $object->getElementsByTagName("Co") ) {
+				next if( !defined $co->{U} or !defined $co->{K} );
+				$connectors{ lc($co->{U}) } = $co->{K};
+			}
+			$lox_statsobject{$object->{U}}{connectors} = \%connectors if( %connectors );
+		}
+
 		# Page in the document
 		# Not sure if the xpath query recursively goes up until type Page, but should
 		my @page = $object->findnodes('ancestor::C[@Type="Page"]');
