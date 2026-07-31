@@ -57,53 +57,74 @@ sub msget_value
 		return ($status->{code}, undef);
 	}
 	
-	# Clean up Loxone's analoge output f*ck up (is always 0/zero if grabbed with /all...):
-	my $respvalue_filtered = $rawdata;
-	$respvalue_filtered =~ s/\n//g;
-	$respvalue_filtered =~ s/.*\"value\": \"([-\d\.]+).*/$1/;
-	#print STDERR "respvalue_filtered: $respvalue_filtered\n"; 
-	no warnings "numeric";
-	if($respvalue_filtered ne "" and $respvalue_filtered == 0) {
-		# Search for outputs - if present, value is ok and no analogue output
-		if( $rawdata !~ m/\"output0\":/ && $block !~ m/^\/jdev\// ) {
-			# Not found - we require to request the value without /all
-			print STDERR "Re-Querying param: $block withOUT /all due to f*cked up analoge output\n" if ($DEBUG);
-			#(undef, undef, $rawdata) = LoxBerry::IO::mshttp_call($msnr, "/jdev/sps/io/" . URI::Escape::uri_escape($block)); 
-			($rawdata, $status) = LoxBerry::IO::mshttp_call2($msnr, "/jdev/sps/io/" . URI::Escape::uri_escape($block)); 
-		} 
-	}
-	
-	# Clean up Loxone's json f*ck up:
-        $rawdata =~ s/\"value\": ([^\"]+[a-zA-Z]+[^\"]+)\}/\"value\": \"$1\"\}/g;
-	print STDERR "Received (and cleaned) raw data:\n" . $rawdata . "\n" if ($DEBUG);
-
+	# Decode the response.
+	#
+	# There used to be a regular expression here that "repaired" Loxone's JSON
+	# before decoding. A current Miniserver answers with valid JSON, and a
+	# regex cannot repair JSON it does not understand - it can only corrupt it.
+	# We therefore decode directly and report a failure together with the raw
+	# response, instead of silently continuing with mangled data.
+	#
+	# The retry below is a legacy workaround: older firmware answered 0 for an
+	# analog block when queried with /all. Checked against a current Miniserver
+	# (Loxone Config 17) this no longer happens - LL.value carries real values
+	# such as "49.6%" or "-5.126". It is kept for older firmware, but its
+	# trigger is now the properly parsed number. Previously the WHOLE JSON
+	# document was numified, which yields 0 for any response and fired the
+	# retry far more often than intended.
+	#
+	# Careful with that retry: a query without /all writes on some block types.
+	# That is issue #143, and the reason VIRTUALINTEXT is on the blacklist.
 	my $respjson;
-	eval {
-		$respjson = JSON::decode_json( "$rawdata" );
-		1;
-	};
-	if ($@) {
-		print STDERR "No valid JSON data received: $@\n" if $DEBUG;
-		return (602, undef);
+	my $resp_code;
+	my $attempt = 0;
+	while( 1 ) {
+		$attempt++;
+
+		if( ! eval { $respjson = JSON::decode_json( "$rawdata" ); 1 } ) {
+			print STDERR "No valid JSON received from Miniserver for $block: $@\n" if $DEBUG;
+			print STDERR "Raw response was: " . substr($rawdata, 0, 500) . "\n" if $DEBUG;
+			return (602, undef);
+		}
+		print STDERR "Received json data:\n" . Data::Dumper::Dumper($respjson) . "\n" if ($DUMP);
+
+		$resp_code = $respjson->{LL}->{Code};
+		if( !defined $resp_code or $resp_code ne "200" ) {
+			print STDERR "Error from Miniserver. Code: " . (defined $resp_code ? $resp_code : '<none>') . "\n" if $DEBUG;
+			return ((defined $resp_code ? $resp_code : 602), undef);
+		}
+
+		my ($v) = parse_loxone_value( $respjson->{LL}->{value} );
+
+		last if( $attempt >= 2 );                       # at most one retry
+		last if( $respjson->{LL}->{output0} );          # precise values are in the outputs
+		last if( $block =~ m{^/jdev/} );                # caller passed a full url
+		last if( !defined $v or $v !~ /^-?[0-9]+(?:\.[0-9]+)?$/ or $v != 0 );
+
+		print STDERR "Value is 0 and the block has no outputs - re-querying $block without /all\n" if ($DEBUG);
+		my ($retryraw, $retrystatus) = LoxBerry::IO::mshttp_call2( $msnr, "/jdev/sps/io/" . URI::Escape::uri_escape($block) );
+		last if( !$retryraw or $retrystatus->{code} ne "200" );
+		$rawdata = $retryraw;
 	}
 
-	print STDERR "Received (and cleaned) json data:\n" . Data::Dumper::Dumper($respjson) . "\n" if ($DUMP);
-
-	my $resp_code = $respjson->{LL}->{Code};
-	if ($resp_code ne "200") {
-		print STDERR "Error from Miniserver. Code: $resp_code\n" if $DEBUG;
-		return ($resp_code, undef);
-	}
 	$resp_code = $resp_code + 0; # Convert from string
 
 	# Default value
-	my $value = $respjson->{LL}->{value};
-    $value =~ m/([-+]?[0-9]*\.?[0-9]+)/; # cut of unit
-	$value = $1+0 ; # Convert from string
-	$data{Value} = $value;
+	#
+	# LL.value is a string that may carry a unit ("49.6%", "82353 ml", "0.0°")
+	# and may hold no number at all - text blocks answer with "" or with
+	# "TextValue, not Implemented".
+	#
+	# The previous version ran  $value =~ m/(...)/;  $value = $1+0;  without
+	# checking whether the match succeeded. On a failure $1 still held the
+	# capture of the PREVIOUS block, so a text block silently reported the
+	# number of whatever had been queried before it. The unit was assigned from
+	# $2, which never existed because the pattern has a single group.
+	my ($defvalue, $defunit) = parse_loxone_value( $respjson->{LL}->{value} );
+	$data{Value} = $defvalue;
 	$data{Name} = "Default";
 	$data{Key} = "Default";
-	$data{Unit} = $2;
+	$data{Unit} = $defunit;
 	$data{Code} = $resp_code;
 
 	push (@response, \%data);
@@ -140,6 +161,35 @@ sub msget_value
 	print STDERR "Response of subroutine:\n" . Data::Dumper::Dumper(\@response) . "\n" if ($DUMP);
 
 	return ($resp_code, \@response);
+}
+
+#####################################################
+# Split a Loxone value string into number and unit
+#####################################################
+# "49.6%"     -> (49.6, "%")
+# "82353 ml"  -> (82353, "ml")
+# "0.0°"      -> (0, "°")
+# ""          -> (undef, undef)
+# "TextValue" -> ("TextValue", undef)
+#
+# A value that holds no number is returned as text rather than being replaced
+# by a number - the caller can tell the difference, and no value is invented.
+sub parse_loxone_value
+{
+	my ($raw) = @_;
+	return (undef, undef) if( !defined $raw );
+
+	if( $raw =~ /^\s*([-+]?[0-9]*[.,]?[0-9]+)\s*(.*?)\s*$/ ) {
+		my $num  = $1;
+		my $unit = $2;
+		$num =~ s/,/./;                 # some locales send a decimal comma
+		return ($num + 0, ($unit ne '' ? $unit : undef));
+	}
+
+	my $text = $raw;
+	$text =~ s/^\s+//;
+	$text =~ s/\s+$//;
+	return (($text ne '' ? $text : undef), undef);
 }
 
 #####################################################
@@ -188,10 +238,17 @@ sub influx_lineprot
 
 	my $i = 0;
 	foreach  my $key (keys %fields) {
+		# An undefined or empty value would produce "key=", which is invalid
+		# line protocol and makes InfluxDB reject the whole batch. Skip the
+		# undefined ones and quote the empty ones.
+		if( !defined $fields{$key} ) {
+			print STDERR "Field '$key' has no value - skipped\n" if $DEBUG;
+			next;
+		}
 		#Try to figure out if field must be handled as string - maybe to complicated here - better suggestions are welcome ;-)
 		my $stringtest = $fields{$key};
 		$stringtest =~ s/(.*)i$/$1/g; # i as last position is integer
-		if ( $stringtest =~ m/[a-zA-Z]/ ) { # still String?
+		if ( $fields{$key} eq '' or $stringtest =~ m/[a-zA-Z]/ ) { # still String?
 			$data = "$key=\"$fields{$key}\"";
 		} else {
 			$data = "$key=$fields{$key}";
