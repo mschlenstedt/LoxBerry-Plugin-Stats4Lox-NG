@@ -613,17 +613,44 @@ sub deriveMapping
 	my $msno = $self->{msno};
 	my $uuid = $self->{uuid};
 
-	# Connector uuid -> key, from our parsed LoxPLAN
+	# Connector uuid -> key, and the block type, from our parsed LoxPLAN
 	my $connectors;
+	my $ctype;
 	eval {
 		my $loxplanjson = $Globals::stats4lox->{loxplanjsondir} . "/ms" . $msno . ".json";
 		my $obj = LoxBerry::JSON->new();
 		my $plan = $obj->open( filename => $loxplanjson, readonly => 1 );
-		$connectors = $plan->{controls}->{$uuid}->{connectors} if( $plan );
+		if( $plan ) {
+			$connectors = $plan->{controls}->{$uuid}->{connectors};
+			$ctype      = $plan->{controls}->{$uuid}->{Type};
+		}
 	};
 	if( $@ or !$connectors or !%{$connectors} ) {
 		$log->DEB("$me No connector keys for $uuid in ms$msno.json - cannot derive a mapping");
 		return;
+	}
+
+	# Connector key -> the label the Miniserver reports today.
+	#
+	# The connector in the LoxPLAN is still called "AQ", while a current
+	# Miniserver reports "Ct" for the same output - and the live grabber writes
+	# its field under that current name. Without translating, imported history
+	# and live data would end up in two different fields of the same
+	# measurement. The element definitions hold both: Name is the old label,
+	# ShortName the current one.
+	my %tolive;
+	if( defined $ctype ) {
+		eval {
+			my $elemfile = "$LoxBerry::System::lbptemplatedir/lang/loxelements_en.json";
+			my $obj = LoxBerry::JSON->new();
+			my $elems = $obj->open( filename => $elemfile, readonly => 1 );
+			my $e = $elems ? $elems->{ uc($ctype) } : undef;
+			foreach my $o ( @{ $e->{outputs} || [] } ) {
+				next if( !defined $o->{name} or !defined $o->{shortname} or $o->{shortname} eq '' );
+				$tolive{ $o->{name} } = $o->{shortname};
+			}
+		};
+		$log->DEB("$me Label translation for $ctype: " . scalar(keys %tolive) . " outputs");
 	}
 
 	# Statistics definition from the Miniserver
@@ -659,7 +686,12 @@ sub deriveMapping
 			$log->WARN("$me Column $o->{id} ('" . ($o->{name}//'?') . "') could not be resolved to an output - skipped");
 			next;
 		}
-		push @mapping, { statpos => $o->{id}, lxlabel => $key };
+		# Use the label the Miniserver reports today, so that the imported
+		# history lands in the same field as the live values.
+		my $label = defined $tolive{$key} ? $tolive{$key} : $key;
+		$log->DEB("$me Column $o->{id}: connector '$key' -> field '$label'")
+			if( $label ne $key );
+		push @mapping, { statpos => $o->{id}, lxlabel => $label };
 	}
 
 	if( !@mapping ) {
