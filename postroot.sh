@@ -61,7 +61,49 @@ s4l_service_failed() {
 	systemctl status "$svc" --no-pager -l 2>&1 | sed 's/^/<FAIL> /'
 	echo "<FAIL> ---------- last log lines of $svc ----------"
 	journalctl -u "$svc" --no-pager -n 30 2>&1 | sed 's/^/<FAIL> /'
+	s4l_service_error_detail "$svc"
 	echo "<FAIL> -------------------------------------------"
+}
+
+# Retrieves the message the service itself printed when it refused to start.
+#
+# Our drop-ins send StandardOutput and StandardError to /dev/null, and that is
+# deliberate: journald on LoxBerry stores volatile, i.e. in RAM, and InfluxDB
+# writes an HTTP access log line per request - roughly 8600 lines a day at the
+# default flush interval of 10s. Feeding that into a RAM journal is exactly what
+# the redirection avoids.
+#
+# The price was that a service which died on startup left no trace whatsoever.
+# systemd then reports nothing but "New main PID does not exist or is a zombie",
+# while the actual cause - for instance InfluxDB 1.12 rejecting a TLS key with
+# permissions 0640 - was discarded. Users could not report it and we could not
+# see it.
+#
+# So the redirection is lifted for one single restart, only in the failure case,
+# and removed again immediately afterwards. Steady state stays quiet.
+s4l_service_error_detail() {
+	local svc="$1"
+	local ovr="/etc/systemd/system/${svc}.service.d/99-stats4lox-debug.conf"
+	local since
+
+	mkdir -p "/etc/systemd/system/${svc}.service.d" 2>/dev/null
+	printf '[Service]\nStandardOutput=journal\nStandardError=journal\n' > "$ovr" 2>/dev/null || return 0
+	systemctl daemon-reload > /dev/null 2>&1
+
+	since=$(date '+%Y-%m-%d %H:%M:%S')
+	systemctl reset-failed "$svc" > /dev/null 2>&1
+	systemctl start "$svc" > /dev/null 2>&1
+	sleep 8
+	systemctl stop "$svc" > /dev/null 2>&1
+
+	echo "<FAIL> ---------- what $svc itself reported ----------"
+	journalctl -u "$svc" --no-pager --since "$since" 2>&1 \
+		| grep -viE 'systemd\[1\]:' \
+		| tail -25 \
+		| sed 's/^/<FAIL> /'
+
+	rm -f "$ovr"
+	systemctl daemon-reload > /dev/null 2>&1
 }
 
 # Migrates Telegraf options that current Telegraf versions reject.
@@ -202,7 +244,9 @@ if [ ! -e $PCONFIG/influxdb/influxdb-selfsigned.key ]; then
 	echo "<INFO> Creating (new) self-signed SSL certificates."
 	$OPENSSLBIN req -x509 -nodes -newkey rsa:2048 -keyout $PCONFIG/influxdb/influxdb-selfsigned.key -out $PCONFIG/influxdb/influxdb-selfsigned.crt -days 3650 -subj "/C=DE/ST=Austria/L=Kollerschlag/O=LoxBerry"
 	#chown loxberry:loxberry $PCONFIG/influxdb/influxdb-selfsigned.*
-	chmod 660 $PCONFIG/influxdb/influxdb-selfsigned.*
+	# The private key must not be group readable, see the note below.
+	chmod 644 $PCONFIG/influxdb/influxdb-selfsigned.crt
+	chmod 600 $PCONFIG/influxdb/influxdb-selfsigned.key
 else
 	echo "<INFO> Found SSL certificates for InfluxDB. I will not create new ones."
 fi
@@ -211,6 +255,27 @@ fi
 echo "<INFO> Set permissions for user influxdb for all config/data folders: $PDATA/influxdb $PCONFIG/influxdb"
 chown -R influxdb:loxberry $PDATA/influxdb
 chown -R influxdb:loxberry $PCONFIG/influxdb
+
+# InfluxDB 1.12 refuses to start when the TLS private key is readable by anyone
+# but its owner:
+#
+#   run: open server: open service: httpd: error creating TLS manager:
+#   LoadCertificate: file permissions are too open: maximum is 0600 (-rw-------)
+#   but found 0640 (-rw-r-----)
+#
+# 1.8 accepted 0640/0660, so EVERY installation upgraded from 1.8 carries a key
+# that the new version rejects - the service then dies a few seconds after
+# start, which systemd only reports as "New main PID does not exist or is a
+# zombie" because our drop-in sends influxd's own output to /dev/null.
+#
+# Therefore enforced on every run and not only when the key is created, so that
+# existing installations are repaired by the upgrade. Only influxd itself reads
+# these two files (https-certificate/https-private-key in influxdb.conf), so
+# restricting the key breaks nothing else.
+if [ -e "$PCONFIG/influxdb/influxdb-selfsigned.key" ]; then
+	chmod 600 "$PCONFIG/influxdb/influxdb-selfsigned.key"
+	echo "<INFO> Restricted InfluxDB private key to 0600 - required since InfluxDB 1.12."
+fi
 
 # Debug:
 echo "<INFO> Current file permisssions in $PDATA/influxdb:"
