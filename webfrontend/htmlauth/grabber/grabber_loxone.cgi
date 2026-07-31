@@ -80,6 +80,7 @@ LOGOK "Starting data fetching (maximum runtime $max_runtime secs)";
 my @data;
 my $processed = 0;   # how many entries the loop has reached - needed to report
                      # which statistics were left out if we run out of time
+my %msfailed;        # Miniservers that failed in this cycle, see below
 for my $results( @{$cfg->{loxone}} ){
 	$processed++;
 	if (! $results->{uuid} || ! $results->{msno} || ! $results->{measurementname} ) {
@@ -103,19 +104,46 @@ for my $results( @{$cfg->{loxone}} ){
 			next;
 		}
 	}
+	# One unreachable Miniserver must not consume the whole cycle.
+	#
+	# mshttp_call2 waits 5 seconds per request by default, so with a runtime
+	# budget of $max_runtime seconds only about a handful of requests fit before
+	# the loop gives up. If the unreachable Miniserver holds more statistics
+	# than that, the budget was spent entirely on timeouts and NOTHING was
+	# recorded - not even from the Miniservers that were perfectly reachable.
+	# That is issue #126 and the forum report by smooty1970 (#312).
+	#
+	# Once a Miniserver has failed in this cycle, its remaining statistics are
+	# skipped without a request. Its cost drops from the whole budget to a
+	# single timeout.
+	if( $msfailed{ $results->{msno} } ) {
+		LOGINF "$results->{name} -> Miniserver $results->{msno} already failed in this cycle - skipping without a request";
+		my $retry = ( $results->{interval} && $results->{interval} < 60 ) ? $results->{interval} : 60;
+		$mem->{$tag}->{nextrun} = $now + $retry;
+		next;
+	}
+
 	# Grab data
 	my ($code, $resp) = Stats4Lox::msget_value($results->{msno}, $results->{uuid});
 	if ( !$resp || $code ne "200" ) {
 		LOGERR "$results->{name} -> Could not grab data from Miniserver $results->{msno}: HTTP $code";
-		# Retry soon instead of waiting a full interval.
-		#
-		# nextrun used to be advanced BEFORE the request, so a single failed
-		# grab - a brief network hiccup is enough - cost a whole interval of
-		# data. With intervals of several minutes that is exactly the kind of
-		# gap users kept reporting. A short backoff retries quickly without
-		# hammering a Miniserver that is genuinely unreachable.
-		my $retry = ( $results->{interval} && $results->{interval} < 60 ) ? $results->{interval} : 60;
-		$mem->{$tag}->{nextrun} = $now + $retry;
+
+		if( defined $code and $code eq "404" ) {
+			# The block does not exist on the Miniserver any anymore - typically a
+			# statistic that was deleted in Loxone Config but is still in
+			# stats.json. Retrying that every minute would only fill the log,
+			# so it waits for its regular slot.
+			$mem->{$tag}->{nextrun} = $now + $results->{interval};
+		}
+		else {
+			# A connection problem or a timeout. Retry soon - nextrun used to be
+			# advanced BEFORE the request, so a single failed grab cost a whole
+			# interval of data. And do not touch this Miniserver again in this
+			# cycle, see the note above.
+			$msfailed{ $results->{msno} } = 1;
+			my $retry = ( $results->{interval} && $results->{interval} < 60 ) ? $results->{interval} : 60;
+			$mem->{$tag}->{nextrun} = $now + $retry;
+		}
 		next;
 	}
 
