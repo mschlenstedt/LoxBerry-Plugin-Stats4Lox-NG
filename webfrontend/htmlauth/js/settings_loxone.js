@@ -236,6 +236,34 @@ $(function() {
 	
 });
 
+// Looks up the description of an output of a block.
+//
+// Loxone describes outputs that exist several times with a printf pattern,
+// e.g. "Q%d" for the sources of the Energiemanager or "A%d" for an alarm
+// chain. A literal key lookup never matches the actual labels Q1, Q2, ...,
+// which is why those blocks showed no descriptions at all. So after the
+// direct hit fails, the pattern keys are tried as well.
+function lookupOutputDescription( type, outputName ) {
+	if( !type || !outputName ) return undefined;
+	var element = loxone_elements[ type.toUpperCase() ];
+	if( !element || !element.OL ) return undefined;
+
+	// exact match first - the normal case and cheapest
+	if( element.OL[outputName] != undefined ) return element.OL[outputName];
+
+	for( var key in element.OL ) {
+		if( key.indexOf('%') < 0 ) continue;
+		// %d -> digits, %e and any other %x -> a short token
+		var rx = '^' + key.replace( /[.*+?^${}()|[\]\\]/g, '\\$&' )
+		                  .replace( /%d/g, '(\\d+)' )
+		                  .replace( /%[a-z]/g, '([A-Za-z0-9]+)' ) + '$';
+		try {
+			if( new RegExp(rx).test(outputName) ) return element.OL[key];
+		} catch(e) { /* malformed pattern - ignore */ }
+	}
+	return undefined;
+}
+
 function getLoxplan() {
 	$("#popupProgress").popup("open");
 	var msupdateTextPre = "Fetching Loxone Config from Miniservers...";
@@ -754,12 +782,12 @@ function popupLoxoneDetails( uid, msno ) {
 				} 
 				else {
 					try {
-						data.response[key].localdesc = loxone_elements[control.Type?.toUpperCase()]?.OL[outputName];
+						data.response[key].localdesc = lookupOutputDescription( control.Type, outputName );
 					} catch {
-						data.response[key].localdesc == undefined;
+						data.response[key].localdesc = undefined;
 					}
 					data.response[key].localdesc = data.response[key].localdesc != undefined ? data.response[key].localdesc : "";
-				}	
+				}
 				data.response[key].statChecked = statmatch?.outputs?.includes(outputKey) ? "checked" : "";
 				data.response[key].statDisabled = statmatch?.active === "true" ? "" : "disabled";
 				console.log("Output loop result", key, data.response[key]);
