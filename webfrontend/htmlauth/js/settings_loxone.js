@@ -1,7 +1,7 @@
 let miniservers;
 let miniservers_used = [];
 let rooms;
-let rooms_used;
+let rooms_used = [];
 let categories;
 let categories_used = [];
 let controls = [];
@@ -359,11 +359,16 @@ function consolidateLoxPlan( data ) {
 
 
 	  rooms = $.extend( rooms, data[key].rooms );
-	  rooms_used = $.extend( rooms_used, data[key].rooms_used );
 	  categories = $.extend( categories, data[key].categories );
-	  categories_used = $.extend( categories_used, data[key].categories_used );
 	  miniservers_used = $.extend ( miniservers_used, data[key].miniservers );
-	  elementTypes_used = elementTypes_used.concat( data[key].elementTypes );
+
+	  // rooms_used and categories_used are ARRAYS. $.extend merges objects by
+	  // key, so for arrays it merged them by INDEX - with a second Miniserver
+	  // its entries overwrote those of the first instead of adding to them,
+	  // and categories went missing from the filter (issue #120).
+	  rooms_used = rooms_used.concat( data[key].rooms_used || [] );
+	  categories_used = categories_used.concat( data[key].categories_used || [] );
+	  elementTypes_used = elementTypes_used.concat( data[key].elementTypes || [] );
 	  
 	  if( typeof data[key].controls !== "undefined" ) {
 	     console.log( "controls from key", key, Object.keys(data[key].controls).length );
@@ -377,16 +382,14 @@ function consolidateLoxPlan( data ) {
 	controls = controls.filter ( control => control.msno > 0 ); // Filter controls not on an MS in LoxBerry
 	controls.sort( dynamicSortMultiple( "Title" ) );
 	
-	// Uniquify elementTypes_used
-	elementTypes_used = elementTypes_used.filter( function(item, pos) {
-		return elementTypes_used.indexOf(item) == pos;
-	})
+	// Uniquify the merged lists
+	function uniquify( arr ) {
+		return arr.filter( function(item, pos) { return arr.indexOf(item) == pos; } );
+	}
+	elementTypes_used = uniquify( elementTypes_used );
 	elementTypes_used.sort();
-	
-	// Uniquify categories_used
-	// categories_used = categories_used.filter( function(item, pos) {
-		// return categories_used.indexOf(item) == pos;
-	// })
+	categories_used = uniquify( categories_used );
+	rooms_used = uniquify( rooms_used );
 
 	miniservers_used = Object.values( miniservers_used );
 	miniservers_used = miniservers_used.filter( item => item.msno > 0 ); // Filter MS that are not in LoxBerry
@@ -397,7 +400,11 @@ function consolidateLoxPlan( data ) {
 	
 	var rooms_tmp = [];
 	for (var roomid in rooms) {
-		if(! roomid in rooms_used ) continue; 
+		// Was "if(! roomid in rooms_used )", which JavaScript reads as
+		// "(!roomid) in rooms_used" - always false, so the filter never did
+		// anything and every room of the project was offered, not just the
+		// ones actually in use.
+		if( !rooms_used.includes(roomid) ) continue;
 		rooms_tmp.push([rooms[roomid], roomid]);
 	}
 	rooms = rooms_tmp.sort();
@@ -1093,7 +1100,11 @@ function validateMeasurementname( measurementname, msno, uid ) {
 				else
 					continue;
 				break;
-			case 20:
+			// Anyone with more than 20 blocks of the same name hit this wall -
+			// the suffix search simply gave up (issue #132). 200 is still a
+			// safeguard against an endless loop, but no longer a limit anybody
+			// reaches in practice.
+			case 200:
 				throw `Could not find an alternative measurementname after ${counter} tries`;
 			default:
 				measurementname = measurementnameDefault+"_"+counter.toString();

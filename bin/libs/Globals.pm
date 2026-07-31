@@ -154,6 +154,15 @@ $ImportMapping->{Default} = [
 
 
 # BLACKLIST of controls not to add to controls section in json
+#
+# VIRTUALINTEXT ("Virtueller Texteingang") is on this list for a reason that
+# goes beyond tidiness: a virtual text input is writable, and the Loxone API
+# WRITES on every read attempt. /jdev/sps/io/<uuid>/all sets the value to the
+# literal string "all", and the form without a suffix sets it to an empty
+# string. Offering such a block for statistics meant the grabber silently
+# overwrote the user's value on every interval (issue #143). There is no safe
+# read via this interface, so the block must not be selectable at all - use
+# the MQTT Collector for text values instead.
 
 # Unsure
 # ACTOR="Aktor (Relais)"
@@ -522,6 +531,7 @@ USERGROUPCAPTION
 VALVEDEVICE
 VIRTUALHTTPIN
 VIRTUALINCAPTION
+VIRTUALINTEXT
 VIRTUALOUTCAPTION
 VIRTUALUDPIN
 WALLMOUNTDEVICE
