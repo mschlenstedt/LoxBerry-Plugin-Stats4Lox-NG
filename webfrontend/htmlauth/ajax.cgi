@@ -14,6 +14,11 @@ my $response;
 my $cgi = CGI->new;
 my $q = $cgi->Vars;
 
+# Every branch below compares $q->{action} with "eq". Without a defined value a
+# request without an action parameter produced a warning for each of them in
+# the webserver error log.
+$q->{action} = '' if( !defined $q->{action} );
+
 my $log = LoxBerry::Log->new (
     name => 'AJAX',
 	stderr => 1,

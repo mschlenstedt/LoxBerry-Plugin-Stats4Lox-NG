@@ -14,7 +14,10 @@ my $template = HTML::Template->new(
 my %L = LoxBerry::System::readlanguage($template, "language.ini");
 
 Globals::init_navbar_i18n();
-LoxBerry::Web::lbheader("Stats4Lox", "https://loxwiki.eu", undef);
+# The help link pointed at https://loxwiki.eu, which Loxone has retired. This
+# was the only page passing a help url at all - every other page passes undef,
+# so no dead link is shown anywhere now (issue #144).
+LoxBerry::Web::lbheader("Stats4Lox", undef, undef);
 
 $template->param('LOGLIST_HTML', LoxBerry::Web::loglist_html());
 print $template->output();
