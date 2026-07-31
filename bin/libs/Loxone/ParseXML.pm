@@ -585,7 +585,9 @@ sub loadLoxplanXML
 
 		if( @live ) {
 			$log->WARN("The LoxPLAN could only be read in recover mode.") if ($log);
-			$log->WARN(sprintf("Recovered %d of %d elements - %d blocks are MISSING and will not be offered for statistics.",
+			# ERR, not WARN: blocks going missing is a loss the user has to see,
+			# and LoxBerry suppresses WARNING at the default loglevel 3 (ERROR).
+			$log->ERR(sprintf("Recovered %d of %d elements - %d blocks are MISSING and will not be offered for statistics.",
 				scalar(@recovered), $expected, $expected - scalar(@recovered))) if ($log and $expected > scalar(@recovered));
 			logXMLerror( $error_fixed, $fixed, $log, "WARN" );
 			return $dom;

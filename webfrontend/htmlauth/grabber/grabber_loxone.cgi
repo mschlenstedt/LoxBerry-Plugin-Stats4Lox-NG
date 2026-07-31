@@ -78,7 +78,10 @@ my $max_runtime = $telegraf_http_timeout-2;
 $max_runtime = $max_runtime < 3 ? 3 : $max_runtime;
 LOGOK "Starting data fetching (maximum runtime $max_runtime secs)";
 my @data;
+my $processed = 0;   # how many entries the loop has reached - needed to report
+                     # which statistics were left out if we run out of time
 for my $results( @{$cfg->{loxone}} ){
+	$processed++;
 	if (! $results->{uuid} || ! $results->{msno} || ! $results->{measurementname} ) {
 		LOGWARN "$results->{name}: Configuration data aren't complete. Skipping...";
 		next;
@@ -166,9 +169,48 @@ for my $results( @{$cfg->{loxone}} ){
 	push @data, $lineprot;
 
 	if( time() > ($starttime+$max_runtime) ) {
-		LOGWARN "Early abandon fetching after reaching max_runtime";
-		LOGWARN "Blocks not reached keep their old nextrun and are fetched first next time,";
-		LOGWARN "but with many statistics they are then polled slower than configured.";
+
+		# Name the consequence, do not just state the fact. Without numbers
+		# nobody could tell from the log that statistics were silently left out
+		# of this cycle - which is what the reports about gaps in the data
+		# looked like.
+		my $total = scalar @{$cfg->{loxone}};
+		my @remaining = ($processed < $total) ? @{$cfg->{loxone}}[$processed .. $total-1] : ();
+
+		# Of those, the ones whose interval had already elapsed are the ones
+		# actually losing a measurement now. The others were not due anyway.
+		my $tnow = time();
+		my @due = grep {
+			     is_enabled($_->{active})
+			 and $_->{uuid} and $_->{msno} and $_->{measurementname}
+			 and ( !defined $mem->{ $_->{measurementname} }->{nextrun}
+			       or $tnow >= $mem->{ $_->{measurementname} }->{nextrun} )
+		} @remaining;
+
+		if( @due ) {
+			# Deliberately LOGERR, not LOGWARN.
+			#
+			# Losing measurements is not a warning, it is the data loss users
+			# reported as gaps in their statistics. And it has to be visible at
+			# the default loglevel: LoxBerry suppresses WARNING from level 3
+			# (ERROR) downwards, so a LOGWARN here would never be seen by the
+			# very people affected.
+			my @names = map { $_->{name} // $_->{measurementname} // '?' } @due;
+			my $shown = scalar(@names) > 8 ? 8 : scalar(@names);
+			LOGERR "Ran out of time after $max_runtime s - " . scalar(@remaining) . " of $total statistics were not processed in this cycle";
+			LOGERR scalar(@due) . " of them were already due and LOSE a measurement now: "
+			       . join(", ", @names[0 .. $shown-1])
+			       . (scalar(@names) > $shown ? ", ... (" . (scalar(@names)-$shown) . " more)" : "");
+			LOGERR "They keep their old nextrun and are fetched first in the next cycle, so the";
+			LOGERR "effective interval of these statistics is longer than configured.";
+			LOGERR "Remedy: raise 'timeout' in telegraf/telegraf.d/stats4lox_loxone.conf (this limit";
+			LOGERR "is timeout minus 2 s), or increase the intervals of some statistics.";
+		}
+		else {
+			LOGWARN "Ran out of time after $max_runtime s - " . scalar(@remaining) . " of $total statistics were not processed,";
+			LOGWARN "but none of them was due yet, so no measurement is lost in this cycle.";
+		}
+
 		last;
 	}
 
