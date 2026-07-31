@@ -33,6 +33,17 @@
 }
 .box {
 	border: 1px solid black;
+	display: flex;
+	flex-direction: column;
+}
+
+/* The service descriptions differ in length. Without this the status line and
+   the buttons below it started at a different height in every box, so they no
+   longer lined up across a row. The grid already stretches all boxes of a row
+   to the same height - the description simply takes up whatever slack is left,
+   which puts everything below it at the same height everywhere. */
+.box .desc {
+	flex: 1 1 auto;
 }
 
 /* The Grafana panels used to sit in <object> elements without a height
@@ -74,7 +85,6 @@
 <div class="datahidden" id="lang_button_stop"><TMPL_VAR COMMON.BUTTON_STOP></div>
 <div class="datahidden" id="lang_label_ok"><TMPL_VAR COMMON.LABEL_OK></div>
 
-<p><TMPL_VAR HOME.DESCRIPTION></p>
 
 <div class="grid">
 	<div class="box">
@@ -93,7 +103,7 @@
 <div class="grid">
 	<div class="box">
 		<div class="center middle bold margin">Telegraf</div>
-		<div class="margin small grayed"><TMPL_VAR HOME.DESC_TELEGRAF></div>
+		<div class="desc margin small grayed"><TMPL_VAR HOME.DESC_TELEGRAF></div>
 		<div class="status center" id="telegraf_status"><TMPL_VAR COMMON.STATUS_UPDATING></div>
 		<a href="#" onclick="service('starttelegraf');return false;"
 			class="ui-btn ui-corner-all margin ui-icon-check ui-btn-icon-left"><TMPL_VAR COMMON.BUTTON_RESTART></a>
@@ -103,7 +113,7 @@
 	</div>
 	<div class="box">
 		<div class="center middle bold margin">InfluxDB</div>
-		<div class="margin small grayed"><TMPL_VAR HOME.DESC_INFLUX></div>
+		<div class="desc margin small grayed"><TMPL_VAR HOME.DESC_INFLUX></div>
 		<div class="status center" id="influx_status"><TMPL_VAR COMMON.STATUS_UPDATING></div>
 		<a href="#" onclick="service('startinfluxdb');return false;"
 			class="ui-btn ui-corner-all margin ui-icon-check ui-btn-icon-left"><TMPL_VAR COMMON.BUTTON_RESTART></a>
@@ -113,7 +123,7 @@
 	</div>
 	<div class="box">
 		<div class="center middle bold margin">Grafana</div>
-		<div class="margin small grayed"><TMPL_VAR HOME.DESC_GRAFANA></div>
+		<div class="desc margin small grayed"><TMPL_VAR HOME.DESC_GRAFANA></div>
 		<div class="status center" id="grafana-server_status"><TMPL_VAR COMMON.STATUS_UPDATING></div>
 		<a href="#" onclick="service('startgrafana-server');return false;"
 			class="ui-btn ui-corner-all margin ui-icon-check ui-btn-icon-left"><TMPL_VAR COMMON.BUTTON_RESTART></a>
@@ -123,7 +133,7 @@
 	</div>
 	<div class="box">
 		<div class="center middle bold margin">MQTT Live/Collector</div>
-		<div class="margin small grayed"><TMPL_VAR HOME.DESC_MQTT></div>
+		<div class="desc margin small grayed"><TMPL_VAR HOME.DESC_MQTT></div>
 		<div class="status center" id="mqttlive_status"><TMPL_VAR COMMON.STATUS_UPDATING></div>
 		<a href="#" onclick="service('startmqttlive');return false;"
 			class="ui-btn ui-corner-all margin ui-icon-check ui-btn-icon-left"><TMPL_VAR COMMON.BUTTON_RESTART></a>
