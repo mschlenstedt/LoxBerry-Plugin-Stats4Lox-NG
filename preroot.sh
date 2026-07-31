@@ -58,10 +58,18 @@ s4l_install_repo_key() {
 	fi
 
 	echo "<INFO> Verifying key fingerprint $fpr"
-	if ! gpg --show-keys --with-fingerprint --with-colons "$tmp" 2>/dev/null | grep -q "^fpr:\+${fpr}:$"; then
-		rm -f "$tmp"
-		s4l_fail "Fingerprint $fpr was not found in the key from $url. Refusing to trust this key."
-	fi
+	# Deliberately no "... | grep -q" here, see the note at the repository check
+	# further down: this script runs with "set -o pipefail", and grep -q closing
+	# the pipe early can make a correct match look like a failure.
+	local keyinfo
+	keyinfo=$(gpg --show-keys --with-fingerprint --with-colons "$tmp" 2>/dev/null)
+	case "$keyinfo" in
+		*"fpr:::::::::${fpr}:"*) : ;;
+		*)
+			rm -f "$tmp"
+			s4l_fail "Fingerprint $fpr was not found in the key from $url. Refusing to trust this key."
+			;;
+	esac
 
 	install -d -m 0755 "$S4L_KEYRING_DIR" || { rm -f "$tmp"; s4l_fail "Could not create $S4L_KEYRING_DIR."; }
 	install -m 0644 "$tmp" "$dest" || { rm -f "$tmp"; s4l_fail "Could not install the keyring $dest."; }
@@ -255,14 +263,32 @@ apt-get -q -y update || s4l_fail "apt-get update failed. Please check /etc/apt/s
 # packages from dpkg/apt would silently not be installed and postroot.sh
 # would only run into a wall much later with a misleading error message.
 for pkg in influxdb telegraf grafana; do
-	if ! apt-cache policy "$pkg" 2>/dev/null | grep -qE 'repos\.influxdata\.com|apt\.grafana\.com'; then
+	# Deliberately NOT "apt-cache policy ... | grep -q".
+	#
+	# This script runs with "set -o pipefail", and grep -q exits at the FIRST
+	# match and closes the pipe. apt-cache then dies of SIGPIPE and the pipeline
+	# reports 141 - even though the match was found. It only shows when
+	# apt-cache is slow enough to still be writing, which is exactly the case
+	# right after the sources changed, because it has to rebuild a 39 MB package
+	# cache first. The installation then aborted with a thoroughly misleading
+	# message about an unverifiable repository signature.
+	#
+	# A case statement on a captured variable has no pipe at all and cannot run
+	# into this.
+	s4l_policy=$(apt-cache policy "$pkg" 2>/dev/null)
+	case "$s4l_policy" in
+		*repos.influxdata.com*|*apt.grafana.com*) ;;
+		*)
 		echo "<FAIL> Package '$pkg' is not available in the pinned version."
 		echo "<FAIL> Usually this means the repository signature could not be verified."
 		echo "<FAIL> Please also note: InfluxDB is only available up to 1.8.10 for the"
 		echo "<FAIL> 32-bit ARM architecture (armhf). Stats4Lox requires a 64-bit system"
 		echo "<FAIL> (arm64/aarch64 or amd64/x86_64)."
+		echo "<FAIL> ---------- apt-cache policy $pkg ----------"
+		echo "$s4l_policy" | head -20 | sed 's/^/<FAIL> /'
 		s4l_fail "Please check the apt messages above."
-	fi
+		;;
+	esac
 done
 echo "<OK> InfluxData and Grafana repositories are set up and usable."
 
