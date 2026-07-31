@@ -480,6 +480,22 @@ ls -l $PDATA/grafana
 echo "<INFO> Current file permisssions in $PCONFIG/grafana"
 ls -l $PCONFIG/grafana
 
+# Counterpart to the plugins-bundled workaround in preroot.sh.
+#
+# If the Grafana package was reconfigured, its postinst has put the directory
+# back in place and the copy we saved is obsolete. If it did not run - because
+# apt had nothing to do - we move ours back, so that the bundled plugins are
+# not lost.
+if [ -d /var/lib/grafana/plugins-bundled.stats4lox-bak ]; then
+	if [ -d /var/lib/grafana/plugins-bundled ]; then
+		rm -rf /var/lib/grafana/plugins-bundled.stats4lox-bak
+	else
+		mv /var/lib/grafana/plugins-bundled.stats4lox-bak /var/lib/grafana/plugins-bundled
+		echo "<INFO> Restored Grafana's plugins-bundled - the package was not reconfigured."
+	fi
+	chown -R grafana:grafana /var/lib/grafana/plugins-bundled > /dev/null 2>&1
+fi
+
 # Activate Grafana
 echo "<INFO> Starting Grafana..."
 systemctl enable --now grafana-server

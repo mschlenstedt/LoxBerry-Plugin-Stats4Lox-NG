@@ -251,6 +251,41 @@ if [ -d /var/lib/grafana ]; then
 	chown -R grafana:grafana /var/lib/grafana
 fi
 
+# Grafana's postinst moves its bundled plugins into the data directory with an
+# unguarded mv:
+#
+#   mv $GRAFANA_HOME/data/plugins-bundled $DATA_DIR
+#
+# which fails the moment the target already exists:
+#
+#   mv: cannot move '/usr/share/grafana/data/plugins-bundled' to
+#   '/var/lib/grafana/plugins-bundled': Directory not empty
+#   dpkg: error processing package grafana (--configure)
+#
+# This is a known packaging bug, referenced in their own postinst as
+# grafana/grafana#123110. It does not appear on the first installation but on
+# every REINSTALL of an already installed version - which is exactly what
+# LoxBerry does on every single plugin update. The package then stays
+# half-configured and grafana-server does not come up.
+#
+# The directory is therefore moved out of the way before apt runs. Deliberately
+# moved and not deleted: if the package step does not run at all, postroot.sh
+# puts it back, so the bundled plugins cannot get lost.
+if [ -d /var/lib/grafana/plugins-bundled ]; then
+	echo "<INFO> Moving Grafana's plugins-bundled aside so its postinst can succeed (grafana/grafana#123110)."
+	rm -rf /var/lib/grafana/plugins-bundled.stats4lox-bak
+	mv /var/lib/grafana/plugins-bundled /var/lib/grafana/plugins-bundled.stats4lox-bak
+fi
+
+# A system that already ran into the above is left with grafana in state
+# "half-configured", and dpkg refuses to do anything else until that is
+# resolved. Now that the directory is out of the way, the pending configuration
+# can complete. Only attempted when grafana is actually in that state.
+if dpkg-query -W -f='${Status}' grafana 2>/dev/null | grep -qE 'half-configured|half-installed'; then
+	echo "<INFO> Grafana is half-configured from an earlier run - completing its configuration."
+	dpkg --configure -a
+fi
+
 echo "<INFO> Remove old Service DropIn Files..."
 rm -f /etc/systemd/system/influxdb.service.d/00-stats4lox.conf
 rm -f /etc/systemd/system/telegraf.service.d/00-stats4lox.conf
