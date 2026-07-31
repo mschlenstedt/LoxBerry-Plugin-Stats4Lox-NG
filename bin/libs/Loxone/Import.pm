@@ -14,7 +14,9 @@ require "$lbpbindir/libs/Stats4Lox.pm";
 use Data::Dumper;
 
 
-$LoxBerry::IO::DEBUG=1;
+# Was permanently enabled and dumped every HTTP response of every month of
+# every block to stderr, which ends up in the webserver error log.
+$LoxBerry::IO::DEBUG=0;
 
 ########################
 ## LOXONE::IMPORT     ##
@@ -80,11 +82,19 @@ sub new
 		$self->getLoxoneLabels();
 		
 		$self->setMappings();
-		
-		if( ! $self->{mapping} ) {
-			$self->{importstatus}->{error} = 1;
-			$self->{importstatus}->{errortext} = "This import has no outputs selected that can be imported";
-			Carp::croak($me." ".$self->{importstatus}->{errortext});
+
+		# Do NOT abort here any more.
+		#
+		# The newer blocks store their data in statistics groups whose columns
+		# are named by the file itself, so they need no mapping at all. Dying
+		# here made those blocks unimportable even though their data was
+		# available all along.
+		if( ! $self->{mapping} or ! @{$self->{mapping}} ) {
+			$self->{nomapping} = 1;
+			$log->WARN("$me No known output mapping for type '"
+			           . ($self->{statobj}->{type} // '?')
+			           . "'. Classic statistics of this block cannot be imported;"
+			           . " statistics groups are unaffected.");
 		}
 	}
 	
@@ -164,7 +174,9 @@ sub getStatlist
 	
 		if( !$resphtml) {
 			$log->DEB("$me ERROR no response from Miniserver ($status->{status})");
-			Carp::Croak("Loxone::Import->getStatlist: ERROR no response from Miniserver ($status->{status})");
+			# Note: Carp::Croak (capital C) does not exist and would have died
+			# with "Undefined subroutine" instead of this message.
+			Carp::croak("Loxone::Import->getStatlist: ERROR no response from Miniserver ($status->{status})");
 		}
 		$log->DEB("$me Saving response to cachefile $statlistcachefile");
 		
@@ -221,9 +233,58 @@ sub getStatlist
 	
 }
 
+# Returns the statistics series of this control as a list of hashrefs:
+#   { statkey => "<uuid>" or "<uuid>_<group>", group => undef|N, months => [...] }
+#
+# Since Loxone Config 16/17 the new meter blocks (Meter*, EFM, Wallbox, ...)
+# do not store their statistics under the plain control uuid any more, but per
+# statistics group as "<uuid>_<group>" - a block can have several of them, and
+# a group can hold several values per timestamp.
+#
+# Looking only for the plain uuid was the reason those blocks reported
+#   "No Loxone Statistics available for ... Finished by doing nothing ;-)"
+# while the Miniserver held years of data for them (forum #609, #759).
+sub getStatSeries
+{
+	my $self = shift;
+	my $me = Globals::whoami();
+	my $log = $self->{log};
+	my $uuid = $self->{uuid};
+
+	$self->getStatlist() if( !$self->{statlistAll} );
+	my $all = $self->{statlistAll} || {};
+
+	my @series;
+
+	# The classic case: one file per control
+	if( defined $all->{$uuid} and ref($all->{$uuid}) eq 'ARRAY' and @{$all->{$uuid}} ) {
+		push @series, { statkey => $uuid, group => undef, months => [ sort @{$all->{$uuid}} ] };
+	}
+
+	# Statistics groups of the newer blocks
+	foreach my $key ( sort keys %{$all} ) {
+		next if( $key !~ /^\Q$uuid\E_(\d+)$/ );
+		next if( ref($all->{$key}) ne 'ARRAY' or !@{$all->{$key}} );
+		push @series, { statkey => $key, group => $1, months => [ sort @{$all->{$key}} ] };
+	}
+
+	if( !@series ) {
+		$log->WARN("$me No statistics found on the Miniserver for $uuid");
+		return;
+	}
+
+	foreach my $s ( @series ) {
+		$log->OK( sprintf("%s Series '%s'%s: %d months (%s - %s)", $me, $s->{statkey},
+			(defined $s->{group} ? " (statistics group $s->{group})" : ""),
+			scalar @{$s->{months}}, $s->{months}[0], $s->{months}[-1]) );
+	}
+
+	return @series;
+}
+
 sub getStatsjsonElement
 {
-	
+
 	my $self = shift;
 	my $me = Globals::whoami();
 	my $log = $self->{log};
@@ -267,7 +328,11 @@ sub getMonthStat {
 		
 	my %args = @_;
 	my $yearmon = $args{yearmon};
-	
+
+	# statkey is the plain uuid for classic statistics, or "<uuid>_<group>"
+	# for the statistics groups of the newer blocks.
+	my $statkey = defined $args{statkey} ? $args{statkey} : $uuid;
+
 	if(!$uuid) {
 		$log->DEB("$me ERROR uuid not defined.");
 		return;
@@ -276,8 +341,8 @@ sub getMonthStat {
 		$log->DEB("$me ERROR yearmon not defined.");
 		return;
 	}
-	
-	my $url = "/stats/$uuid.$yearmon.xml";
+
+	my $url = "/stats/$statkey.$yearmon.xml";
 	
 	
 	my $retrycount = 5;
@@ -455,7 +520,20 @@ sub parseStatXML_REGEX
 	($result{StatMetadata}{Name}) = $line =~ /<Statistics.*Name="(.*?)"/;
 	($result{StatMetadata}{NumOutputs}) = $line =~ /<Statistics.*NumOutputs="(.*?)"/;
 	($result{StatMetadata}{Outputs}) = $line =~ /<Statistics.*Outputs="(.*?)"/;
-	$log->DEB("$me Name:$result{StatMetadata}{Name} Outputs:($result{StatMetadata}{Outputs}) NumOutputs:$result{StatMetadata}{NumOutputs}");
+	# Only present in the statistics groups of the newer blocks
+	($result{StatMetadata}{StatsGroup}) = $line =~ /<Statistics.*StatsGroup="(.*?)"/;
+
+	# The Outputs attribute names the columns of this file, in order. For the
+	# newer blocks these are already technical identifiers (actual, total,
+	# totalNeg, OYt, ...) and can be used as field names directly.
+	if( defined $result{StatMetadata}{Outputs} and $result{StatMetadata}{Outputs} ne '' ) {
+		$result{StatMetadata}{OutputNames} = [ split(/,/, $result{StatMetadata}{Outputs}) ];
+	}
+
+	$log->DEB("$me Name:".($result{StatMetadata}{Name}//'')
+	          ." Outputs:(".($result{StatMetadata}{Outputs}//'').")"
+	          ." NumOutputs:".($result{StatMetadata}{NumOutputs}//'')
+	          .(defined $result{StatMetadata}{StatsGroup} ? " StatsGroup:$result{StatMetadata}{StatsGroup}" : ''));
 	my $NumOutputs = $result{StatMetadata}{NumOutputs};
 
 	# Loop further lines (line 3+)
@@ -588,10 +666,28 @@ sub submitData
 	if( !defined $measurementname or $measurementname eq "" ) {
 		if( defined $statobj->{description} and $statobj->{description} ne "" ) {
 			$measurementname = $statobj->{description};
-		} 
+		}
 		else {
 			$measurementname = $statobj->{name};
 		}
+	}
+
+	# Where do the field names come from?
+	#
+	# For a statistics group there is no hard coded mapping and none is needed:
+	# the file names its own columns in the Outputs attribute, already as
+	# technical identifiers. We use those directly, which also means a block
+	# with several groups ends up with several fields in one measurement.
+	#
+	# The classic path keeps using the mapping so that existing measurements
+	# and the dashboards built on them are not renamed underneath the user.
+	my @fileoutputs;
+	if( defined $data->{StatMetadata}->{OutputNames} ) {
+		@fileoutputs = @{ $data->{StatMetadata}->{OutputNames} };
+	}
+	my $usefileoutputs = ( $self->{usefileoutputs} and @fileoutputs ) ? 1 : 0;
+	if( $usefileoutputs ) {
+		$log->INF("$me Using the output names from the statistics file: " . join(", ", @fileoutputs));
 	}
 	
 	# Loop all timestamps
@@ -613,13 +709,21 @@ sub submitData
 		# so we walk through the mapping to get the correct values
 		
 		my @values = ();
-		foreach my $mapping ( @{$mappings} ) {
-			
-			my $statpos = $mapping->{statpos};
-			my $label = $mapping->{lxlabel};
-			my $value = $record->{val}[$statpos];
-			push @values, { key => $label, value => $value };
-			
+		if( $usefileoutputs ) {
+			for( my $i = 0; $i <= $#fileoutputs; $i++ ) {
+				next if( !defined $record->{val}[$i] );
+				push @values, { key => $fileoutputs[$i], value => $record->{val}[$i] };
+			}
+		}
+		else {
+			foreach my $mapping ( @{$mappings} ) {
+
+				my $statpos = $mapping->{statpos};
+				my $label = $mapping->{lxlabel};
+				my $value = $record->{val}[$statpos];
+				push @values, { key => $label, value => $value };
+
+			}
 		}
 		$influxrecord{values} = \@values;
 		push @bulkdata, \%influxrecord;

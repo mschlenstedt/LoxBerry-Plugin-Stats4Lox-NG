@@ -105,8 +105,9 @@ eval {
 if( $@ ) {
 	my $error = "$me new Import: Error --> $@";
 	LOGCRIT $error;
-	supdate( { 
-		name => $import->{statobj}->{name},
+	# $import is undef when the constructor died - do not dereference it
+	supdate( {
+		name => ($import && $import->{statobj}) ? $import->{statobj}->{name} : undef,
 		status => "error",
 		errortext => $error
 	} );
@@ -114,18 +115,21 @@ if( $@ ) {
 }
 supdate( { name => $import->{statobj}->{name} } );
 
-my @statmonths;
+# A control can have several statistics series: the classic file under its own
+# uuid, and/or one file per statistics group ("<uuid>_<group>") as the newer
+# meter blocks use them.
+my @series;
 my $months_count_full = 0;
 
 eval {
-	@statmonths = $import->getStatlist();
-	$months_count_full = scalar @statmonths;
-	LOGDEB "$me Statlist $months_count_full elements.";
+	@series = $import->getStatSeries();
+	$months_count_full += scalar @{$_->{months}} foreach (@series);
+	LOGDEB "$me " . scalar(@series) . " series, $months_count_full month files in total.";
 };
 if( $@ ) {
-	my $error = "$me getStatList: Could not get Statistics list from Loxone Miniserver MS$msno --> $@";
+	my $error = "$me getStatSeries: Could not get Statistics list from Loxone Miniserver MS$msno --> $@";
 	LOGCRIT $error;
-	supdate( { 
+	supdate( {
 		name => $import->{statobj}->{name},
 		status => "error",
 		errortext => $error
@@ -135,7 +139,7 @@ if( $@ ) {
 if( !$months_count_full ) {
 	my $error = "No Loxone Statistics available for $import->{statobj}->{name}. Finished by doing nothing ;-)";
 	LOGOK $error;
-	supdate( { 
+	supdate( {
 		name => $import->{statobj}->{name},
 		status => "finished",
 		errortext => $error,
@@ -149,19 +153,35 @@ my $record_count = 0;
 my $duration_time_secs = 0;
 # print Data::Dumper::Dumper( $import->{statlistAll} );
 
-foreach my $yearmonth ( @statmonths ) {
-	supdate( { current => $yearmonth } );
+foreach my $serie ( @series ) {
+
+my $statkey = $serie->{statkey};
+
+# The classic series needs a known output mapping; a statistics group names its
+# own columns and is imported regardless.
+if( !defined $serie->{group} and $import->{nomapping} ) {
+	LOGWARN "$me Skipping the classic statistics of $statkey - no known output mapping for this block type.";
+	next;
+}
+$import->{usefileoutputs} = defined $serie->{group} ? 1 : 0;
+
+LOGINF "$me === Series $statkey"
+       . (defined $serie->{group} ? " (statistics group $serie->{group})" : "")
+       . ", " . scalar @{$serie->{months}} . " months";
+
+foreach my $yearmonth ( @{$serie->{months}} ) {
+	supdate( { current => (defined $serie->{group} ? "$yearmonth (group $serie->{group})" : $yearmonth) } );
 	my $starttime = Time::HiRes::time();
-	
-	LOGINF "$me Fetching $import->{uuid} Month: $yearmonth";
+
+	LOGINF "$me Fetching $statkey Month: $yearmonth";
 	my $monthdata;
 	eval {
-		$monthdata = $import->getMonthStat( yearmon => $yearmonth );
+		$monthdata = $import->getMonthStat( yearmon => $yearmonth, statkey => $statkey );
 	};
 	if( $@ ) {
-		my $error = "$me getMonthStat $yearmonth: $@";
+		my $error = "$me getMonthStat $statkey/$yearmonth: $@";
 		LOGCRIT $error;
-		supdate( { 
+		supdate( {
 			status => "error",
 			errortext => $error
 		} );
@@ -169,19 +189,19 @@ foreach my $yearmonth ( @statmonths ) {
 	}
 	# print STDERR Data::Dumper::Dumper( $monthdata ) . "\n";
 	if ( !$monthdata ) {
-		LOGWARN "$me getMonthStat $yearmonth: No data to send. Skipping";
+		LOGWARN "$me getMonthStat $statkey/$yearmonth: No data to send. Skipping";
 		next;
 	}
 	LOGINF "$me   Datasets " . scalar @{$monthdata->{values}};
-	
+
 	my $fullcount;
 	eval {
 		$fullcount = $import->submitData( $monthdata );
 	};
 	if( $@ ) {
-		my $error = "$me submitData $yearmonth: $@";
+		my $error = "$me submitData $statkey/$yearmonth: $@";
 		LOGCRIT $error;
-		supdate( { 
+		supdate( {
 			status => "error",
 			errortext => $error
 		} );
@@ -195,9 +215,11 @@ foreach my $yearmonth ( @statmonths ) {
 		endtime => time()
 	);	
 	
-	$status->{finished}{$yearmonth} = \%finished;
-	
-	# Calculate runtime estimations 
+	# Key by series as well, otherwise the months of several statistics groups
+	# would overwrite each other in the status file.
+	$status->{finished}{ defined $serie->{group} ? "$yearmonth-g$serie->{group}" : $yearmonth } = \%finished;
+
+	# Calculate runtime estimations
 	$record_count += $fullcount;
 	$months_count_finished++;
 	$duration_time_secs += $finished{duration};
@@ -228,12 +250,13 @@ foreach my $yearmonth ( @statmonths ) {
 	);
 		
 	
-	supdate( { stats => \%stats } );  
+	supdate( { stats => \%stats } );
 
-	
+
 }
+}   # end of the series loop
 
-LOGOK "$me All month finished.";
+LOGOK "$me All series and months finished.";
 supdate( { status=>"finished" });
 
 exit(0);
