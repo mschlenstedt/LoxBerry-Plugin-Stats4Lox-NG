@@ -17,7 +17,14 @@ $(function() {
 				subscriptions: [],
 				errors: [],
 				statusLine: "",
-				finderAvailable: document.getElementById('isFinderAvailable').innerHTML == 'true' ? true : false /* Pure JS */
+				finderAvailable: document.getElementById('isFinderAvailable').innerHTML == 'true' ? true : false, /* Pure JS */
+				placeholderNew: document.getElementById('lang_placeholder_new').textContent,
+				deleteLabel: document.getElementById('lang_button_delete').textContent,
+				showLabel: document.getElementById('lang_button_show').textContent,
+				extractNumbersLabel: document.getElementById('lang_extract_numbers').textContent,
+				collectStringsLabel: document.getElementById('lang_collect_strings').textContent,
+				addLineLabel: document.getElementById('lang_button_add_line').textContent,
+				saveApplyLabel: document.getElementById('lang_button_save_apply').textContent
 			}
 		},
 		methods: {
@@ -33,7 +40,7 @@ $(function() {
 			validate(index, event) {
 				console.log("Validate", index, event);
 				if( validateTopic(this.subscriptions[index].id) != true ) {
-					this.errors[index] = "The syntax is not a valid MQTT subscription.";
+					this.errors[index] = document.getElementById('lang_error_invalid_topic').textContent;
 				} else {
 					this.errors.splice(index, 1);
 				}
@@ -41,11 +48,11 @@ $(function() {
 			},
 			
 			changedMsg() {
-				this.statusLine='<span style="color:blue">Unsaved changes</span>';
+				this.statusLine='<span style="color:blue">' + document.getElementById('lang_status_unsaved').textContent + '</span>';
 			},
 			
 			savedMsg() {
-				this.statusLine='<span style="color:green">Saved changes</span>';
+				this.statusLine='<span style="color:green">' + document.getElementById('lang_status_saved').textContent + '</span>';
 			},
 			
 			
@@ -65,10 +72,10 @@ $(function() {
 				.then( function(response) {
 					console.log(response);
 					if( response.ok != true ) {
-						self.statusLine='<span style="color:red">Error saving:' + response.statusText +'</span>';
+						self.statusLine='<span style="color:red">' + document.getElementById('lang_status_save_error').textContent + ' ' + response.statusText +'</span>';
 					}
 					else {
-						self.statusLine='<span style="color:green">Saved your changes.</span>';
+						self.statusLine='<span style="color:green">' + document.getElementById('lang_status_saved').textContent + '</span>';
 					}
 				});
 			},

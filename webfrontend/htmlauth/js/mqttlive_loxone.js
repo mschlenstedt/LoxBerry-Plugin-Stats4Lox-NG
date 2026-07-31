@@ -157,11 +157,11 @@ function updateTables() {
 		$("#mqttlivestate_broker_basetopic").html(mqttlivestate?.broker_basetopic);
 		
 		if( mqttlivestate?.broker_connected == true ) {
-			broker_connected = "Connected";
+			broker_connected = $('#lang_status_connected').text();
 			$("#mqttlivestate_broker_connected").css( "color", "green" );
 		} 
 		else {
-			broker_connected = "Not connected";
+			broker_connected = $('#lang_status_not_connected').text();
 			$("#mqttlivestate_broker_connected").css( "color", "red" );
 		}
 		$("#mqttlivestate_broker_connected").html(broker_connected);
@@ -177,7 +177,7 @@ function updateTables() {
 	
 	// Update mqttlive topics
 	if( !mqttlivedata ) {
-		html = `<p>No data arrived yet :-(</p>`;
+		html = `<p>${$('#lang_no_data').text()}</p>`;
 	}
 	else {
 		html = ``;
@@ -209,7 +209,7 @@ function updateTables() {
 			
 			html+= `<div style="display:flex;justify-content:center;margin:5px 0 5px 0;border: 1px solid #dedede;background-color:${backgroundcolor};">`;
 			html+= `	<div style="flex:5 5 40%;padding:5px;">`;
-			html+= `		<span class="small grayed">Received Topic / Value</span><br>`;
+			html+= `		<span class="small grayed">${$('#lang_label_received_topic').text()}</span><br>`;
 			html+= `		<span class="bitsmall">${topic.data.originaltopic}</span><br>`;
 			html+= `		<span class="small grayed">&raquo;</span><span class="bitsmall"><b>${outputdata}</b></span><span class="small grayed">&laquo;</span>`;
 			html+= `	</div>`;
@@ -217,19 +217,19 @@ function updateTables() {
 			if( !topic.data?.error) {
 				// No error
 				html+= `	<div style="flex:1 10 2%;padding:5px;">`;
-				html+= `		<span class="small grayed">Miniserver</span><br>
+				html+= `		<span class="small grayed">${$('#lang_label_miniserver').text()}</span><br>
 								<span class="bitsmall">${topic.data.msno}</span>`;
 				html+= `	</div>`;
 				
 				
 				html+= `	<div style="flex:3 5 15%;padding:5px;">`;
-				html+= `		<span class="small grayed">Measurement Name</span><br>`;
+				html+= `		<span class="small grayed">${$('#lang_label_measurement').text()}</span><br>`;
 				html+= `		<span class="bitsmall">${topic.data.measurementname}</span><br>`;
 				html+= `	</div>`;
-				
-				
+
+
 				html+= `	<div style="flex:2 2 15%;padding:5px;">`;
-				html+= `		<span class="small grayed">Name / Room / Category</span><br>`;
+				html+= `		<span class="small grayed">${$('#lang_label_name').text()} / ${$('#lang_label_room_category').text()}</span><br>`;
 				html+= `		<span class="bitsmall">${topic.data.name}</span><br>`;
 				html+= `		<span class="small">${topic.data.room} / ${topic.data.category}</span>`;
 				html+= `	</div>`;
@@ -242,7 +242,7 @@ function updateTables() {
 			}	
 			
 			html+= `	<div style="flex:3 2 15%;padding:5px;">`;
-			html+= `		<span class="small grayed">Last arrived</span><br>`;
+			html+= `		<span class="small grayed">${$('#lang_label_last_arrived').text()}</span><br>`;
 				html+= `	<span class="bitsmall">${arrived}</span>`;
 			html+= `	</div>`;
 		
@@ -309,36 +309,36 @@ function createStatsjsonTable()
 		// Name / Description
 		description = element.description ? element.description : "";
 		html+= `	<div style="flex:5 5 10%;padding:3px;">`;
-		html+= `	<span class="small grayed">Name</span><br>	
+		html+= `	<span class="small grayed">${$('#lang_label_name').text()}</span><br>
 					${element.name}<br>
 					<i>${description}</i>`;
 		html+= `	</div>`;
 		
 		// Miniserver name
 		html+= `	<div style="flex:1 10 2%;padding:3px;">`;
-		html+= `	<span class="small grayed">Miniserver</span><br>	
+		html+= `	<span class="small grayed">${$('#lang_label_miniserver').text()}</span><br>
 					${element.msno}`;
 		html+= `	</div>`;
 		
 		// Measurement name
 		html+= `	<div style="flex:1 10 10%;padding:3px;">`;
-		html+= `	<span class="small grayed">Measurement Name</span><br>	
+		html+= `	<span class="small grayed">${$('#lang_label_measurement').text()}</span><br>
 					${element.measurementname}`;
 		html+= `	</div>`;
 		
 		// Room/Category name
 		html+= `	<div style="flex:1 10 10%;padding:3px;">`;
-		html+= `	<span class="small grayed">Room / Category</span><br>	
+		html+= `	<span class="small grayed">${$('#lang_label_room_category').text()}</span><br>
 					${element.room} / ${element.category}`;
 		html+= `	</div>`;
 		
 		// Topics
 		html+= `	<div style="flex:5 1 30%;padding:3px;">`;
-		html+= `	<span class="small grayed">Available Topics</span><br>`;
+		html+= `	<span class="small grayed">${$('#lang_label_available_topics').text()}</span><br>`;
 		html+= `	<span class="bitsmall">`;
 		
 		if( !element.outputkeys || !element.outputlabels )
-			html+= `<span style="color:red">stats.json misses outputkeys and/or outputlabels</span>`;
+			html+= `<span style="color:red">${$('#lang_error_stats_json').text()}</span>`;
 		else {
 			
 			for( output of element.outputs ) {
@@ -353,7 +353,7 @@ function createStatsjsonTable()
 				valconstant = `&lt;v.3&gt;`;
 				html += `<div style="white-space: nowrap;">`
 				html += `<b>${label}</b>: publish ${livetopic} <i>${valconstant}</i>`;
-				html += `<a href="#" class="ui-mini ui-btn ui-shadow ui-icon-clipboard ui-btn-inline copyClipboard" style="padding:1px;font-size:86%;height:15px;width:32px;">Copy</a>`;
+				html += `<a href="#" class="ui-mini ui-btn ui-shadow ui-icon-clipboard ui-btn-inline copyClipboard" style="padding:1px;font-size:86%;height:15px;width:32px;">${$('#lang_label_copy').text()}</a>`;
 				html += `<input type="text" value="publish ${livetopic} ${valconstant}" class="datahidden topicholder">`;
 				
 				// html += `&nbsp;<a href="#" data-inline="true" class="ui-btn ui-shadow ui-mini ui-btn-inline">Clipboard</a>`;

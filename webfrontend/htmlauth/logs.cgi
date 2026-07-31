@@ -11,6 +11,9 @@ my $template = HTML::Template->new(
 	die_on_bad_params => 0,
 );
 
+my %L = LoxBerry::System::readlanguage($template, "language.ini");
+
+Globals::init_navbar_i18n();
 LoxBerry::Web::lbheader("Stats4Lox", "https://loxwiki.eu", undef);
 
 $template->param('LOGLIST_HTML', LoxBerry::Web::loglist_html());

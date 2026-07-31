@@ -50,6 +50,20 @@
 
 </style>
 
+<!-- Language strings for JavaScript -->
+<div class="datahidden" id="lang_status_updating"><TMPL_VAR COMMON.STATUS_UPDATING></div>
+<div class="datahidden" id="lang_status_running"><TMPL_VAR COMMON.STATUS_RUNNING></div>
+<div class="datahidden" id="lang_status_stopped"><TMPL_VAR COMMON.STATUS_STOPPED></div>
+<div class="datahidden" id="lang_status_disabled"><TMPL_VAR COMMON.STATUS_DISABLED></div>
+<div class="datahidden" id="lang_status_failed"><TMPL_VAR COMMON.STATUS_FAILED></div>
+<div class="datahidden" id="lang_status_executing"><TMPL_VAR COMMON.STATUS_EXECUTING></div>
+<div class="datahidden" id="lang_status_error"><TMPL_VAR COMMON.STATUS_ERROR></div>
+<div class="datahidden" id="lang_button_restart"><TMPL_VAR COMMON.BUTTON_RESTART></div>
+<div class="datahidden" id="lang_button_stop"><TMPL_VAR COMMON.BUTTON_STOP></div>
+<div class="datahidden" id="lang_label_ok"><TMPL_VAR COMMON.LABEL_OK></div>
+
+<p><TMPL_VAR HOME.DESCRIPTION></p>
+
 <div class="grid">
 	<div class="box">
 		<object data="<TMPL_VAR GRAFANA_URL>/d-solo/ff725681-27a4-408c-9491-772415f41412/plugin-home?orgId=1&refresh=60s&from=now-24h&to=now&theme=light&panelId=5" width="99%"></object>
@@ -67,38 +81,42 @@
 <div class="grid">
 	<div class="box">
 		<div class="center middle bold margin">Telegraf</div>
-		<div class="status center" id="telegraf_status">Updating...</div>
+		<div class="margin small grayed"><TMPL_VAR HOME.DESC_TELEGRAF></div>
+		<div class="status center" id="telegraf_status"><TMPL_VAR COMMON.STATUS_UPDATING></div>
 		<a href="#" onclick="service('starttelegraf');return false;"
-			class="ui-btn ui-corner-all margin ui-icon-check ui-btn-icon-left">(Re)Start</a>
+			class="ui-btn ui-corner-all margin ui-icon-check ui-btn-icon-left"><TMPL_VAR COMMON.BUTTON_RESTART></a>
 		<a href="#" onclick="service('stoptelegraf');return false;"
-			class="ui-btn ui-corner-all margin ui-icon-delete ui-btn-icon-left">Stop</a>
+			class="ui-btn ui-corner-all margin ui-icon-delete ui-btn-icon-left"><TMPL_VAR COMMON.BUTTON_STOP></a>
 		<div class="center margin" id="telegraf_hint">&nbsp;</div>
 	</div>
 	<div class="box">
-		<div class="center middle bold margin">Influx</div>
-		<div class="status center" id="influx_status">Updating...</div>
+		<div class="center middle bold margin">InfluxDB</div>
+		<div class="margin small grayed"><TMPL_VAR HOME.DESC_INFLUX></div>
+		<div class="status center" id="influx_status"><TMPL_VAR COMMON.STATUS_UPDATING></div>
 		<a href="#" onclick="service('startinfluxdb');return false;"
-			class="ui-btn ui-corner-all margin ui-icon-check ui-btn-icon-left">(Re)Start</a>
+			class="ui-btn ui-corner-all margin ui-icon-check ui-btn-icon-left"><TMPL_VAR COMMON.BUTTON_RESTART></a>
 		<a href="#" onclick="service('stopinfluxdb');return false;"
-			class="ui-btn ui-corner-all margin ui-icon-delete ui-btn-icon-left">Stop</a>
+			class="ui-btn ui-corner-all margin ui-icon-delete ui-btn-icon-left"><TMPL_VAR COMMON.BUTTON_STOP></a>
 		<div class="center margin" id="influx_hint">&nbsp;</div>
 	</div>
 	<div class="box">
 		<div class="center middle bold margin">Grafana</div>
-		<div class="status center" id="grafana-server_status">Updating...</div>
+		<div class="margin small grayed"><TMPL_VAR HOME.DESC_GRAFANA></div>
+		<div class="status center" id="grafana-server_status"><TMPL_VAR COMMON.STATUS_UPDATING></div>
 		<a href="#" onclick="service('startgrafana-server');return false;"
-			class="ui-btn ui-corner-all margin ui-icon-check ui-btn-icon-left">(Re)Start</a>
+			class="ui-btn ui-corner-all margin ui-icon-check ui-btn-icon-left"><TMPL_VAR COMMON.BUTTON_RESTART></a>
 		<a href="#" onclick="service('stopgrafana-server');return false;"
-			class="ui-btn ui-corner-all margin ui-icon-delete ui-btn-icon-left">Stop</a>
+			class="ui-btn ui-corner-all margin ui-icon-delete ui-btn-icon-left"><TMPL_VAR COMMON.BUTTON_STOP></a>
 		<div class="center margin" id="grafana-server_hint">&nbsp;</div>
 	</div>
 	<div class="box">
 		<div class="center middle bold margin">MQTT Live/Collector</div>
-		<div class="status center" id="mqttlive_status">Updating...</div>
+		<div class="margin small grayed"><TMPL_VAR HOME.DESC_MQTT></div>
+		<div class="status center" id="mqttlive_status"><TMPL_VAR COMMON.STATUS_UPDATING></div>
 		<a href="#" onclick="service('startmqttlive');return false;"
-			class="ui-btn ui-corner-all margin ui-icon-check ui-btn-icon-left">(Re)Start</a>
+			class="ui-btn ui-corner-all margin ui-icon-check ui-btn-icon-left"><TMPL_VAR COMMON.BUTTON_RESTART></a>
 		<a href="#" onclick="service('stopmqttlive');return false;"
-			class="ui-btn ui-corner-all margin ui-icon-delete ui-btn-icon-left">Stop</a>
+			class="ui-btn ui-corner-all margin ui-icon-delete ui-btn-icon-left"><TMPL_VAR COMMON.BUTTON_STOP></a>
 		<div class="center margin" id="mqttlive_hint">&nbsp;</div>
 	</div>
 </div>

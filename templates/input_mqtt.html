@@ -120,25 +120,32 @@
 <div class="datahidden" id="mqttgateway_hostname"><TMPL_VAR MQTTGATEWAY_HOSTNAME></div>
 <div class="datahidden" id="mqttgateway_udpinport"><TMPL_VAR MQTTGATEWAY_UDPINPORT></div>
 
-<h3>MQTT Collector</h3>
-<p>
-    Subscribe to MQTT topics that Stats4Lox should directly push to the Influx database.
-</p>
-
-<!-- Hints: Select stats -->
-<div id="hint_inputmqtt_intro" class="hintbox" style="display:none;">
-    <b>What is MQTT Collector good for?</b><br>
-    <p>
-        With Stats4Lox's MQTT Collector, you can directly send data from MQTT devices to your Influx database, bypassing the way to the Miniserver and back. 
-		You need to subscribe the topics you want to collect. The MQTT Collector automatically expands json payload and true/false values. By default, only
-		numeric values are collected. On a per-topic basis, you can enable value extraction from strings (e.g. get "12.4" value out of a "12.4°C" string), and also 
-		full string recording (Influx also supports strings as values).<br>
-		<b>MQTT Gateway is required</b>, but subscriptions in MQTT Gateway (that are forwarded to the Miniserver) are independent of subscriptions in here.
-    </p>
-    <a href="#" class="ui-btn ui-btn-inline ui-mini" onclick="hint_hide('hint_inputmqtt_intro');">Hide</a>
-</div>
+<h3><TMPL_VAR MQTTCOLLECTOR.TITLE></h3>
+<p><TMPL_VAR MQTTCOLLECTOR.DESCRIPTION></p>
+<p><TMPL_VAR MQTTCOLLECTOR.HINT_TEXT_INTRO></p>
+<p><TMPL_VAR MQTTCOLLECTOR.HINT_TEXT_PREREQ></p>
+<p><TMPL_VAR MQTTCOLLECTOR.HINT_TEXT_HOWTO></p>
+<p><TMPL_VAR MQTTCOLLECTOR.HINT_TEXT_JSON></p>
+<p><TMPL_VAR MQTTCOLLECTOR.HINT_TEXT_OPTIONS></p>
+<p><TMPL_VAR MQTTCOLLECTOR.HINT_TEXT_DIFFERENCE></p>
 
 	<div style="display:none" id="isFinderAvailable"><TMPL_VAR FINDERAVAILABLE></div>
+
+	<!-- Language strings for JavaScript -->
+	<div class="datahidden" id="lang_placeholder_new"><TMPL_VAR MQTTCOLLECTOR.PLACEHOLDER_NEW></div>
+	<div class="datahidden" id="lang_extract_numbers"><TMPL_VAR MQTTCOLLECTOR.LABEL_EXTRACT_NUMBERS></div>
+	<div class="datahidden" id="lang_collect_strings"><TMPL_VAR MQTTCOLLECTOR.LABEL_COLLECT_STRINGS></div>
+	<div class="datahidden" id="lang_button_add_line"><TMPL_VAR MQTTCOLLECTOR.BUTTON_ADD_LINE></div>
+	<div class="datahidden" id="lang_button_save_apply"><TMPL_VAR COMMON.BUTTON_SAVE_APPLY></div>
+	<div class="datahidden" id="lang_button_delete"><TMPL_VAR COMMON.BUTTON_DELETE></div>
+	<div class="datahidden" id="lang_button_show"><TMPL_VAR MQTTCOLLECTOR.BUTTON_SHOW></div>
+	<div class="datahidden" id="lang_error_invalid_topic"><TMPL_VAR MQTTCOLLECTOR.ERROR_INVALID_TOPIC></div>
+	<div class="datahidden" id="lang_status_unsaved"><TMPL_VAR MQTTCOLLECTOR.STATUS_UNSAVED></div>
+	<div class="datahidden" id="lang_status_saved"><TMPL_VAR MQTTCOLLECTOR.STATUS_SAVED></div>
+	<div class="datahidden" id="lang_status_save_error"><TMPL_VAR MQTTCOLLECTOR.STATUS_SAVE_ERROR></div>
+	<div class="datahidden" id="lang_button_hide"><TMPL_VAR COMMON.BUTTON_HIDE></div>
+	<div class="datahidden" id="lang_sub_influx_database"><TMPL_VAR NAVBAR.SUB_INFLUX_DATABASE></div>
+	<div class="datahidden" id="lang_sub_mqtt_collector"><TMPL_VAR NAVBAR.SUB_MQTT_COLLECTOR></div>
 	
 	<div id="subscriptionList">
 	<div style="display:flex;flex-wrap:wrap">
@@ -146,13 +153,13 @@
 			
 			<div style="display:flex;flex-wrap:wrap;">
 				<div style="flex:10 1 0;">
-					<input v-model="subscription.id" placeholder="Add new subscription" v-on:input="validate(index, $event)">
+					<input v-model="subscription.id" v-bind:placeholder="placeholderNew" v-on:input="validate(index, $event)">
 				</div>
 				<div style="padding:3px;flex:0 0;"> 
-					<button data-mini="true" data-inline="true" v-on:click="this.subscriptions.splice(index, 1);this.errors.splice(index,1);changedMsg();">Delete</button>
+					<button data-mini="true" data-inline="true" v-on:click="this.subscriptions.splice(index, 1);this.errors.splice(index,1);changedMsg();">{{deleteLabel}}</button>
 				</div>
 				<div v-show="finderAvailable" style="padding:3px;flex:0 0;"> 
-					<button data-mini="true" data-inline="true" v-on:click="openFinder(index)">Show</button>
+					<button data-mini="true" data-inline="true" v-on:click="openFinder(index)">{{showLabel}}</button>
 				</div>
 				
 			</div>
@@ -162,20 +169,20 @@
 			<div style="display:flex;flex-wrap:wrap;">
 				
 				<div style="padding:3px;">
-					<input type="checkbox" v-on:change="changedMsg();" v-model="subscription.extractNumbers" data-role="none"> Extract Numbers
+					<input type="checkbox" v-on:change="changedMsg();" v-model="subscription.extractNumbers" data-role="none"> {{extractNumbersLabel}}
 				</div>
 					
 				<div style="padding:3px;">
 					<input type="checkbox" data-role="none"
-					v-on:change="changedMsg();" v-model="subscription.collectStrings"> Collect Strings
+					v-on:change="changedMsg();" v-model="subscription.collectStrings"> {{collectStringsLabel}}
 				</div>
 			</div>
 			
 		</div>
 	</div>
 	<div style="height:12px;padding:3px" v-html="statusLine"></div>
-	<button data-inline="true" v-on:click="subscriptions.push( {  } )">Add new line</button>
-	<button data-inline="true" v-on:click="saveApply();">Save and Apply</button>
+	<button data-inline="true" v-on:click="subscriptions.push( {  } )">{{addLineLabel}}</button>
+	<button data-inline="true" v-on:click="saveApply();">{{saveApplyLabel}}</button>
 	</div>
 	
 

@@ -15,6 +15,7 @@ $htmlhead .= '<script type="application/javascript" src="js/loxone_import_report
 $main::navbar{10}{active} = 1;
 
 
+init_navbar_i18n();
 LoxBerry::Web::lbheader("Import Report - LoxBerry Stats4Lox", undef, undef);
 
 my $template = HTML::Template->new(
@@ -23,6 +24,8 @@ my $template = HTML::Template->new(
     loop_context_vars => 1,
     die_on_bad_params => 0,
 );
+
+my %L = LoxBerry::System::readlanguage($template, "language.ini");
 
 my $lang = LoxBerry::System::lblanguage();
 

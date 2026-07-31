@@ -16,6 +16,7 @@ $htmlhead .= '<script type="application/javascript" src="js/mqttlive_loxone.js">
 $main::navbar{10}{active} = 1;
 
 
+init_navbar_i18n();
 LoxBerry::Web::lbheader("Stats4Lox", undef, undef);
 my $template = HTML::Template->new(
     filename => "$lbptemplatedir/mqttlive_loxone.html",
@@ -23,6 +24,8 @@ my $template = HTML::Template->new(
     loop_context_vars => 1,
     die_on_bad_params => 0,
 );
+
+my %L = LoxBerry::System::readlanguage($template, "language.ini");
 
 my $lang = LoxBerry::System::lblanguage();
 my $mqttcred = LoxBerry::IO::mqtt_connectiondetails();

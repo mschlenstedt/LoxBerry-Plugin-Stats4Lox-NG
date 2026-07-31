@@ -116,60 +116,68 @@
 <div class="datahidden" id="mqttgateway_hostname"><TMPL_VAR MQTTGATEWAY_HOSTNAME></div>
 <div class="datahidden" id="mqttgateway_udpinport"><TMPL_VAR MQTTGATEWAY_UDPINPORT></div>
 
+<!-- Language strings for JavaScript -->
+<div class="datahidden" id="lang_label_topic"><TMPL_VAR MQTTLIVE.LABEL_TOPIC></div>
+<div class="datahidden" id="lang_label_connected"><TMPL_VAR MQTTLIVE.LABEL_CONNECTED></div>
+<div class="datahidden" id="lang_label_errors"><TMPL_VAR MQTTLIVE.LABEL_ERRORS></div>
+<div class="datahidden" id="lang_label_name"><TMPL_VAR MQTTLIVE.LABEL_NAME></div>
+<div class="datahidden" id="lang_label_measurement"><TMPL_VAR MQTTLIVE.LABEL_MEASUREMENT></div>
+<div class="datahidden" id="lang_label_room_category"><TMPL_VAR MQTTLIVE.LABEL_ROOM_CATEGORY></div>
+<div class="datahidden" id="lang_label_last_arrived"><TMPL_VAR MQTTLIVE.LABEL_LAST_ARRIVED></div>
+<div class="datahidden" id="lang_label_received_topic"><TMPL_VAR MQTTLIVE.LABEL_RECEIVED_TOPIC></div>
+<div class="datahidden" id="lang_no_data"><TMPL_VAR MQTTLIVE.NO_DATA></div>
+<div class="datahidden" id="lang_status_connected"><TMPL_VAR MQTTLIVE.STATUS_CONNECTED></div>
+<div class="datahidden" id="lang_status_not_connected"><TMPL_VAR MQTTLIVE.STATUS_NOT_CONNECTED></div>
+<div class="datahidden" id="lang_sub_statistic_selection"><TMPL_VAR NAVBAR.SUB_STATISTIC_SELECTION></div>
+<div class="datahidden" id="lang_sub_import_report"><TMPL_VAR NAVBAR.SUB_IMPORT_REPORT></div>
+<div class="datahidden" id="lang_sub_mqtt_live"><TMPL_VAR NAVBAR.SUB_MQTT_LIVE></div>
+<div class="datahidden" id="lang_label_miniserver"><TMPL_VAR MQTTLIVE.LABEL_MINISERVER></div>
+<div class="datahidden" id="lang_label_available_topics"><TMPL_VAR MQTTLIVE.LABEL_AVAILABLE_TOPICS></div>
+<div class="datahidden" id="lang_label_copy"><TMPL_VAR MQTTLIVE.LABEL_COPY></div>
+<div class="datahidden" id="lang_error_stats_json"><TMPL_VAR MQTTLIVE.ERROR_STATS_JSON></div>
 
 
-
-<h3>MQTT LiveUpdate Data</h3>
+<h3><TMPL_VAR MQTTLIVE.TITLE></h3>
 <p>
-    This listing shows, what data you have already submitted via MQTT LiveUpdate to your Loxone Statistics, and also, if your publishes might miss the correct topic.
+    <TMPL_VAR MQTTLIVE.DESCRIPTION>
 </p>
 <p>
-    Below, you'll find <i>all available outputs</i> of Loxone blocks that you have enabled, to directly copy/paste. An output gets enabled by enabling it in the Detail View of the Statistics configuration. See the <a href="https://www.loxwiki.eu/x/-YRWBQ"
-        target="_blank">LoxWiki step-by-step guide</a> for assistance.
+    <TMPL_VAR MQTTLIVE.DESCRIPTION2>
 </p>
 
 
-<!-- Hints: Select stats -->
-<div id="hint_mqttliveupdate_intro" class="hintbox" style="display:none;">
-    <b>What is MQTT LiveUpdate good for?</b><br>
-    <p>
-        The normal Statistics Grabber collects data in your defined interval (5 mins, 10 mins etc.). Data, that rapidly update, like power metering, or presses of a button, cannot be collected in that way. With MQTT LiveUpdate (<a href="https://www.loxwiki.eu/x/S4ZYAg"
-            target="_blank">MQTT Gateway</a> plugin required), you create a virtual output command to MQTT Gateway and connect this to the block output with rapid updates (e.g. "Current power"). Every change of this output directly sends the data to your
-        Stats4Lox statistic ("LiveUpdate"). For S4L, to match your <i>published data</i> &rarr; <i>Stats4Lox statistic</i>, the publish syntax listed below is required.
-    </p>
-    <a href="#" class="ui-btn ui-btn-inline ui-mini" onclick="hint_hide('hint_mqttliveupdate_intro');">Hide</a>
-</div>
+<p><TMPL_VAR MQTTLIVE.HINT_TEXT></p>
 
-<h3 class="popuptitle" style="margin:10px 0 0 0;">MQTT Live State</h4>
+<h3 class="popuptitle" style="margin:10px 0 0 0;"><TMPL_VAR MQTTLIVE.SECTION_STATE></h3>
 
     <div style="display:flex; flex-wrap:wrap; justify-content:space-evenly; border:1px solid gray;background-color:#f4f4f4;margin:0 0 10 0;">
         <div class="mqttlivestate">
-            <span class="small grayed">Topic</span><br>
+            <span class="small grayed"><TMPL_VAR MQTTLIVE.LABEL_TOPIC></span><br>
             <span id="mqttlivestate_broker_basetopic">&nbsp;</span>
         </div>
         <div class="mqttlivestate">
-            <span class="small grayed">Connected</span><br>
+            <span class="small grayed"><TMPL_VAR MQTTLIVE.LABEL_CONNECTED></span><br>
             <span id="mqttlivestate_broker_connected">&nbsp;</span>
         </div>
         <div class="mqttlivestate">
-            <span class="small grayed">Errors</span><br>
+            <span class="small grayed"><TMPL_VAR MQTTLIVE.LABEL_ERRORS></span><br>
             <span id="mqttlivestate_broker_error">&nbsp;</span>
         </div>
     </div>
 
-    <h3 class="popuptitle" style="margin:10px 0 0 0;">Received updates</h3>
+    <h3 class="popuptitle" style="margin:10px 0 0 0;"><TMPL_VAR MQTTLIVE.SECTION_RECEIVED></h3>
     <!-- Table -->
     <div id="mqttlivediv" style="margin:auto;">
 
 
     </div>
     <div style="margin:auto;width:95%">
-        <p class="bitsmall grayed"><i>The color gives you advice when the last message arrived ("the louder the latter")</i></p>
-        <a href="#" class="ui-btn ui-btn-inline ui-mini clearuidataButton">Clear Display</a>
+        <p class="bitsmall grayed"><i><TMPL_VAR MQTTLIVE.HINT_COLOR></i></p>
+        <a href="#" class="ui-btn ui-btn-inline ui-mini clearuidataButton"><TMPL_VAR MQTTLIVE.BUTTON_CLEAR></a>
     </div>
 
-    <h3 class="popuptitle" style="margin:10px 0 0 0;">MQTT Live All Available Update Topics</h4>
-        <a href="#" download="Stats4Lox-MQTT-Gateway.xml" class="ui-btn ui-btn-inline ui-mini createVirtualOutputTemplateButton">Create Virtual Output Template</a>
+    <h3 class="popuptitle" style="margin:10px 0 0 0;"><TMPL_VAR MQTTLIVE.SECTION_AVAILABLE></h3>
+        <a href="#" download="Stats4Lox-MQTT-Gateway.xml" class="ui-btn ui-btn-inline ui-mini createVirtualOutputTemplateButton"><TMPL_VAR MQTTLIVE.BUTTON_CREATE_TEMPLATE></a>
         <div id="availabletopicsdiv" style="margin:auto;">
 
 

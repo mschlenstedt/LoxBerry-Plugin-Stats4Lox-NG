@@ -13,6 +13,7 @@ $htmlhead .= '<script type="application/javascript" src="js/loxone_sub_navbar.js
 $htmlhead .= '<script type="application/javascript" src="js/settings_loxone.js"></script>';
 
 
+init_navbar_i18n();
 LoxBerry::Web::lbheader("Stats4Lox", undef, undef);
 
 my $template = HTML::Template->new(
@@ -21,6 +22,8 @@ my $template = HTML::Template->new(
     loop_context_vars => 1,
     die_on_bad_params => 0,
 );
+
+my %L = LoxBerry::System::readlanguage($template, "language.ini");
 
 my $lang = LoxBerry::System::lblanguage();
 $template->param( 'LOXONE_ELEMENTS', LoxBerry::System::read_file( "$lbptemplatedir/lang/loxelements_$lang.json" ) );

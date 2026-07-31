@@ -8,6 +8,7 @@ use FindBin qw($Bin);
 use lib "$Bin/../../../../bin/plugins/stats4lox/libs/";
 use Globals;
 
+init_navbar_i18n();
 LoxBerry::Web::lbheader("Stats4Lox", undef, undef);
 
 my $template = HTML::Template->new(
@@ -16,6 +17,8 @@ my $template = HTML::Template->new(
     loop_context_vars => 1,
     die_on_bad_params => 0,
 );
+
+my %L = LoxBerry::System::readlanguage($template, "language.ini");
 
 $template->param( 'GRAFANA_URL', "http://" . LoxBerry::System::get_localip() . ":" . $Globals::grafana->{port} );
 
