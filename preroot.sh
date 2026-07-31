@@ -93,23 +93,37 @@ killall /usr/bin/influxd
 # every REINSTALL of an already installed version - which is exactly what
 # LoxBerry does on every single plugin update.
 #
-# This has to be the FIRST thing we do, before any apt or dpkg call. Once the
-# package is stuck in "half-configured", dpkg refuses to carry out anything
-# else, so even "apt-get update" and "apt-get --fix-broken install" further
-# down fail and abort the installation before this point is ever reached.
+# Grafana's postinst runs TWICE during one plugin installation, and it recreates
+# the directory each time it succeeds. Moving it aside once is not enough:
+#
+#   1. we move it aside                                        -> gone
+#   2. "dpkg --configure -a" below repairs a package left over
+#      from an earlier run, its postinst succeeds              -> recreated
+#   3. LoxBerry reinstalls the packages from dpkg/apt, the
+#      postinst runs again and finds the target occupied       -> fails
+#
+# So this is done at the very beginning - before any apt or dpkg call, because
+# a package stuck in "half-configured" makes dpkg refuse everything else and
+# would abort the installation long before this point - and once more at the
+# very end of this script, immediately before LoxBerry installs the packages.
 #
 # Deliberately moved and not deleted: if the package step does not run at all,
 # postroot.sh puts it back, so the bundled plugins cannot get lost.
 # The target is read the way the postinst reads it - DATA_DIR comes from
 # /etc/default/grafana-server, which is a conffile and may have been changed.
-S4L_GRAFANA_DATA_DIR=$( . /etc/default/grafana-server 2>/dev/null; echo "$DATA_DIR" )
-[ -n "$S4L_GRAFANA_DATA_DIR" ] || S4L_GRAFANA_DATA_DIR=/var/lib/grafana
+s4l_grafana_bundled_aside() {
+	local datadir
+	datadir=$( . /etc/default/grafana-server 2>/dev/null; echo "$DATA_DIR" )
+	[ -n "$datadir" ] || datadir=/var/lib/grafana
 
-if [ -d "$S4L_GRAFANA_DATA_DIR/plugins-bundled" ]; then
-	echo "<INFO> Moving Grafana's plugins-bundled aside so its postinst can succeed (grafana/grafana#123110)."
-	rm -rf "$S4L_GRAFANA_DATA_DIR/plugins-bundled.stats4lox-bak"
-	mv "$S4L_GRAFANA_DATA_DIR/plugins-bundled" "$S4L_GRAFANA_DATA_DIR/plugins-bundled.stats4lox-bak"
-fi
+	if [ -d "$datadir/plugins-bundled" ]; then
+		echo "<INFO> Moving Grafana's plugins-bundled aside so its postinst can succeed (grafana/grafana#123110)."
+		rm -rf "$datadir/plugins-bundled.stats4lox-bak"
+		mv "$datadir/plugins-bundled" "$datadir/plugins-bundled.stats4lox-bak"
+	fi
+}
+
+s4l_grafana_bundled_aside
 
 # Check for old debian influx-client package (V1.6.4 - out of date) which we do not want anymore
 INFLUXCLIENT=`dpkg -s influxdb-client 2>/dev/null | grep -c "ok installed"`
@@ -297,5 +311,11 @@ if [ -d $PDATA ]; then
 	chown -R loxberry:loxberry $PCONFIG
 	chown -R loxberry:loxberry $PLOG
 fi
+
+# Second pass, see the note at the top of this script. Everything above may have
+# reconfigured the Grafana package and thereby recreated the directory. This is
+# the last thing that runs before LoxBerry installs the packages from dpkg/apt,
+# which is what triggers the postinst that trips over it.
+s4l_grafana_bundled_aside
 
 exit 0
