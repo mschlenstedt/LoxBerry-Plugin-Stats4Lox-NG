@@ -1,25 +1,4 @@
 <style>
-/* Hide the native radio and checkbox elements of the jQuery Mobile
-   controlgroups.
-
-   jQuery Mobile 1.4.5 only positions them - "position:absolute; left:50%" for a
-   horizontal controlgroup - and never hides them; that was the job of the
-   theme. LoxBerry 4 no longer does it: neither loxberry.css nor components.css
-   contains a rule for it any more, and the only remaining one is scoped to the
-   new .lb-btn-group class. The native control therefore stuck out from under
-   the button group as a small circle.
-
-   Same declarations LoxBerry uses for its own button groups. The controls stay
-   operable because every label carries a matching for attribute. */
-.ui-radio input,
-.ui-checkbox input {
-	position: absolute;
-	opacity: 0;
-	width: 0;
-	height: 0;
-	pointer-events: none;
-}
-
 .datahidden {
 	display:none;
 }
