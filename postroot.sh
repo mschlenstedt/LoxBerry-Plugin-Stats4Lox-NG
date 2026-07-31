@@ -106,6 +106,63 @@ s4l_service_error_detail() {
 	systemctl daemon-reload > /dev/null 2>&1
 }
 
+# Adds the two columns Grafana 13 expects in the legacy playlist table.
+#
+# Grafana 13 migrates the old playlist table into its new unified storage with
+# this query:
+#
+#   SELECT p.id, p.org_id, p.uid, p.name, p.interval,
+#          p.created_at, p.updated_at, pi.type, pi.value
+#   FROM playlist AS p LEFT OUTER JOIN playlist_item AS pi ON p.id = pi.playlist_id
+#
+# created_at and updated_at were never part of that table. No schema migration
+# in any Grafana version adds them - a fresh Grafana 13 does not create the
+# table at all any more - so every database carried over from an older Grafana
+# makes the server abort on startup:
+#
+#   Error: unable to start dualwrite service due to migration error:
+#   migration failed (id = playlists migration):
+#   SQL logic error: no such column: p.created_at (1)
+#
+# ALTER TABLE ADD COLUMN only appends, existing rows keep their data. INTEGER is
+# not a guess: with DATETIME the migration still fails, with INTEGER Grafana
+# starts - verified on a copy of a real database, with a playlist and a playlist
+# item in it.
+s4l_migrate_grafana_db() {
+	local db="$1"
+	local cols missing c
+
+	[ -f "$db" ] || return 0
+	if ! command -v sqlite3 > /dev/null 2>&1; then
+		echo "<WARNING> sqlite3 is not available - cannot check the Grafana database."
+		return 0
+	fi
+
+	# No legacy playlist table means nothing to migrate and Grafana skips it.
+	sqlite3 "$db" "SELECT name FROM sqlite_master WHERE type='table' AND name='playlist'" 2>/dev/null \
+		| grep -q playlist || return 0
+
+	cols=$(sqlite3 "$db" "PRAGMA table_info(playlist)" 2>/dev/null | cut -d'|' -f2)
+	missing=""
+	for c in created_at updated_at; do
+		echo "$cols" | grep -qx "$c" || missing="$missing $c"
+	done
+	[ -n "$missing" ] || return 0
+
+	echo "<INFO> Grafana database: playlist table is missing$missing, which Grafana 13 needs to start."
+	if cp -a "$db" "$db.before-stats4lox"; then
+		echo "<INFO> Kept a copy of the unmodified database as $(basename "$db").before-stats4lox"
+	fi
+	for c in $missing; do
+		if sqlite3 "$db" "ALTER TABLE playlist ADD COLUMN $c INTEGER NOT NULL DEFAULT 0" 2>&1; then
+			echo "<INFO>   added column $c"
+		else
+			echo "<WARNING>   could not add column $c - Grafana will probably not start"
+		fi
+	done
+	return 0
+}
+
 # Migrates Telegraf options that current Telegraf versions reject.
 #
 # This is required because an upgrade restores the previous configuration over
@@ -471,6 +528,10 @@ $PBIN/provisioning/set_dashboard_provider.pl
 
 # Correct permissions - influxdb must have write permissions to database folders
 echo "<INFO> Set permissions for user grafana for all config/data folders: $PDATA/grafana $PCONFIG/grafana"
+# Deliberately before the chown below: sqlite3 runs as root here and leaves
+# root-owned -wal/-journal files behind, which the chown then puts right.
+s4l_migrate_grafana_db "$PDATA/grafana/grafana.db"
+
 chown -R grafana:loxberry $PDATA/grafana
 chown -R grafana:loxberry $PCONFIG/grafana
 
