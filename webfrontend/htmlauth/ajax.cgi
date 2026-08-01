@@ -35,6 +35,16 @@ if( $q->{action} eq "getloxplan" ) {
 	
 	my $msno = $q->{msno};
 	LOGTITLE "getloxplan Miniserver $msno";
+
+	# Piggybacked on this request on purpose: it is the moment the user works
+	# with the block list, so that is when the element names should be current.
+	# LangUpdate throttles itself to one check a day and never fails hard - if
+	# GitHub cannot be reached, everything stays as it is.
+	eval {
+		require LangUpdate;
+		LangUpdate::update( log => $log );
+	};
+	LOGDEB "Language file check failed: $@" if( $@ );
 	
 	my %miniservers = LoxBerry::System::get_miniservers();
 	

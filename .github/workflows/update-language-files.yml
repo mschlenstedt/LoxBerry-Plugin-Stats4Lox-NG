@@ -1,0 +1,142 @@
+name: Update Loxone element language files
+
+# Regenerates templates/lang/loxelements_*.{json,ini} whenever Loxone publishes
+# a new Loxone Config.
+#
+# Why a Windows runner: the resources live inside LoxoneConfigSetup.exe, an Inno
+# Setup installer. No packaged Linux tool can currently unpack it - innoextract
+# 1.9, the current release, aborts with "Unexpected setup loader revision: 2",
+# and 7-Zip only sees the PE container. Running Loxone's own installer silently
+# is not a workaround but the robust path: it keeps working no matter which Inno
+# Setup version Loxone switches to next. Windows runners are free for public
+# repositories.
+#
+# The 530 MB are only downloaded when the version in Loxone's update XML differs
+# from the marker committed alongside the language files.
+
+on:
+  schedule:
+    # Once a day. Loxone publishes a few Config releases a year, so this is
+    # generous already; the expensive part is skipped unless the version moved.
+    - cron: '17 4 * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Rebuild even when the version is unchanged'
+        type: boolean
+        default: false
+  # Allows triggering from outside, e.g.
+  #   curl -X POST -H "Authorization: token <PAT>" \
+  #        -H "Accept: application/vnd.github+json" \
+  #        https://api.github.com/repos/<owner>/<repo>/dispatches \
+  #        -d '{"event_type":"loxone-config-released"}'
+  repository_dispatch:
+    types: [loxone-config-released]
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read the published Loxone Config version
+        id: check
+        shell: pwsh
+        run: |
+          $ProgressPreference = 'SilentlyContinue'
+          [xml]$xml = (Invoke-WebRequest -Uri 'https://update.loxone.com/updatecheck.xml' -UseBasicParsing).Content
+          # The top level <Release> is Loxone Config itself. The <update> nodes
+          # further down are the apps and have their own version numbers.
+          $rel = $xml.Miniserversoftware.Release
+          if( -not $rel.Version ) { throw 'No version found in updatecheck.xml' }
+
+          $marker = 'templates/lang/.loxone-config-version'
+          $known  = if( Test-Path $marker ) { (Get-Content $marker -Raw).Trim() } else { '' }
+
+          $force = '${{ github.event.inputs.force }}' -eq 'true'
+          Write-Host "published: $($rel.Version)   in the repository: $known   force: $force"
+
+          "version=$($rel.Version)"  | Out-File -Append $env:GITHUB_OUTPUT
+          "url=$($rel.Path)"         | Out-File -Append $env:GITHUB_OUTPUT
+          "size=$($rel.Filesize)"    | Out-File -Append $env:GITHUB_OUTPUT
+          if( $rel.Version -ne $known -or $force ) {
+            "run=yes" | Out-File -Append $env:GITHUB_OUTPUT
+          } else {
+            "run=no"  | Out-File -Append $env:GITHUB_OUTPUT
+            Write-Host 'Nothing to do.'
+          }
+
+      - name: Download and unpack Loxone Config
+        if: steps.check.outputs.run == 'yes'
+        shell: pwsh
+        run: |
+          $ProgressPreference = 'SilentlyContinue'
+          $url = '${{ steps.check.outputs.url }}'
+          Write-Host "downloading $url"
+          Invoke-WebRequest -Uri $url -OutFile setup.zip -UseBasicParsing
+
+          $expected = [int64]'${{ steps.check.outputs.size }}'
+          $actual   = (Get-Item setup.zip).Length
+          if( $expected -gt 0 -and $actual -ne $expected ) {
+            throw "Size mismatch: expected $expected, got $actual"
+          }
+          Expand-Archive -Path setup.zip -DestinationPath setup -Force
+          Remove-Item setup.zip
+
+      - name: Install silently
+        if: steps.check.outputs.run == 'yes'
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Path setup -Filter *.exe -Recurse | Select-Object -First 1
+          if( -not $exe ) { throw 'LoxoneConfigSetup.exe not found in the archive' }
+          $target = Join-Path $PWD 'loxconfig'
+          Write-Host "installing $($exe.FullName) to $target"
+          # Standard Inno Setup switches.
+          $p = Start-Process -FilePath $exe.FullName -Wait -PassThru `
+                 -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/NOICONS',"/DIR=$target"
+          Write-Host "exit code: $($p.ExitCode)"
+
+          $res = Get-ChildItem -Path $target -Filter 'tdc_*.LxRes' -Recurse -ErrorAction SilentlyContinue
+          if( -not $res ) {
+            # Some Inno installers place the payload elsewhere - look everywhere
+            # before giving up, and report what was actually installed.
+            Write-Host 'No tdc_*.LxRes below the target directory. Contents:'
+            Get-ChildItem -Path $target -Recurse -ErrorAction SilentlyContinue |
+              Select-Object -First 40 -ExpandProperty FullName
+            throw 'Language resources not found'
+          }
+          Write-Host "$($res.Count) resource files found"
+          "LXRES_DIR=$($res[0].DirectoryName)" | Out-File -Append $env:GITHUB_ENV
+
+      - name: Regenerate the language files
+        if: steps.check.outputs.run == 'yes'
+        shell: pwsh
+        run: |
+          perl -v
+          perl bin/create_element_langfiles.pl --src "$env:LXRES_DIR" --out templates/lang
+          '${{ steps.check.outputs.version }}' | Out-File -Encoding ascii -NoNewline templates/lang/.loxone-config-version
+
+      - name: Commit when something changed
+        if: steps.check.outputs.run == 'yes'
+        shell: bash
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add templates/lang
+          if git diff --cached --quiet; then
+            echo "Language files unchanged - nothing to commit."
+            exit 0
+          fi
+          git commit -m "Sprachdateien der Loxone-Elemente auf Loxone Config ${{ steps.check.outputs.version }} aktualisiert
+
+          Automatisch erzeugt aus den Ressourcen der Loxone Config
+          ${{ steps.check.outputs.version }}.
+
+          Installierte Plugins holen sich diese Dateien selbst, siehe
+          bin/libs/LangUpdate.pm - dafuer ist kein Plugin-Release noetig."
+          git push
