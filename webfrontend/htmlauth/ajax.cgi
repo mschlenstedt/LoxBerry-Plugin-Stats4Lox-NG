@@ -116,6 +116,17 @@ if( $q->{action} eq "getloxplan" ) {
 
 		} else {
 			LOGINF "Loxplan file is up-to-date. Using local copy";
+
+			# The lookup table for outputs that Loxone reports as a bare UUID is
+			# built while the LoxPLAN is being parsed - which does not happen
+			# when the configuration is unchanged. Without this an existing
+			# installation would never get the file, because after an upgrade the
+			# configuration is by definition up-to-date and the parse is skipped.
+			my $statenames = Loxone::ParseXML::stateNamesFile( $loxplanjson );
+			if( $statenames and ! -e $statenames ) {
+				LOGINF "Output name table is missing - creating it now";
+				Loxone::ParseXML::writeStateNames( msno => $msno, output => $loxplanjson, log => $log );
+			}
 		}
 
 		if( !$error ) {
