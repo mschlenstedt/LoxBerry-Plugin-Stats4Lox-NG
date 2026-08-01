@@ -13,9 +13,6 @@ my $template = HTML::Template->new(
 
 my %L = LoxBerry::System::readlanguage($template, "language.ini");
 
-our $htmlhead="";
-$htmlhead .= '<script type="application/javascript" src="js/s4l_navbar.js"></script>';
-
 # This page loads Globals with require rather than use, so the exported name
 # is not imported into main - the call needs its package name.
 Globals::init_navbar_i18n();

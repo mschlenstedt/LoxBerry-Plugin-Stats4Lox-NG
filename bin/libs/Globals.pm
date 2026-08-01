@@ -32,7 +32,11 @@ our %navbar = (
 			# only known after merge_config(), which runs further down in this
 			# file - after this definition.
 			URL => "",
-			s4l_external => 1
+			# The navbar does not use the anchor's target attribute at all - its
+			# click handler calls preventDefault() and then window.open(url,
+			# target), taking "target" from this structure. So this property is
+			# what actually opens Grafana in a new tab.
+			target => "_blank"
 	},
 	90 => {
 			Name => "Logfiles",
