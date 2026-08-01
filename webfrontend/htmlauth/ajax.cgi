@@ -125,7 +125,8 @@ if( $q->{action} eq "getloxplan" ) {
 			my $statenames = Loxone::ParseXML::stateNamesFile( $loxplanjson );
 			if( $statenames and ! -e $statenames ) {
 				LOGINF "Output name table is missing - creating it now";
-				Loxone::ParseXML::writeStateNames( msno => $msno, output => $loxplanjson, log => $log );
+				Loxone::ParseXML::writeStateNames( msno => $msno, output => $loxplanjson,
+				                                   loxplan => $Loxplanfile, log => $log );
 			}
 		}
 

@@ -490,7 +490,8 @@ sub loxplan2json
 
 	$log->OK("loxplan2json: $args{output} written") if ($log);
 
-	writeStateNames( msno => $args{msno}, output => $args{output}, log => $log );
+	writeStateNames( msno => $args{msno}, output => $args{output},
+	                 loxplan => $args{filename}, log => $log );
 
 	return 1;
 
@@ -557,6 +558,9 @@ sub writeStateNames
 		return;
 	}
 
+	my $direct = scalar( keys %names );
+	my $filled = propagateStateNames( $args{loxplan}, \%names, $log );
+
 	if( !%names ) {
 		$log->DEB("writeStateNames: LoxAPP3.json contained no resolvable names") if ($log);
 		return;
@@ -575,8 +579,91 @@ sub writeStateNames
 		return;
 	}
 
-	$log->OK("writeStateNames: " . scalar(keys %names) . " output names resolved and written to $target") if ($log);
+	$log->OK("writeStateNames: " . scalar(keys %names) . " output names written to $target"
+	         . " ($direct from LoxAPP3, $filled by position)") if ($log);
 	return 1;
+}
+
+#############################################################################
+# Fills the gaps by carrying names over between blocks of the same type
+#############################################################################
+# LoxAPP3 only names the states that the Loxone app itself displays. Measured on
+# the test installation: 174 blocks have such outputs, 864 in total, and 336 of
+# them stay without a name.
+#
+# The LoxPLAN closes part of that gap. Every block that has these outputs
+# carries them in an attribute, in exactly the order in which the Miniserver
+# reports them as SpecialState0, SpecialState1, ...:
+#
+#   <C Type="MusicPlayer" Title="Poolbereich" SpStates="uuid,uuid,uuid,..." >
+#
+# Position N of a given block type always means the same thing. That is not an
+# assumption: across all 100 (type, position) pairs for which LoxAPP3 supplies a
+# name, there is not a single case where two blocks of the same type disagree.
+# So a name found on one block can be carried over to the same position of every
+# other block of that type, which resolves another 68 outputs.
+#
+# Deliberately generic - no block type is named anywhere. A type Loxone
+# introduces tomorrow profits from this without a code change, as soon as ONE of
+# its instances has a state that the app names.
+
+sub propagateStateNames
+{
+	my ($loxplanfile, $names, $log) = @_;
+	return 0 if( !$loxplanfile or ! -e $loxplanfile );
+
+	my $xml;
+	eval {
+		open( my $fh, '<:raw', $loxplanfile ) or die "$!\n";
+		local $/;
+		$xml = <$fh>;
+		close $fh;
+	};
+	if( $@ or !defined $xml ) {
+		$log->DEB("propagateStateNames: could not read $loxplanfile ($@)") if ($log);
+		return 0;
+	}
+
+	# type -> position -> name, plus the list of blocks for the second pass
+	my (%bypos, @blocks);
+	while( $xml =~ m{<C\b([^>]*\bSpStates="[^"]+"[^>]*)>}gs ) {
+		my $attrs = $1;
+		my ($type)   = $attrs =~ m{\bType="([^"]*)"};
+		my ($states) = $attrs =~ m{\bSpStates="([^"]*)"};
+		next if( !defined $type or !defined $states );
+
+		my @uuids = grep { length } split( /,/, $states );
+		next if( !@uuids );
+		push @blocks, [ $type, \@uuids ];
+
+		for my $i ( 0 .. $#uuids ) {
+			my $known = $names->{ lc($uuids[$i]) };
+			next if( !defined $known or $known eq '' );
+			# A contradiction would mean the assumption does not hold for this
+			# type - then we rather leave the position alone than guess.
+			if( exists $bypos{$type}{$i} and $bypos{$type}{$i} ne $known ) {
+				$bypos{$type}{$i} = undef;
+				next;
+			}
+			$bypos{$type}{$i} = $known if( !exists $bypos{$type}{$i} );
+		}
+	}
+
+	my $filled = 0;
+	foreach my $b ( @blocks ) {
+		my ($type, $uuids) = @$b;
+		for my $i ( 0 .. $#{$uuids} ) {
+			my $key = lc( $uuids->[$i] );
+			next if( exists $names->{$key} );
+			my $cand = $bypos{$type}{$i};
+			next if( !defined $cand or $cand eq '' );
+			$names->{$key} = $cand;
+			$filled++;
+		}
+	}
+
+	$log->DEB("propagateStateNames: $filled further names carried over between blocks of the same type") if ($log);
+	return $filled;
 }
 
 # ms1.json -> ms1_statenames.json

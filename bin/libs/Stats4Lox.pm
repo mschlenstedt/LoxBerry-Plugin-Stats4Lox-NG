@@ -154,7 +154,7 @@ sub msget_value
 		# Loxone does not name these outputs, it only sends their UUID. Left as
 		# it was, that UUID ended up in the import dialog AND as the field name
 		# in InfluxDB - see state_name().
-		$ssdata{Name} = state_name( $msnr, $ssuuid );
+		$ssdata{Name} = state_name( $msnr, $ssuuid, "SpecialState$i" );
 		$ssdata{Uuid} = $ssuuid;
 		$ssdata{Key} = "SpecialState$i";
 		$ssdata{Nr} = $respjson->{LL}->{"SpecialState$i"}->{nr};
@@ -190,11 +190,19 @@ my %statenames_mtime;
 
 sub state_name
 {
-	my ($msnr, $uuid) = @_;
-	return $uuid if( !defined $uuid or $uuid eq '' or !defined $msnr );
+	my ($msnr, $uuid, $fallback) = @_;
+
+	# Never hand back a UUID. Where no name can be found - measured: 268 of 864
+	# such outputs have none anywhere, neither in LoxAPP3 nor in the LoxPLAN -
+	# the key is used instead. "SpecialState7" says at least which output it is,
+	# stays the same across runs and is usable as a field name in InfluxDB. A
+	# UUID is worse in every one of those respects.
+	$fallback = $uuid if( !defined $fallback or $fallback eq '' );
+
+	return $fallback if( !defined $uuid or $uuid eq '' or !defined $msnr );
 
 	my $dir = eval { $Globals::stats4lox->{loxplanjsondir} };
-	return $uuid if( !$dir );
+	return $fallback if( !$dir );
 
 	my $file  = "$dir/ms${msnr}_statenames.json";
 	my $mtime = (stat($file))[9] || 0;
@@ -217,7 +225,7 @@ sub state_name
 	}
 
 	my $name = $statenames{$msnr}->{ lc($uuid) };
-	return ( defined $name and $name ne '' ) ? $name : $uuid;
+	return ( defined $name and $name ne '' ) ? $name : $fallback;
 }
 
 #####################################################
