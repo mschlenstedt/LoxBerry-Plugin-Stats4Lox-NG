@@ -149,8 +149,13 @@ sub msget_value
 	while ($respjson->{LL}->{"SpecialState$i"}) {
 
 		my %ssdata;
+		my $ssuuid = $respjson->{LL}->{"SpecialState$i"}->{uuid};
 		$ssdata{Value} = $respjson->{LL}->{"SpecialState$i"}->{value};
-		$ssdata{Name} = $respjson->{LL}->{"SpecialState$i"}->{uuid};
+		# Loxone does not name these outputs, it only sends their UUID. Left as
+		# it was, that UUID ended up in the import dialog AND as the field name
+		# in InfluxDB - see state_name().
+		$ssdata{Name} = state_name( $msnr, $ssuuid );
+		$ssdata{Uuid} = $ssuuid;
 		$ssdata{Key} = "SpecialState$i";
 		$ssdata{Nr} = $respjson->{LL}->{"SpecialState$i"}->{nr};
 		push (@response, \%ssdata);
@@ -161,6 +166,58 @@ sub msget_value
 	print STDERR "Response of subroutine:\n" . Data::Dumper::Dumper(\@response) . "\n" if ($DUMP);
 
 	return ($resp_code, \@response);
+}
+
+#####################################################
+# Readable name for an output that Loxone reports as a bare UUID
+#####################################################
+# Blocks with a variable number of outputs - EFM, Wallbox2, SpotPriceOptimizer -
+# report those under SpecialState0, SpecialState1, ... and send no name for
+# them, only a UUID. Measured on a live installation that is 16 of the 66
+# outputs of those three blocks.
+#
+# The resolution comes from LoxAPP3.json and is prepared once while the Loxone
+# configuration is being fetched, see Loxone::ParseXML::writeStateNames(). We
+# only read the resulting sidecar file here: this function also runs in the
+# grabber, once per statistic per minute, and must stay cheap.
+#
+# The file content is cached per process and re-read when its mtime changes, so
+# a fresh configuration takes effect without a restart. If the file is missing
+# the UUID is returned unchanged - exactly the previous behaviour.
+
+my %statenames;
+my %statenames_mtime;
+
+sub state_name
+{
+	my ($msnr, $uuid) = @_;
+	return $uuid if( !defined $uuid or $uuid eq '' or !defined $msnr );
+
+	my $dir = eval { $Globals::stats4lox->{loxplanjsondir} };
+	return $uuid if( !$dir );
+
+	my $file  = "$dir/ms${msnr}_statenames.json";
+	my $mtime = (stat($file))[9] || 0;
+
+	if( !exists $statenames{$msnr} or ($statenames_mtime{$msnr} // -1) != $mtime ) {
+		$statenames{$msnr} = {};
+		$statenames_mtime{$msnr} = $mtime;
+		if( $mtime ) {
+			eval {
+				open( my $fh, '<', $file ) or die "$!\n";
+				local $/;
+				my $content = <$fh>;
+				close($fh);
+				$statenames{$msnr} = JSON::decode_json( $content );
+			};
+			# A broken sidecar must never take the grabber down - it only means
+			# the UUIDs stay unresolved.
+			$statenames{$msnr} = {} if( $@ or ref($statenames{$msnr}) ne 'HASH' );
+		}
+	}
+
+	my $name = $statenames{$msnr}->{ lc($uuid) };
+	return ( defined $name and $name ne '' ) ? $name : $uuid;
 }
 
 #####################################################

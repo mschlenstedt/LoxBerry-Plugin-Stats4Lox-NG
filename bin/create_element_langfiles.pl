@@ -104,6 +104,22 @@ sub unpack_lxres {
     # strip a UTF-8 BOM
     my $BOM = chr(0xef).chr(0xbb).chr(0xbf);
     $content = substr($content, 3) if( substr($content,0,3) eq $BOM );
+
+    # Decode to characters.
+    #
+    # Without this the resource stays a byte string, and everything downstream
+    # goes wrong twice over:
+    #
+    #   1. JSON::PP->utf8->encode() encodes those bytes a SECOND time when the
+    #      file is written. "ü" (C3 BC) turned into "Ã¼" (C3 83 C2 BC), which is
+    #      what users saw in the web interface as "Berechnung stÃ¼ndlich".
+    #   2. cleantext() cuts overlong descriptions with substr(..., 0, 250).
+    #      On bytes that cuts in the middle of a multi byte character and
+    #      leaves a dangling first byte behind - an unrepairable string.
+    #
+    # With characters, substr counts characters and can no longer split one.
+    require Encode;
+    $content = Encode::decode( 'UTF-8', $content );
     return $content;
 }
 
@@ -282,8 +298,12 @@ foreach my $file ( @files ) {
     close $jf;
 
     # .ini (element names only, as before)
+    #
+    # Written through an encoding layer, not raw: the names are character
+    # strings now. Written raw they would come out as latin-1, which is exactly
+    # how the shipped .ini files became invalid UTF-8.
     my $inifile = "$out/loxelements_$lang.ini";
-    open( my $inf, '>:raw', $inifile ) or die "$inifile: $!";
+    open( my $inf, '>:encoding(UTF-8)', $inifile ) or die "$inifile: $!";
     print $inf "[ELEMENTS]\n";
     foreach my $key ( sort keys %{$existing} ) {
         my $n = $existing->{$key}->{localname};

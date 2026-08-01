@@ -103,6 +103,7 @@ if( $q->{action} eq "getloxplan" ) {
 				LOGOK "Loxplan for MS$msno found, parsing now...";
 				my $loxplan = Loxone::ParseXML::loxplan2json(
 					filename => $Loxplanfile,
+					msno => $msno,
 					output => $loxplanjson,
 					log => $log,
 					remoteTimestamp => $remoteTimestamp,

@@ -489,8 +489,146 @@ sub loxplan2json
 	}
 
 	$log->OK("loxplan2json: $args{output} written") if ($log);
+
+	writeStateNames( msno => $args{msno}, output => $args{output}, log => $log );
+
 	return 1;
 
+}
+
+#############################################################################
+# Builds the lookup table for output names that the Miniserver reports as a
+# bare UUID.
+#############################################################################
+# Some blocks have a variable number of outputs - one per connected device -
+# and Loxone does not give those a name. /jdev/sps/io/<uuid>/all reports them
+# under the keys SpecialState0, SpecialState1, ... with the UUID as their name:
+#
+#   output6         Pd                                      75.338
+#   SpecialState0   1d196a44-0066-124a-ffffe3220fbb8056       0.427
+#
+# Measured on a live installation, this affects EFM, Wallbox2 and
+# SpotPriceOptimizer - 16 of 66 outputs of those three blocks. The UUID is not
+# only shown in the import dialog, the grabber also uses it as the field name in
+# InfluxDB, so it ends up in the data itself.
+#
+# LoxAPP3.json can resolve them, in two ways:
+#
+#   controls.<u>.states.<name> = <uuid>       -> the state name, e.g. pricePerkWh
+#   controls.<u>.details ... { title, <uuid> } -> the title, e.g. "Batteriespeicher"
+#
+# Both are collected here, once, while the configuration is being fetched, and
+# written next to ms<n>.json as a small sidecar. The grabber runs every minute
+# and must not read the 700 KB ms<n>.json, let alone fetch LoxAPP3 itself.
+#
+# A failure is not fatal: without the file everything behaves as before.
+
+sub writeStateNames
+{
+	my %args = @_;
+	my $log = $args{log};
+	my $msno = $args{msno};
+
+	if( !defined $msno or $msno eq "" ) {
+		$log->DEB("writeStateNames: no Miniserver number given - skipped") if ($log);
+		return;
+	}
+
+	my $target = stateNamesFile( $args{output} );
+	return if( !$target );
+
+	my %names;
+	eval {
+		require LoxBerry::IO;
+		my ($raw, $status) = LoxBerry::IO::mshttp_call2( $msno, "/data/LoxAPP3.json" );
+		die "HTTP " . ($status->{code} // '?') . "\n" if( !$raw or ($status->{code} // '') ne "200" );
+		my $app = JSON->new->decode( $raw );
+
+		foreach my $ctrl ( values %{ $app->{controls} || {} } ) {
+			collectStateNames( $ctrl, \%names );
+			foreach my $sub ( values %{ $ctrl->{subControls} || {} } ) {
+				collectStateNames( $sub, \%names );
+			}
+		}
+	};
+	if( $@ ) {
+		$log->WARN("writeStateNames: could not read LoxAPP3.json from MS$msno ($@) - "
+		           . "outputs without a name will keep showing their UUID") if ($log);
+		return;
+	}
+
+	if( !%names ) {
+		$log->DEB("writeStateNames: LoxAPP3.json contained no resolvable names") if ($log);
+		return;
+	}
+
+	my $tmpfile = "$target.tmp.$$";
+	eval {
+		open( my $fh, '>', $tmpfile ) or die "Could not open $tmpfile: $!\n";
+		print {$fh} JSON->new->canonical(1)->encode( \%names ) or die "Could not write $tmpfile: $!\n";
+		close($fh) or die "Could not close $tmpfile: $!\n";
+		rename( $tmpfile, $target ) or die "Could not rename $tmpfile: $!\n";
+	};
+	if( $@ ) {
+		unlink $tmpfile;
+		$log->WARN("writeStateNames: could not write $target: $@") if ($log);
+		return;
+	}
+
+	$log->OK("writeStateNames: " . scalar(keys %names) . " output names resolved and written to $target") if ($log);
+	return 1;
+}
+
+# ms1.json -> ms1_statenames.json
+sub stateNamesFile
+{
+	my ($loxplanjson) = @_;
+	return undef if( !defined $loxplanjson or $loxplanjson eq "" );
+	my $f = $loxplanjson;
+	return $f =~ s/\.json$//r . "_statenames.json";
+}
+
+# Collects both resolution paths for one control into %$names.
+sub collectStateNames
+{
+	my ($ctrl, $names) = @_;
+	return if( ref($ctrl) ne 'HASH' );
+
+	# 1. states: the key is the name, the value is the UUID the Miniserver
+	#    reports. Used by Wallbox2 and SpotPriceOptimizer.
+	my $states = $ctrl->{states};
+	if( ref($states) eq 'HASH' ) {
+		foreach my $name ( keys %$states ) {
+			my $v = $states->{$name};
+			next if( ref($v) or !defined $v or $v !~ /^[0-9a-f-]{30,}$/i );
+			$names->{ lc($v) } = $name if( !exists $names->{ lc($v) } );
+		}
+	}
+
+	# 2. details.nodes: the EFM lists one node per connected device, and its
+	#    title is what a user actually wants to read. Allowed to overwrite a
+	#    name from 1, because "Batteriespeicher" beats "actual2".
+	#
+	#    Deliberately only the TOP level of the array, and deliberately not a
+	#    recursive search for anything that looks like a UUID next to a title.
+	#    A node of type Group carries child nodes, and a child may repeat the
+	#    actualEfmState of a sibling: on the test installation nodes[4] is
+	#    "Wallbox" and nodes[5].nodes[0] is "Pool" with the very same UUID. A
+	#    recursive walk let the child win and named the output "Pool". The top
+	#    level is the authoritative one - its entries correspond one to one to
+	#    the SpecialState outputs, six nodes for six outputs.
+	my $nodes = $ctrl->{details}->{nodes};
+	if( ref($nodes) eq 'ARRAY' ) {
+		foreach my $n ( @$nodes ) {
+			next if( ref($n) ne 'HASH' );
+			my $uuid  = $n->{actualEfmState};
+			my $title = $n->{title};
+			next if( ref($uuid) or !defined $uuid or $uuid !~ /^[0-9a-f-]{30,}$/i );
+			next if( ref($title) or !defined $title or $title eq '' );
+			$names->{ lc($uuid) } = $title;
+		}
+	}
+	return;
 }
 
 #############################################################################

@@ -676,6 +676,23 @@ sub deriveMapping
 		return;
 	}
 
+	# Reading only "statistic" and not "statisticV2" is deliberate, even though
+	# on a current installation 20 of 23 blocks with statistics carry only the V2
+	# key. Measured, not assumed:
+	#
+	#   3 blocks   statistic     -> classic file <uuid>.<YYYYMM>.xml, needs this
+	#                               mapping to name its columns
+	#  20 blocks   statisticV2   -> only group files <uuid>_<n>.<YYYYMM>.xml,
+	#                               which name their own columns in the Outputs
+	#                               attribute, so no mapping is needed - see
+	#                               submitData()
+	#   0 blocks   statisticV2 WITH a classic file - the only combination that
+	#                               would need a V2 mapping does not occur
+	#
+	# Should Loxone ever ship that combination, this is the place to extend:
+	# statisticV2.groups[].dataPoints[].output already holds the connector key
+	# directly, so no resolution via connector uuids would be required.
+	#
 	# LoxAPP3 keys are the control uuids, but not necessarily in the same case
 	my $stat;
 	foreach my $k ( keys %{ $app->{controls} || {} } ) {
