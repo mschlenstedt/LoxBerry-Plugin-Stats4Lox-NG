@@ -16,9 +16,9 @@ name: Update Loxone element language files
 
 on:
   schedule:
-    # Once a day. Loxone publishes a few Config releases a year, so this is
-    # generous already; the expensive part is skipped unless the version moved.
-    - cron: '17 4 * * *'
+    # Once a week, sundays. Loxone publishes a few Config releases a year, and
+    # the expensive part is skipped unless the version actually moved.
+    - cron: '17 4 * * 0'
   workflow_dispatch:
     inputs:
       force:
@@ -52,8 +52,14 @@ jobs:
           [xml]$xml = (Invoke-WebRequest -Uri 'https://update.loxone.com/updatecheck.xml' -UseBasicParsing).Content
           # The top level <Release> is Loxone Config itself. The <update> nodes
           # further down are the apps and have their own version numbers.
+          # ONLY <Release>. The document also carries <Beta> and <Test> - at the
+          # time of writing Test was already 17.1.07.31 while Release was
+          # 17.1.07.27 - and those must never end up in the plugin.
           $rel = $xml.Miniserversoftware.Release
           if( -not $rel.Version ) { throw 'No version found in updatecheck.xml' }
+          if( $rel.Path -notmatch 'LoxConfig/LoxoneConfigSetup_' ) {
+            throw "Unexpected download path for the release: $($rel.Path)"
+          }
 
           $marker = 'templates/lang/.loxone-config-version'
           $known  = if( Test-Path $marker ) { (Get-Content $marker -Raw).Trim() } else { '' }
