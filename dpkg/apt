@@ -3,4 +3,3 @@ telegraf
 grafana
 libtoml-parser-perl
 sqlite3
-jq

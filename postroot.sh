@@ -418,28 +418,46 @@ systemctl daemon-reload
 echo "<INFO> Applying the service logging setting..."
 s4l_servicelog=$(jq -r '.stats4lox.servicelogging // "False"' "$PCONFIG/stats4lox.json" 2>/dev/null)
 case "${s4l_servicelog,,}" in
-	true|yes|on|1|enabled)
-		echo "<INFO>   Diagnostic logging is ENABLED - services log to $PLOG"
-		chmod 0775 "$PLOG" 2>/dev/null
-		for s4l_pair in "influxdb:influxdb" "telegraf:telegraf" "grafana-server:grafana"; do
-			s4l_svc=${s4l_pair%%:*}
-			s4l_user=${s4l_pair#*:}
-			case "$s4l_svc" in
-				grafana-server) s4l_file="$PCONFIG/systemd/00-stats4lox-grafana.conf" ;;
-				*)              s4l_file="$PCONFIG/systemd/00-stats4lox-$s4l_svc.conf" ;;
-			esac
-			printf '# Written by Stats4Lox - do not edit, use the switch under Settings\n[Service]\nStandardOutput=append:%s/%s.log\nStandardError=append:%s/%s.log\n' \
-				"$PLOG" "$s4l_svc" "$PLOG" "$s4l_svc" > "$s4l_file"
-			touch "$PLOG/$s4l_svc.log"
-			chown "$s4l_user:loxberry" "$PLOG/$s4l_svc.log" 2>/dev/null
-			chmod 0644 "$PLOG/$s4l_svc.log" 2>/dev/null
-		done
-		systemctl daemon-reload
-		;;
-	*)
-		echo "<INFO>   Diagnostic logging is disabled - service output goes to /dev/null"
-		;;
+	true|yes|on|1|enabled) s4l_logon=1 ;;
+	*)                     s4l_logon=0 ;;
 esac
+
+if [ "$s4l_logon" = "1" ]; then
+	echo "<INFO>   Diagnostic logging is ENABLED - the services log to $PLOG"
+	chmod 0775 "$PLOG" 2>/dev/null
+else
+	echo "<INFO>   Diagnostic logging is disabled - service output goes to /dev/null"
+fi
+
+for s4l_pair in "influxdb:influxdb" "telegraf:telegraf" "grafana-server:grafana"; do
+	s4l_svc=${s4l_pair%%:*}
+	s4l_user=${s4l_pair#*:}
+	case "$s4l_svc" in
+		grafana-server) s4l_file="$PCONFIG/systemd/00-stats4lox-grafana.conf" ;;
+		*)              s4l_file="$PCONFIG/systemd/00-stats4lox-$s4l_svc.conf" ;;
+	esac
+	# Rebuilt from scratch rather than patched. These files are managed by the
+	# plugin, not by the user, and an upgrade restores the user's copy over the
+	# shipped one - so a drop-in damaged by an earlier version would survive
+	# forever. Rebuilding also repairs the InfluxDB drop-in, which lost its
+	# ExecStart override once and made the service fall back to the packaged
+	# start script without anything looking wrong.
+	printf '# Written by Stats4Lox - do not edit, use the switch under Settings\n[Service]\n' > "$s4l_file.s4lnew"
+	if [ "$s4l_svc" = "influxdb" ]; then
+		printf 'ExecStart=\nExecStart=%s/startinflux.sh\n' "$PBIN" >> "$s4l_file.s4lnew"
+	fi
+	if [ "$s4l_logon" = "1" ]; then
+		printf 'StandardOutput=append:%s/%s.log\nStandardError=append:%s/%s.log\n' \
+			"$PLOG" "$s4l_svc" "$PLOG" "$s4l_svc" >> "$s4l_file.s4lnew"
+		touch "$PLOG/$s4l_svc.log"
+		chown "$s4l_user:loxberry" "$PLOG/$s4l_svc.log" 2>/dev/null
+		chmod 0644 "$PLOG/$s4l_svc.log" 2>/dev/null
+	else
+		printf 'StandardOutput=null\nStandardError=null\n' >> "$s4l_file.s4lnew"
+	fi
+	mv "$s4l_file.s4lnew" "$s4l_file"
+done
+systemctl daemon-reload
 
 # Activate InfluxDB service and start
 echo "<INFO> Starting InfluxDB..."

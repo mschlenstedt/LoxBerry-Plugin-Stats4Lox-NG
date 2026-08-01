@@ -164,6 +164,11 @@ sub servicelogconfig {
 	&updatestatus("servicelog", "errors", 0);
 	&updatestatus("servicelog", "message", "Applying the service logging setting.");
 
+	# $s4lcfg is only filled by this call. influxconfig() gets it as a side
+	# effect of checkchanges(); leaving it out here meant the setting always
+	# read as undefined and the switch never did anything.
+	&reads4lconfig();
+
 	my $enabled = LoxBerry::System::is_enabled( $s4lcfg->{stats4lox}->{servicelogging} ) ? 1 : 0;
 	LOGINF "Diagnostic logging of the services is " . ( $enabled ? "ENABLED" : "disabled" );
 
@@ -189,7 +194,18 @@ sub servicelogconfig {
 		my ($file, $user) = @{ $services{$svc} };
 		my $logfile = "$logdir/$svc.log";
 
-		my $content = "# Written by Stats4Lox - do not edit, use the switch under Settings\n[Service]\n";
+		my $old = '';
+		if( open( my $fh, '<', $file ) ) { local $/; $old = <$fh>; close $fh; }
+
+		# Only the two Standard* lines may be touched. The InfluxDB drop-in also
+		# carries the ExecStart override that points at startinflux.sh - writing
+		# the file from scratch dropped it, and the service silently fell back
+		# to the packaged start script.
+		my @keep = grep { !/^\s*Standard(Output|Error)\s*=/ } split( /\n/, $old, -1 );
+		pop @keep while( @keep and $keep[-1] =~ /^\s*$/ );
+		push @keep, "[Service]" if( !grep { /^\s*\[Service\]\s*$/ } @keep );
+
+		my $content = join( "\n", @keep ) . "\n";
 		if( $enabled ) {
 			$content .= "StandardOutput=append:$logfile\nStandardError=append:$logfile\n";
 		}
@@ -197,8 +213,6 @@ sub servicelogconfig {
 			$content .= "StandardOutput=null\nStandardError=null\n";
 		}
 
-		my $old = '';
-		if( open( my $fh, '<', $file ) ) { local $/; $old = <$fh>; close $fh; }
 		next if( $old eq $content );
 
 		if( !open( my $out, '>', $file ) ) {
