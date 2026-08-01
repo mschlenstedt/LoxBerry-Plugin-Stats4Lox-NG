@@ -13,7 +13,9 @@ my $template = HTML::Template->new(
 
 my %L = LoxBerry::System::readlanguage($template, "language.ini");
 
-Globals::init_navbar_i18n();
+Globals::our ="";
+ .= '<script type="application/javascript" src="js/s4l_navbar.js"></script>';
+init_navbar_i18n();
 # The help link pointed at https://loxwiki.eu, which Loxone has retired. This
 # was the only page passing a help url at all - every other page passes undef,
 # so no dead link is shown anywhere now (issue #144).

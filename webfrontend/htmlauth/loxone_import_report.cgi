@@ -9,11 +9,11 @@ use lib "$Bin/../../../../bin/plugins/stats4lox/libs/";
 use Globals;
 
 our $htmlhead="";
+$htmlhead .= '<script type="application/javascript" src="js/s4l_navbar.js"></script>';
 $htmlhead .= '<script type="application/javascript" src="js/loxone_sub_navbar.js"></script>';
 $htmlhead .= '<script type="application/javascript" src="js/loxone_import_report.js"></script>';
 
 $main::navbar{10}{active} = 1;
-
 
 init_navbar_i18n();
 LoxBerry::Web::lbheader("Import Report - LoxBerry Stats4Lox", undef, undef);

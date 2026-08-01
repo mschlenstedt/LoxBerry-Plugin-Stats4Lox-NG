@@ -10,11 +10,11 @@ use lib "$Bin/../../../../bin/plugins/stats4lox/libs/";
 use Globals;
 
 our $htmlhead="";
-$htmlhead .= '<script type="application/javascript" src="js/loxone_sub_navbar.js"></script>';
+$htmlhead .= '<script type="application/javascript" src="js/s4l_navbar.js"></script>';
+$htmlhead .= '<script type="application/javascript" src="js/datasources_sub_navbar.js"></script>';
 $htmlhead .= '<script type="application/javascript" src="js/mqttlive_loxone.js"></script>';
 
-$main::navbar{10}{active} = 1;
-
+$main::navbar{20}{active} = 1;
 
 init_navbar_i18n();
 LoxBerry::Web::lbheader("Stats4Lox", undef, undef);
@@ -34,7 +34,6 @@ $template->param( 'MQTTLIVEDATA', LoxBerry::System::read_file( "$Globals::stats4
 $template->param( 'STATSJSON', LoxBerry::System::read_file( "$lbpconfigdir/stats.json" ) );
 $template->param( 'MQTTGATEWAY_HOSTNAME',  lbhostname() );
 $template->param( 'MQTTGATEWAY_UDPINPORT', $mqttcred->{udpinport} );
-
 
 print $template->output();
 

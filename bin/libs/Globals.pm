@@ -3,6 +3,12 @@ use LoxBerry::System;
 use LoxBerry::JSON;
 
 # NAVBAR definition (in scope main) - English defaults, translated by init_navbar_i18n()
+#
+# The Grafana entry links straight into Grafana's own web interface instead of
+# going through a page of our own. That page existed, but its only live content
+# was a button doing exactly this - everything else in it had been commented out
+# as unfinished. js/s4l_navbar.js makes the entry open in a new tab; the
+# LoxBerry navbar has no target attribute of its own.
 our %navbar = (
 	1 => {
 			Name => "Home",
@@ -12,16 +18,24 @@ our %navbar = (
 			Name => "Loxone and Import",
 			URL => "main_loxone.cgi"
 	},
+	20 => {
+			Name => "Data Sources",
+			URL => "input_mqtt.cgi"
+	},
 	30 => {
-			Name => "Inputs / Outputs",
+			Name => "Database",
 			URL => "output_influx.cgi"
 	},
 	40 => {
-			Name => "Chart Engines",
-			URL => "chartengines.cgi"
+			Name => "Grafana",
+			# The real URL is set in init_navbar_i18n(): the configured port is
+			# only known after merge_config(), which runs further down in this
+			# file - after this definition.
+			URL => "",
+			s4l_external => 1
 	},
 	90 => {
-			Name => "Logs",
+			Name => "Logfiles",
 			URL => "logs.cgi"
 	}
 );
@@ -127,9 +141,20 @@ sub init_navbar_i18n
 	my %L = LoxBerry::System::readlanguage(undef, "language.ini");
 	$main::navbar{1}{Name} = $L{'NAVBAR.NAV_HOME'} if $L{'NAVBAR.NAV_HOME'};
 	$main::navbar{10}{Name} = $L{'NAVBAR.NAV_LOXONE_IMPORT'} if $L{'NAVBAR.NAV_LOXONE_IMPORT'};
-	$main::navbar{30}{Name} = $L{'NAVBAR.NAV_INPUTS_OUTPUTS'} if $L{'NAVBAR.NAV_INPUTS_OUTPUTS'};
-	$main::navbar{40}{Name} = $L{'NAVBAR.NAV_CHART_ENGINES'} if $L{'NAVBAR.NAV_CHART_ENGINES'};
+	$main::navbar{20}{Name} = $L{'NAVBAR.NAV_DATASOURCES'} if $L{'NAVBAR.NAV_DATASOURCES'};
+	$main::navbar{30}{Name} = $L{'NAVBAR.NAV_DATABASE'} if $L{'NAVBAR.NAV_DATABASE'};
+	$main::navbar{40}{Name} = $L{'NAVBAR.NAV_GRAFANA'} if $L{'NAVBAR.NAV_GRAFANA'};
 	$main::navbar{90}{Name} = $L{'NAVBAR.NAV_LOGS'} if $L{'NAVBAR.NAV_LOGS'};
+
+	# Grafana runs on its own port, so the link needs the host name the browser
+	# is currently talking to - not a name only the LoxBerry itself can resolve.
+	# Filled in here and not in the definition above because merge_config(),
+	# which supplies the configured port, only runs after it.
+	my $port = ( $Globals::grafana && $Globals::grafana->{port} ) ? $Globals::grafana->{port} : 3000;
+	my $host = $ENV{HTTP_HOST} // '';
+	$host =~ s/:\d+$//;
+	$host = LoxBerry::System::get_localip() if( $host eq '' );
+	$main::navbar{40}{URL} = "http://$host:$port";
 }
 
 

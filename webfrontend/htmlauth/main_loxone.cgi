@@ -9,9 +9,9 @@ use lib "$Bin/../../../../bin/plugins/stats4lox/libs/";
 use Globals;
 
 our $htmlhead="";
+$htmlhead .= '<script type="application/javascript" src="js/s4l_navbar.js"></script>';
 $htmlhead .= '<script type="application/javascript" src="js/loxone_sub_navbar.js"></script>';
 $htmlhead .= '<script type="application/javascript" src="js/settings_loxone.js"></script>';
-
 
 init_navbar_i18n();
 LoxBerry::Web::lbheader("Stats4Lox", undef, undef);
@@ -30,7 +30,6 @@ $template->param( 'LOXONE_ELEMENTS', LoxBerry::System::read_file( "$lbptemplated
 
 my %miniservers = LoxBerry::System::get_miniservers();
 $template->param( 'LOXONE_MINISERVERS', to_json( \%miniservers ) );
-
 
 print $template->output();
 

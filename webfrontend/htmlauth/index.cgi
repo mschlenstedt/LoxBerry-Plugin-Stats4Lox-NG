@@ -8,6 +8,8 @@ use FindBin qw($Bin);
 use lib "$Bin/../../../../bin/plugins/stats4lox/libs/";
 use Globals;
 
+our ="";
+ .= '<script type="application/javascript" src="js/s4l_navbar.js"></script>';
 init_navbar_i18n();
 LoxBerry::Web::lbheader("Stats4Lox", undef, undef);
 

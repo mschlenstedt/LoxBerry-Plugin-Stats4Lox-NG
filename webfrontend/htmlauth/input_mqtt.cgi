@@ -9,11 +9,11 @@ use lib "$Bin/../../../../bin/plugins/stats4lox/libs/";
 use Globals;
 
 our $htmlhead="";
+$htmlhead .= '<script type="application/javascript" src="js/s4l_navbar.js"></script>';
 $htmlhead = '<script type="application/javascript" src="js/vue.global.js"></script>';
-$htmlhead .= '<script type="application/javascript" src="js/inputs_outputs_sub_navbar.js"></script>';
+$htmlhead .= '<script type="application/javascript" src="js/datasources_sub_navbar.js"></script>';
 $htmlhead .= '<script type="application/javascript" src="js/input_mqtt.js"></script>';
-$main::navbar{30}{active} = 1;
-
+$main::navbar{20}{active} = 1;
 
 init_navbar_i18n();
 LoxBerry::Web::lbheader("MQTT Collector - LoxBerry Stats4Lox", undef, undef);
