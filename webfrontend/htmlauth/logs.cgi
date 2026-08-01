@@ -16,7 +16,9 @@ my %L = LoxBerry::System::readlanguage($template, "language.ini");
 our $htmlhead="";
 $htmlhead .= '<script type="application/javascript" src="js/s4l_navbar.js"></script>';
 
-init_navbar_i18n();
+# This page loads Globals with require rather than use, so the exported name
+# is not imported into main - the call needs its package name.
+Globals::init_navbar_i18n();
 # The help link pointed at https://loxwiki.eu, which Loxone has retired. This
 # was the only page passing a help url at all - every other page passes undef,
 # so no dead link is shown anywhere now (issue #144).
