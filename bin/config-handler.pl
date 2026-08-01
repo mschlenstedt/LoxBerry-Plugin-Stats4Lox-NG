@@ -169,18 +169,21 @@ sub servicelogconfig {
 	# read as undefined and the switch never did anything.
 	&reads4lconfig();
 
-	my $enabled = LoxBerry::System::is_enabled( $s4lcfg->{stats4lox}->{servicelogging} ) ? 1 : 0;
-	LOGINF "Diagnostic logging of the services is " . ( $enabled ? "ENABLED" : "disabled" );
+	require ServiceLog;
 
-	my $logdir = $LoxBerry::System::lbplogdir;
+	my $enabled = LoxBerry::System::is_enabled( $s4lcfg->{stats4lox}->{servicelogging} ) ? 1 : 0;
+	LOGINF "Diagnostic logging of the services is " . ( $enabled ? "ENABLED" : "disabled" )
+	       . ( $enabled ? ( ServiceLog::is_manual() ? " (set in the web interface)" : " (following the debug log level)" ) : "" );
+
+	my $logdir = ServiceLog::logdir();
 	my $dropindir = $LoxBerry::System::lbpconfigdir . "/systemd";
 
 	# service -> [ drop-in file, unix user of the service ]
-	my %services = (
-		'influxdb'       => [ "$dropindir/00-stats4lox-influxdb.conf", 'influxdb' ],
-		'telegraf'       => [ "$dropindir/00-stats4lox-telegraf.conf", 'telegraf' ],
-		'grafana-server' => [ "$dropindir/00-stats4lox-grafana.conf",  'grafana'  ],
-	);
+	my %services;
+	foreach my $svc ( keys %ServiceLog::SERVICES ) {
+		my $short = ( $svc eq 'grafana-server' ) ? 'grafana' : $svc;
+		$services{$svc} = [ "$dropindir/00-stats4lox-$short.conf", $ServiceLog::SERVICES{$svc} ];
+	}
 
 	# The services run as their own users, so they need to be able to create
 	# their log file in a directory owned by loxberry. postroot.sh puts all

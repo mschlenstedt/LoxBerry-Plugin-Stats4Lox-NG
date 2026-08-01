@@ -1,1 +1,20 @@
 <TMPL_VAR LOGLIST_HTML>
+
+<TMPL_IF SERVICELOGS_EXIST>
+<details class='lb-collapsible' id='coll_package_stats4lox_services' open>
+	<summary class='lb-section-title' id='package_stats4lox_services'><TMPL_VAR LOGFILES.TITLE_SERVICES> <span style='font-size:80%;'>(<TMPL_VAR LOGFILES.HINT_SERVICES>)</span></summary>
+	<div class='lb-table-scroll'>
+	<table class='lb-table'>
+		<TMPL_LOOP SERVICELOGS>
+		<tr>
+			<td style='text-align:center; background-color:#FFFFFF; width:80px; text-shadow: none;'></td>
+			<td><TMPL_VAR TITLE></td>
+			<td><TMPL_VAR DATE></td>
+			<td><a data-role='button' href='<TMPL_VAR URL>' target='_blank' data-inline='true' data-mini='true' data-icon='action'><TMPL_VAR COMMON.BUTTON_OPEN></a></td>
+			<td><TMPL_VAR SIZE></td>
+		</tr>
+		</TMPL_LOOP>
+	</table>
+	</div>
+</details>
+</TMPL_IF>

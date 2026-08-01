@@ -2,3 +2,14 @@
 sleep 20
 REPLACELBPBINDIR/import_scheduler.pl > REPLACELBPLOGDIR/import_scheduler.log 2>&1 &
 REPLACELBPBINDIR/mqtt/mqttlive.php >> REPLACELBPLOGDIR/mqttlive.log 2>&1 &
+
+# Reset the diagnostic logging of the services.
+#
+# It switches itself on when the plugin log level is set to debug and a service
+# is restarted from the web interface. That is convenient while looking at a
+# problem, but nobody should end up with the services writing forever because of
+# a log level they set weeks ago - the log directory is a ramdisk.
+#
+# Logging that was switched on deliberately under Settings carries a flag file
+# and is left alone.
+REPLACELBPBINDIR/servicelog_reset.pl >> REPLACELBPLOGDIR/servicelog.log 2>&1 &

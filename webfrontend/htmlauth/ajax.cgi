@@ -403,8 +403,26 @@ if( $q->{action} eq "mqttlive_clearuidata" ) {
 	$response = "{ }";
 }
 
+# Raising the plugin log level to debug and then restarting a service is what
+# somebody does who wants to see what that service says. So the diagnostic
+# logging follows along instead of hiding behind a second switch further away.
+#
+# Deliberately NOT marked as set by hand: cron.reboot switches this off again on
+# the next reboot, so a log level nobody remembers cannot keep the services
+# writing forever. The switch under Settings is marked and survives.
+sub s4l_servicelog_follow_loglevel
+{
+	require ServiceLog;
+	return if( !ServiceLog::follow_loglevel() );
+	LOGINF "Plugin log level is debug - switching the diagnostic logging of the services on";
+	system("sudo $lbpbindir/config-handler.pl servicelog >/dev/null 2>&1");
+	return;
+}
+
+
 ## starttelegraf
 if( $q->{action} eq "starttelegraf" ) {
+	s4l_servicelog_follow_loglevel();
 	system ("sudo systemctl enable telegraf >/dev/null 2>&1");
 	system ("sudo systemctl restart telegraf >/dev/null 2>&1");
 	$response = $?;
@@ -419,6 +437,7 @@ if( $q->{action} eq "stoptelegraf" ) {
 
 ## startinfluxdb
 if( $q->{action} eq "startinfluxdb" ) {
+	s4l_servicelog_follow_loglevel();
 	system ("sudo systemctl enable influxdb >/dev/null 2>&1");
 	system ("sudo systemctl restart influxdb >/dev/null 2>&1");
 	$response = $?;
@@ -433,6 +452,7 @@ if( $q->{action} eq "stopinfluxdb" ) {
 
 ## startgrafana-server
 if( $q->{action} eq "startgrafana-server" ) {
+	s4l_servicelog_follow_loglevel();
 	system ("sudo systemctl enable grafana-server >/dev/null 2>&1");
 	system ("sudo systemctl restart grafana-server >/dev/null 2>&1");
 	$response = $?;
@@ -544,9 +564,13 @@ if( $q->{action} eq "savepluginconfig" ) {
 
 		# Diagnostic logging of the services
 		if ( $q->{'section'} eq "servicelog" ) {
-			$cfg->{'stats4lox'}->{'servicelogging'} =
-				( defined $q->{'servicelogging'} and $q->{'servicelogging'} eq "true" ) ? "True" : "False";
+			my $on = ( defined $q->{'servicelogging'} and $q->{'servicelogging'} eq "true" ) ? 1 : 0;
+			$cfg->{'stats4lox'}->{'servicelogging'} = $on ? "True" : "False";
 			$jsonobj->write();
+			# Set here on purpose, so a reboot leaves it alone - unlike logging
+			# that switched itself on because of the debug log level.
+			require ServiceLog;
+			ServiceLog::set_manual( $on );
 			system ("sudo $lbpbindir/config-handler.pl servicelog >/dev/null 2>&1");
 		}
 

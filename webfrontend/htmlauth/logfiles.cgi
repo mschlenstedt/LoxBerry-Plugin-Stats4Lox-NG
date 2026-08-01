@@ -2,7 +2,10 @@
 use warnings;
 use strict;
 use LoxBerry::Web;
+use POSIX qw(strftime);
+use URI::Escape;
 require "$lbpbindir/libs/Globals.pm";
+require "$lbpbindir/libs/ServiceLog.pm";
 
 my $template = HTML::Template->new(
 	filename => "$lbptemplatedir/logfiles.html",
@@ -22,6 +25,33 @@ Globals::init_navbar_i18n();
 LoxBerry::Web::lbheader("Stats4Lox", undef, undef);
 
 $template->param('LOGLIST_HTML', LoxBerry::Web::loglist_html());
+
+# The logs of InfluxDB, Telegraf and Grafana are written by systemd, not through
+# LoxBerry's logging library. They are therefore not in the log database and do
+# not turn up in loglist_html() - they are added here in the same style the MQTT
+# gateway uses for the Mosquitto log.
+#
+# Shown only when the file exists, which is exactly while the switch under
+# Settings is on. The paths come from ServiceLog, never written out literally:
+# the plugin folder is defined in plugin.cfg and is not fixed.
+my @rows;
+foreach my $svc ( sort keys %ServiceLog::SERVICES ) {
+	my $file = ServiceLog::logfile($svc);
+	next if( ! -e $file );
+	my $mtime = ( stat($file) )[9];
+	push @rows, {
+		TITLE => $ServiceLog::TITLES{$svc} // $svc,
+		DATE  => POSIX::strftime( "%d.%m.%Y %H:%M", localtime($mtime) ),
+		SIZE  => LoxBerry::System::bytes_humanreadable( -s $file, "B" ),
+		URL   => "/admin/system/tools/logfile.cgi?logfile=" . URI::Escape::uri_escape($file)
+		         . "&header=html&format=template&only=once",
+	};
+}
+if( @rows ) {
+	$template->param('SERVICELOGS_EXIST', 1);
+	$template->param('SERVICELOGS', \@rows);
+}
+
 print $template->output();
 
 LoxBerry::Web::lbfooter();
