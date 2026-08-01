@@ -290,15 +290,57 @@ $ImportMapping->{Default} = [
 # Deliberately a positive list: a general fallback would also surface a few
 # hundred structural objects (PuDe, RightGroup, Permission, ...) in the
 # statistics selection.
+#
+# APIACTOR, GENSENSOR, GENASENSOR and AUDIOOUT were on this list and have been
+# removed again: they are not function blocks. In the LoxPLAN they sit below a
+# device, not below a program page - GENSENSOR and GENASENSOR belong to a
+# Managed Tablet and are not sensors of their own, AUDIOOUT belongs to the
+# Audio Server, APIACTOR to an intercom device. They are on the blacklist now.
 our @CONTROL_MS_FALLBACK = qw/
 ONLINE
-APIACTOR
-GENSENSOR
-GENASENSOR
-AUDIOOUT
 /;
 
+# The first block of entries below are not function blocks at all. They are
+# other LoxPLAN objects that the parser picks up along the way, and their Title
+# gives them away:
+#
+#   DateTime "Unix Timestamp", NightTime "Nacht", Week "Woche"  system variables
+#   GlobalStates "Systemvariablen"                              their container
+#   PuDe "Registriertes Gerät"                                  a paired device
+#   RightGroup, Permission                                      user rights
+#   MTablet "FlurEG"                                            a touch device
+#   LanInt, LoxTree                                             interfaces
+#   WeatherCaption "Netzwerkperipherie"                         a caption
+#   SwitchingTimer "Immer"                                      a switching time
+#   OvertempShutdown, AudioOut, ApiActor, GenSensor, GenAsensor belong to a
+#                                            device, not to a program page
+#
+# On the test installation that alone was 264 entries in the selection list.
+#
+# Note on why this is a list and not a rule: it looks as if "everything that is
+# not below a Page inside Program" would do it - that is exactly where the real
+# function blocks live. Measured, that rule removes 1167 of 1527 entries,
+# including VirtualIn (161), DigitalIn (56), VoltageIn (21) and Online (18),
+# which sit below the peripherals and are perfectly legitimate. So the list it
+# is.
 our @CONTROL_BLACKLIST = qw/
+APIACTOR
+AUDIOOUT
+DATETIME
+GENASENSOR
+GENSENSOR
+GLOBALSTATES
+LANINT
+LOXTREE
+MTABLET
+NIGHTTIME
+OVERTEMPSHUTDOWN
+PERMISSION
+PUDE
+RIGHTGROUP
+SWITCHINGTIMER
+WEATHERCAPTION
+WEEK
 2POINT
 3POINT
 AALSMARTALARM
