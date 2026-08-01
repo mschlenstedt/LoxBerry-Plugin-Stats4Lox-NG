@@ -23,10 +23,6 @@ our %navbar = (
 			URL => "input_mqtt.cgi"
 	},
 	30 => {
-			Name => "Database",
-			URL => "output_influx.cgi"
-	},
-	40 => {
 			Name => "Grafana",
 			# The real URL is set in init_navbar_i18n(): the configured port is
 			# only known after merge_config(), which runs further down in this
@@ -37,6 +33,10 @@ our %navbar = (
 			# target), taking "target" from this structure. So this property is
 			# what actually opens Grafana in a new tab.
 			target => "_blank"
+	},
+	40 => {
+			Name => "Settings",
+			URL => "output_influx.cgi"
 	},
 	90 => {
 			Name => "Logfiles",
@@ -146,8 +146,8 @@ sub init_navbar_i18n
 	$main::navbar{1}{Name} = $L{'NAVBAR.NAV_HOME'} if $L{'NAVBAR.NAV_HOME'};
 	$main::navbar{10}{Name} = $L{'NAVBAR.NAV_LOXONE_IMPORT'} if $L{'NAVBAR.NAV_LOXONE_IMPORT'};
 	$main::navbar{20}{Name} = $L{'NAVBAR.NAV_DATASOURCES'} if $L{'NAVBAR.NAV_DATASOURCES'};
-	$main::navbar{30}{Name} = $L{'NAVBAR.NAV_DATABASE'} if $L{'NAVBAR.NAV_DATABASE'};
-	$main::navbar{40}{Name} = $L{'NAVBAR.NAV_GRAFANA'} if $L{'NAVBAR.NAV_GRAFANA'};
+	$main::navbar{30}{Name} = $L{'NAVBAR.NAV_GRAFANA'} if $L{'NAVBAR.NAV_GRAFANA'};
+	$main::navbar{40}{Name} = $L{'NAVBAR.NAV_SETTINGS'} if $L{'NAVBAR.NAV_SETTINGS'};
 	$main::navbar{90}{Name} = $L{'NAVBAR.NAV_LOGS'} if $L{'NAVBAR.NAV_LOGS'};
 
 	# Grafana runs on its own port, so the link needs the host name the browser
@@ -158,7 +158,7 @@ sub init_navbar_i18n
 	my $host = $ENV{HTTP_HOST} // '';
 	$host =~ s/:\d+$//;
 	$host = LoxBerry::System::get_localip() if( $host eq '' );
-	$main::navbar{40}{URL} = "http://$host:$port";
+	$main::navbar{30}{URL} = "http://$host:$port";
 }
 
 
