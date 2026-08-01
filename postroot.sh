@@ -192,7 +192,12 @@ s4l_migrate_influxdb_config() {
 				print "  log-enabled = false"
 				done=1
 			}
-		' "$f" > "$f.s4lnew" && mv "$f.s4lnew" "$f"
+		' "$f" > "$f.s4lnew" || { rm -f "$f.s4lnew"; return 0; }
+		# Keep owner and mode: writing a new file and moving it over the old one
+		# would leave influxdb.conf owned by root, not by influxdb.
+		chown --reference="$f" "$f.s4lnew" 2>/dev/null
+		chmod --reference="$f" "$f.s4lnew" 2>/dev/null
+		mv "$f.s4lnew" "$f"
 		echo "<INFO>   $(basename "$f"): disabled the HTTP request log ([http] log-enabled = false)"
 	fi
 	return 0
@@ -404,8 +409,37 @@ systemctl daemon-reload
 # user has switched diagnostic logging on, this writes it back into them -
 # otherwise every upgrade would silently turn the switch off again while the
 # setting still said it was on.
+#
+# Deliberately NOT by calling config-handler.pl, even though it does exactly
+# this at runtime: config-handler.pl takes a LoxBerry lock, and that lock waits
+# for "plugininstall" - which is held by the very installation running this
+# script. That is a guaranteed ten minute deadlock, and it is how this was
+# written the first time round.
 echo "<INFO> Applying the service logging setting..."
-$PBIN/config-handler.pl servicelog 2>&1 | sed 's/^/<INFO>   /'
+s4l_servicelog=$(jq -r '.stats4lox.servicelogging // "False"' "$PCONFIG/stats4lox.json" 2>/dev/null)
+case "${s4l_servicelog,,}" in
+	true|yes|on|1|enabled)
+		echo "<INFO>   Diagnostic logging is ENABLED - services log to $PLOG"
+		chmod 0775 "$PLOG" 2>/dev/null
+		for s4l_pair in "influxdb:influxdb" "telegraf:telegraf" "grafana-server:grafana"; do
+			s4l_svc=${s4l_pair%%:*}
+			s4l_user=${s4l_pair#*:}
+			case "$s4l_svc" in
+				grafana-server) s4l_file="$PCONFIG/systemd/00-stats4lox-grafana.conf" ;;
+				*)              s4l_file="$PCONFIG/systemd/00-stats4lox-$s4l_svc.conf" ;;
+			esac
+			printf '# Written by Stats4Lox - do not edit, use the switch under Settings\n[Service]\nStandardOutput=append:%s/%s.log\nStandardError=append:%s/%s.log\n' \
+				"$PLOG" "$s4l_svc" "$PLOG" "$s4l_svc" > "$s4l_file"
+			touch "$PLOG/$s4l_svc.log"
+			chown "$s4l_user:loxberry" "$PLOG/$s4l_svc.log" 2>/dev/null
+			chmod 0644 "$PLOG/$s4l_svc.log" 2>/dev/null
+		done
+		systemctl daemon-reload
+		;;
+	*)
+		echo "<INFO>   Diagnostic logging is disabled - service output goes to /dev/null"
+		;;
+esac
 
 # Activate InfluxDB service and start
 echo "<INFO> Starting InfluxDB..."
