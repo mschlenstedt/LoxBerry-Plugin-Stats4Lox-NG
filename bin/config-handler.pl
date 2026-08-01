@@ -60,11 +60,21 @@ if ($command eq 'influx' || $command eq 'all') {
 	&updatestatus("global", "current_section", "influx");
 	&influxconfig();
 
-# Everything else give help
-} else {
+}
+
+# Service logging
+if ($command eq 'servicelog' || $command eq 'all') {
+
+	LOGINF "--> Parsing SERVICELOG <--";
+	&updatestatus("global", "current_section", "servicelog");
+	&servicelogconfig();
+
+}
+
+if ($command ne 'influx' && $command ne 'servicelog' && $command ne 'all') {
 	print "Usage: $0 config\n";
 	print "Available configs:\n";
-	print "all | influx\n";
+	print "all | influx | servicelog\n";
 	exit (1);
 }
 
@@ -130,6 +140,119 @@ sub influxconfig {
 	&updatestatus("influx", "message", "Finished.");
 	return ($errors);
 
+}
+
+# Diagnostic logging of InfluxDB, Telegraf and Grafana
+#
+# The drop-ins normally send the output of all three services to /dev/null, and
+# for good reason: on LoxBerry the log directory sits on a ramdisk. But it also
+# meant that a service failing in daily operation left no trace at all - which
+# is issue #134.
+#
+# The switch under Settings redirects the output into
+# log/plugins/stats4lox/<service>.log instead, where it shows up under Logfiles
+# next to the plugin's own logs and is cleaned up by the LoxBerry core.
+#
+# "append:" and not "file:" - that difference decides whether this works.
+# log_maint.pl empties a log file in place instead of deleting it, so that a
+# daemon holding it open keeps writing into the same inode. A descriptor opened
+# WITHOUT O_APPEND keeps its old offset after that and produces a sparse file:
+# measured, 200 KB of holes and an apparent size that keeps growing while the
+# emptying achieves nothing. With O_APPEND the next write lands at offset 0.
+sub servicelogconfig {
+
+	&updatestatus("servicelog", "errors", 0);
+	&updatestatus("servicelog", "message", "Applying the service logging setting.");
+
+	my $enabled = LoxBerry::System::is_enabled( $s4lcfg->{stats4lox}->{servicelogging} ) ? 1 : 0;
+	LOGINF "Diagnostic logging of the services is " . ( $enabled ? "ENABLED" : "disabled" );
+
+	my $logdir = $LoxBerry::System::lbplogdir;
+	my $dropindir = $LoxBerry::System::lbpconfigdir . "/systemd";
+
+	# service -> [ drop-in file, unix user of the service ]
+	my %services = (
+		'influxdb'       => [ "$dropindir/00-stats4lox-influxdb.conf", 'influxdb' ],
+		'telegraf'       => [ "$dropindir/00-stats4lox-telegraf.conf", 'telegraf' ],
+		'grafana-server' => [ "$dropindir/00-stats4lox-grafana.conf",  'grafana'  ],
+	);
+
+	# The services run as their own users, so they need to be able to create
+	# their log file in a directory owned by loxberry. postroot.sh puts all
+	# three into the loxberry group for exactly this kind of reason.
+	if( $enabled and -d $logdir ) {
+		chmod 0775, $logdir;
+	}
+
+	my $changed = 0;
+	foreach my $svc ( sort keys %services ) {
+		my ($file, $user) = @{ $services{$svc} };
+		my $logfile = "$logdir/$svc.log";
+
+		my $content = "# Written by Stats4Lox - do not edit, use the switch under Settings\n[Service]\n";
+		if( $enabled ) {
+			$content .= "StandardOutput=append:$logfile\nStandardError=append:$logfile\n";
+		}
+		else {
+			$content .= "StandardOutput=null\nStandardError=null\n";
+		}
+
+		my $old = '';
+		if( open( my $fh, '<', $file ) ) { local $/; $old = <$fh>; close $fh; }
+		next if( $old eq $content );
+
+		if( !open( my $out, '>', $file ) ) {
+			LOGERR "Could not write $file: $!";
+			$errors++;
+			next;
+		}
+		else {
+			print {$out} $content;
+			close $out;
+		}
+		$changed++;
+		LOGOK "$svc: drop-in updated";
+
+		next if( !$enabled );
+
+		# Create the file up front with the right owner. Without it systemd
+		# would have to create it as the service user, and it has to stay
+		# readable for loxberry so it can be shown under Logfiles.
+		if( ! -e $logfile ) {
+			if( open( my $lf, '>>', $logfile ) ) { close $lf; }
+		}
+		my $uid = getpwnam($user);
+		my $gid = getgrnam('loxberry');
+		chown( $uid, $gid, $logfile ) if( defined $uid and defined $gid );
+		chmod 0644, $logfile;
+	}
+
+	if( !$changed ) {
+		LOGINF "Nothing to change.";
+		&updatestatus("servicelog", "errors", $errors);
+		&updatestatus("servicelog", "message", "Finished.");
+		return ($errors);
+	}
+
+	LOGINF "Restarting the services so the change takes effect...";
+	&updatestatus("servicelog", "message", "Restarting the services.");
+	system("systemctl daemon-reload > /dev/null 2>&1");
+	foreach my $svc ( sort keys %services ) {
+		# Only restart what is running - a service the user has deliberately
+		# stopped must not be started by a logging change.
+		next if( system("systemctl is-active --quiet $svc") != 0 );
+		if( system("systemctl restart $svc > /dev/null 2>&1") != 0 ) {
+			LOGERR "$svc could not be restarted";
+			$errors++;
+		}
+		else {
+			LOGOK "$svc restarted";
+		}
+	}
+
+	&updatestatus("servicelog", "errors", $errors);
+	&updatestatus("servicelog", "message", "Finished.");
+	return ($errors);
 }
 
 ##########################################################

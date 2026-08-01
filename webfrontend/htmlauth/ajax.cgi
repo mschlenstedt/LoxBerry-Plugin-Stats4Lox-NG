@@ -542,6 +542,14 @@ if( $q->{action} eq "savepluginconfig" ) {
 			system ("sudo $lbpbindir/config-handler.pl influx >/dev/null 2>&1");
 		}
 
+		# Diagnostic logging of the services
+		if ( $q->{'section'} eq "servicelog" ) {
+			$cfg->{'stats4lox'}->{'servicelogging'} =
+				( defined $q->{'servicelogging'} and $q->{'servicelogging'} eq "true" ) ? "True" : "False";
+			$jsonobj->write();
+			system ("sudo $lbpbindir/config-handler.pl servicelog >/dev/null 2>&1");
+		}
+
 	} # End Child process
 
 	$response = '{ "error":' . $errors . '}';

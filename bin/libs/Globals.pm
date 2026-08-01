@@ -117,7 +117,10 @@ our $stats4lox = {
 	import_max_parallel_processes => 4,
 	import_max_parallel_per_ms => 4,
 	importstatusdir => $LoxBerry::System::lbpdatadir.'/import',
-	mqttlive_active => "True"
+	mqttlive_active => "True",
+	# Diagnostic logging of InfluxDB, Telegraf and Grafana. Off by default -
+	# on LoxBerry the log directory is a ramdisk, see config-handler.pl.
+	servicelogging => "False"
 };
 
 our $telegraf = {

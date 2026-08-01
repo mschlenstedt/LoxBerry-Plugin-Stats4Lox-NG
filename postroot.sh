@@ -163,6 +163,41 @@ s4l_migrate_grafana_db() {
 	return 0
 }
 
+# Turns InfluxDB's HTTP request logging off in an existing configuration.
+#
+# Same reason as in the shipped influxdb.conf: one line per HTTP request, about
+# 8600 a day, on a ramdisk, and none of it useful for finding a problem. And the
+# same reason as for Telegraf that this needs a migration at all - an upgrade
+# restores the previous configuration over the freshly installed one, so
+# correcting our own copy never reaches an existing installation.
+#
+# Only the entry inside the [http] section is touched; influxdb.conf has a
+# second log-enabled further down that belongs to [subscriber]. Idempotent.
+s4l_migrate_influxdb_config() {
+	local f="$1"
+	[ -f "$f" ] || return 0
+
+	# Already set explicitly? Then leave the user's choice alone.
+	if awk '/^\[http\]/{h=1;next} /^\[/{h=0} h && /^[[:space:]]*log-enabled[[:space:]]*=/{found=1} END{exit !found}' "$f"; then
+		return 0
+	fi
+
+	# Insert after the commented default inside [http].
+	if awk '/^\[http\]/{h=1;next} /^\[/{h=0} h && /^[[:space:]]*#[[:space:]]*log-enabled[[:space:]]*=/{found=1} END{exit !found}' "$f"; then
+		awk '
+			/^\[http\]/ { h=1 }
+			/^\[/ && !/^\[http\]/ { h=0 }
+			{ print }
+			h && /^[[:space:]]*#[[:space:]]*log-enabled[[:space:]]*=/ && !done {
+				print "  log-enabled = false"
+				done=1
+			}
+		' "$f" > "$f.s4lnew" && mv "$f.s4lnew" "$f"
+		echo "<INFO>   $(basename "$f"): disabled the HTTP request log ([http] log-enabled = false)"
+	fi
+	return 0
+}
+
 # Migrates Telegraf options that current Telegraf versions reject.
 #
 # This is required because an upgrade restores the previous configuration over
@@ -334,6 +369,9 @@ if [ -e "$PCONFIG/influxdb/influxdb-selfsigned.key" ]; then
 	echo "<INFO> Restricted InfluxDB private key to 0600 - required since InfluxDB 1.12."
 fi
 
+echo "<INFO> Checking InfluxDB configuration for obsolete options..."
+s4l_migrate_influxdb_config "$PCONFIG/influxdb/influxdb.conf"
+
 # Debug:
 echo "<INFO> Current file permisssions in $PDATA/influxdb:"
 ls -l $PDATA/influxdb
@@ -361,6 +399,13 @@ ln -s $PCONFIG/systemd/00-stats4lox-influxdb.conf /etc/systemd/system/influxdb.s
 ln -s $PCONFIG/systemd/00-stats4lox-telegraf.conf /etc/systemd/system/telegraf.service.d/00-stats4lox-telegraf.conf
 ln -s $PCONFIG/systemd/00-stats4lox-grafana.conf /etc/systemd/system/grafana-server.service.d/00-stats4lox-grafana.conf
 systemctl daemon-reload
+
+# The drop-ins shipped with the plugin always contain the "off" state. If the
+# user has switched diagnostic logging on, this writes it back into them -
+# otherwise every upgrade would silently turn the switch off again while the
+# setting still said it was on.
+echo "<INFO> Applying the service logging setting..."
+$PBIN/config-handler.pl servicelog 2>&1 | sed 's/^/<INFO>   /'
 
 # Activate InfluxDB service and start
 echo "<INFO> Starting InfluxDB..."
