@@ -13,7 +13,7 @@ init_navbar_i18n();
 LoxBerry::Web::lbheader("Stats4Lox", undef, undef);
 
 my $template = HTML::Template->new(
-    filename => "$lbptemplatedir/output_influx.html",
+    filename => "$lbptemplatedir/settings.html",
     global_vars => 1,
     loop_context_vars => 1,
     die_on_bad_params => 0,

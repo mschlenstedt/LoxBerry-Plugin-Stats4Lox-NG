@@ -11,14 +11,14 @@ use Globals;
 our $htmlhead="";
 $htmlhead = '<script type="application/javascript" src="js/vue.global.js"></script>';
 $htmlhead .= '<script type="application/javascript" src="js/datasources_sub_navbar.js"></script>';
-$htmlhead .= '<script type="application/javascript" src="js/input_mqtt.js"></script>';
+$htmlhead .= '<script type="application/javascript" src="js/data_inputs.js"></script>';
 $main::navbar{20}{active} = 1;
 
 init_navbar_i18n();
 LoxBerry::Web::lbheader("MQTT Collector - LoxBerry Stats4Lox", undef, undef);
 
 my $template = HTML::Template->new(
-    filename => "$lbptemplatedir/input_mqtt.html",
+    filename => "$lbptemplatedir/data_inputs.html",
     global_vars => 1,
     loop_context_vars => 1,
     die_on_bad_params => 0,

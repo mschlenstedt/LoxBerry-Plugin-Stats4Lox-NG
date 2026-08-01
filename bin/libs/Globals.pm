@@ -7,8 +7,7 @@ use LoxBerry::JSON;
 # The Grafana entry links straight into Grafana's own web interface instead of
 # going through a page of our own. That page existed, but its only live content
 # was a button doing exactly this - everything else in it had been commented out
-# as unfinished. js/s4l_navbar.js makes the entry open in a new tab; the
-# LoxBerry navbar has no target attribute of its own.
+# as unfinished.
 our %navbar = (
 	1 => {
 			Name => "Home",
@@ -16,11 +15,11 @@ our %navbar = (
 	},
 	10 => {
 			Name => "Loxone and Import",
-			URL => "main_loxone.cgi"
+			URL => "loxone.cgi"
 	},
 	20 => {
 			Name => "Data Sources",
-			URL => "input_mqtt.cgi"
+			URL => "data_inputs.cgi"
 	},
 	30 => {
 			Name => "Grafana",
@@ -36,11 +35,11 @@ our %navbar = (
 	},
 	40 => {
 			Name => "Settings",
-			URL => "output_influx.cgi"
+			URL => "settings.cgi"
 	},
 	90 => {
 			Name => "Logfiles",
-			URL => "logs.cgi"
+			URL => "logfiles.cgi"
 	}
 );
 my $relative_webpath = substr( $0, length($lbphtmlauthdir)+1 );
@@ -312,7 +311,7 @@ $ImportMapping->{Default} = [
 # Some device containers - MTablet (Touch/Tablet), AudioServer, ... - are
 # children of the Document instead of the LoxLIVE node. Controls below them
 # find no Miniserver when walking up the tree, get no msno, and are then
-# silently dropped by the frontend (settings_loxone.js: controls.filter
+# silently dropped by the frontend (loxone.js: controls.filter
 # msno > 0). Statistics enabled on such a block would disappear without a
 # trace.
 #

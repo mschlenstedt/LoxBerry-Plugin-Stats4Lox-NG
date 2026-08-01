@@ -10,13 +10,13 @@ use Globals;
 
 our $htmlhead="";
 $htmlhead .= '<script type="application/javascript" src="js/loxone_sub_navbar.js"></script>';
-$htmlhead .= '<script type="application/javascript" src="js/settings_loxone.js"></script>';
+$htmlhead .= '<script type="application/javascript" src="js/loxone.js"></script>';
 
 init_navbar_i18n();
 LoxBerry::Web::lbheader("Stats4Lox", undef, undef);
 
 my $template = HTML::Template->new(
-    filename => "$lbptemplatedir/settings_loxone.html",
+    filename => "$lbptemplatedir/loxone.html",
     global_vars => 1,
     loop_context_vars => 1,
     die_on_bad_params => 0,

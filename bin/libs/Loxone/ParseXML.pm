@@ -316,7 +316,7 @@ sub readloxplan
 		# $lox_statsobject{$object->{U}}{MSNr} = $cfg_mslist{$lox_miniserver{$ms_ref}{IP}};
 		# Objects without a Miniserver ancestor (permissions, user devices,
 		# right groups, ...) simply have no msno. The frontend filters them
-		# out - see settings_loxone.js, controls.filter( msno > 0 ).
+		# out - see loxone.js, controls.filter( msno > 0 ).
 		$lox_statsobject{$object->{U}}{msno} = defined $ms_ref ? $lox_miniserver{$ms_ref}{msno} : undef;
 		
 		# Unit

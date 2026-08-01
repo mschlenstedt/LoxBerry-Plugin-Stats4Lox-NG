@@ -5,7 +5,7 @@ use LoxBerry::Web;
 require "$lbpbindir/libs/Globals.pm";
 
 my $template = HTML::Template->new(
-	filename => "$lbptemplatedir/logs.html",
+	filename => "$lbptemplatedir/logfiles.html",
 	global_vars => 1,
 	loop_context_vars => 1,
 	die_on_bad_params => 0,
