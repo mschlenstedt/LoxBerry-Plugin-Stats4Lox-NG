@@ -27,11 +27,19 @@ our $chstatus;
 #$LoxBerry::System::DEBUG = 1;
 
 # Log
+# nofile: every save wrote its own Config-Handler log into the overview, and the
+# interesting part - what actually changed - is a line or two. With stderr the
+# messages go to whoever started the script.
+#
+# Note: the caller in ajax.cgi redirects to /dev/null, so nothing is left there
+# either. The web interface therefore no longer offers a link to a logfile when
+# saving fails; see the note in settings.html.
 my $log = LoxBerry::Log->new (
 	name => 'Config-Handler',
+	nofile => 1,
 	stderr => 1,
 );
-$logfile = $log->filename();
+$logfile = $log->filename() // '';
 
 LOGSTART "Config-Handler";
 

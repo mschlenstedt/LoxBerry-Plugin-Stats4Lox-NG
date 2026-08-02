@@ -212,7 +212,14 @@ function checkconfighandlerstatus( section ) {
 			$("#ch_status").attr("style", "color:blue").html(chstatus);
 		} else {
 			if (data[section].errors > 0) {
-				$("#hint_"+section).attr("style", "color:red").html("<TMPL_VAR INPUTSOUTPUTS.HINT_SAVING_ERROR> <a href='/admin/system/tools/logfile.cgi?logfile=" + data.global.logfile + "&header=html&format=template&only=once' target='_blank'><TMPL_VAR INPUTSOUTPUTS.HINT_OPEN_LOGFILE></a>");
+				// The config handler no longer writes a log file of its own -
+				// it produced one entry in the overview per save. Only offer the
+				// link when there really is a file behind it.
+				var errmsg = "<TMPL_VAR INPUTSOUTPUTS.HINT_SAVING_ERROR>";
+				if( data.global.logfile ) {
+					errmsg += " <a href='/admin/system/tools/logfile.cgi?logfile=" + data.global.logfile + "&header=html&format=template&only=once' target='_blank'><TMPL_VAR INPUTSOUTPUTS.HINT_OPEN_LOGFILE></a>";
+				}
+				$("#hint_"+section).attr("style", "color:red").html(errmsg);
 			} else {
 				$("#hint_"+section).attr("style", "color:green").html("<TMPL_VAR INPUTSOUTPUTS.HINT_SAVING_SUCCESS>");
 			}

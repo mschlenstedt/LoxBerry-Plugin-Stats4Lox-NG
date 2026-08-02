@@ -19,8 +19,15 @@ my $q = $cgi->Vars;
 # the webserver error log.
 $q->{action} = '' if( !defined $q->{action} );
 
+# nofile: this CGI is called constantly - on every page load, for live values,
+# for the service status. Each call produced its own log file, so the Logfiles
+# overview filled up with dozens of AJAX entries that nobody ever reads.
+#
+# Nothing is lost: with stderr the messages still land in the webserver error
+# log, which is where you look when a CGI misbehaves anyway.
 my $log = LoxBerry::Log->new (
     name => 'AJAX',
+	nofile => 1,
 	stderr => 1,
 	loglevel => 7
 );
@@ -107,7 +114,7 @@ if( $q->{action} eq "getloxplan" ) {
 			);
 
 			if( !$fetched or ! -e $Loxplanfile ) {
-				$error = "Miniserver $msno: Could not fetch the Loxone configuration. See the 'AJAX' logfile for details.";
+				$error = "Miniserver $msno: Could not fetch the Loxone configuration.";
 			}
 			else {
 				LOGOK "Loxplan for MS$msno found, parsing now...";
@@ -120,7 +127,7 @@ if( $q->{action} eq "getloxplan" ) {
 					ms_serials => \%ms_serials
 				);
 				if( !$loxplan ) {
-					$error = "Miniserver $msno: Could not parse the Loxone configuration. See the 'AJAX' logfile for details.";
+					$error = "Miniserver $msno: Could not parse the Loxone configuration.";
 				}
 			}
 
