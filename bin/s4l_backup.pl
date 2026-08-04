@@ -73,14 +73,62 @@ sub cred
 	return $obj->open( filename => $Globals::stats4loxcredentials, readonly => 1 ) || {};
 }
 
-# Where the time series database lives. Configurable in the web interface, so
-# never assumed - db_storage holds the parent, influxd gets <parent>/influxdb.
+# Where the time series database actually lives.
+#
+# Read from influxdb.conf and not from influx.db_storage: that setting is
+# ambiguous. influx_movedb() in config-handler.pl treats it as the PARENT and
+# creates <db_storage>/influxdb, while on an installation that never moved the
+# database it holds the influxdb directory itself. influxdb.conf is what influxd
+# really uses, so it is the only reliable source.
 sub dbdir
 {
-	my $c = cfg();
-	my $storage = $c->{influx}->{db_storage};
-	return "$storage/influxdb" if( $storage and -d $storage );
-	return $LoxBerry::System::lbpdatadir . "/influxdb";
+	my $conf = $LoxBerry::System::lbpconfigdir . "/influxdb/influxdb.conf";
+	if( open( my $fh, '<', $conf ) ) {
+		my $in_data = 0;
+		while( my $l = <$fh> ) {
+			if   ( $l =~ /^\s*\[data\]/ )  { $in_data = 1; next }
+			elsif( $l =~ /^\s*\[/ )        { $in_data = 0 }
+			next if( !$in_data );
+			if( $l =~ /^\s*dir\s*=\s*"([^"]+)"/ ) {
+				close $fh;
+				( my $d = $1 ) =~ s{/data/?$}{};
+				return $d;
+			}
+		}
+		close $fh;
+	}
+	return default_dbdir();
+}
+
+# Points influxdb.conf at another directory. Setting influx.db_storage alone
+# would change nothing - influxd reads its paths from its own configuration.
+sub set_dbdir
+{
+	my ($new) = @_;
+	my $conf = $LoxBerry::System::lbpconfigdir . "/influxdb/influxdb.conf";
+	return 0 if( ! -f $conf );
+
+	open( my $in, '<', $conf ) or return 0;
+	local $/;
+	my $c = <$in>;
+	close $in;
+
+	my $old = dbdir();
+	return 1 if( $old eq $new );
+
+	# Only the three directory entries, and only where they point into the old
+	# location - other paths in the file stay untouched.
+	my $n = 0;
+	$n += ( $c =~ s{(^\s*(?:wal-)?dir\s*=\s*")\Q$old\E(/(?:meta|data|wal)"\s*$)}{$1$new$2}gm );
+	return 0 if( !$n );
+
+	open( my $out, '>', "$conf.s4lnew" ) or return 0;
+	print {$out} $c;
+	close $out;
+	system( "chown --reference=" . quotemeta($conf) . " " . quotemeta("$conf.s4lnew") . " 2>/dev/null" );
+	system( "chmod --reference=" . quotemeta($conf) . " " . quotemeta("$conf.s4lnew") . " 2>/dev/null" );
+	rename( "$conf.s4lnew", $conf ) or return 0;
+	return $n;
 }
 
 sub default_dbdir { return $LoxBerry::System::lbpdatadir . "/influxdb"; }
@@ -222,8 +270,14 @@ sub cmd_create
 	foreach my $sub ( qw( grafana import ) ) {
 		my $src = "$LoxBerry::System::lbpdatadir/$sub";
 		next if( ! -d $src );
-		# grafana.db.before-stats4lox is our own safety copy, no need to carry it
-		run( "rsync -a --exclude '*.before-stats4lox' " . quotemeta($src) . " " . quotemeta("$work/data") . "/" );
+		# Excluded: our own safety copy of grafana.db, and Grafana's working
+		# directories - tmp holds parquet exports of the migration, csv/png/
+		# file-collections are render and export output. None of that belongs in
+		# a backup.
+		run( "rsync -a --exclude '*.before-stats4lox' --exclude 'tmp/' --exclude 'csv/'"
+		     . " --exclude 'png/' --exclude 'pdf/' --exclude 'file-collections/'"
+		     . " --exclude 'unified-search/' "
+		     . quotemeta($src) . " " . quotemeta("$work/data") . "/" );
 	}
 	LOGO "Grafana and import state copied";
 
@@ -493,20 +547,28 @@ sub cmd_restore
 		($rc, $out) = run( "rsync -a --exclude 'systemd/' " . quotemeta("$work/config") . "/ "
 		                   . quotemeta($LoxBerry::System::lbpconfigdir) . "/" );
 		LOGE "Restoring the configuration failed: $out" if( $rc != 0 );
-		run( "chown -R loxberry:loxberry " . quotemeta($LoxBerry::System::lbpconfigdir) );
+		fix_config_permissions();
 		LOGO "Configuration restored, including provisioning";
 	}
 
-	# If we had to move to another path, the configuration has to say so -
-	# otherwise the plugin would look for the database in the old place.
-	if( $target_db ne ( $m->{db_path} // '' ) ) {
-		my $obj = LoxBerry::JSON->new();
-		my $c = $obj->open( filename => $Globals::stats4loxconfig );
-		if( $c ) {
-			( my $storage = $target_db ) =~ s{/influxdb/?$}{};
-			$c->{influx}->{db_storage} = $storage;
-			$obj->write();
-			LOGO "Database path in the configuration set to $storage";
+	# If we had to move to another path, influxdb.conf has to say so - otherwise
+	# influxd would keep writing into the old location. The setting in
+	# stats4lox.json is kept in step so the web interface shows the right thing.
+	if( $target_db ne dbdir() ) {
+		if( set_dbdir($target_db) ) {
+			LOGO "Database path in influxdb.conf set to $target_db";
+			my $obj = LoxBerry::JSON->new();
+			my $c = $obj->open( filename => $Globals::stats4loxconfig );
+			if( $c ) {
+				$c->{influx}->{db_storage} = $target_db;
+				$obj->write();
+			}
+		}
+		else {
+			LOGE "Could not change the database path in influxdb.conf - restoring to $target_db would not take effect";
+			remove_tree($work);
+			restart_services();
+			exit 1;
 		}
 	}
 
@@ -579,6 +641,37 @@ sub cmd_restore
 	status( running => 0, step => 'done', message => 'Restore finished', errors => 0,
 	        warnings => $m->{warnings} || [] );
 	return 0;
+}
+
+# Restores the ownership inside the configuration directory.
+#
+# A blanket "chown -R loxberry:loxberry" is wrong here and cost an evening: it
+# also catches influxdb-selfsigned.key, which is mode 0600 and has to belong to
+# influxdb. InfluxDB then refuses to start with
+#
+#   run: open server: open service: httpd: error creating TLS manager:
+#   LoadCertificate: error opening ".../influxdb-selfsigned.key"
+#
+# The same rules postroot.sh applies after an installation.
+sub fix_config_permissions
+{
+	my $c = $LoxBerry::System::lbpconfigdir;
+	run( "chown -R loxberry:loxberry " . quotemeta($c) );
+
+	if( -d "$c/influxdb" ) {
+		run( "chown -R influxdb:loxberry " . quotemeta("$c/influxdb") );
+		my $key = "$c/influxdb/influxdb-selfsigned.key";
+		if( -e $key ) {
+			run( "chmod 600 " . quotemeta($key) );
+			run( "chmod 644 " . quotemeta("$c/influxdb/influxdb-selfsigned.crt") );
+		}
+	}
+	run( "chown -R grafana:loxberry " . quotemeta("$c/grafana") ) if( -d "$c/grafana" );
+	if( -e "$c/telegraf/telegraf.env" ) {
+		run( "chown telegraf:loxberry " . quotemeta("$c/telegraf/telegraf.env") );
+		run( "chmod 660 " . quotemeta("$c/telegraf/telegraf.env") );
+	}
+	return;
 }
 
 sub restart_services
