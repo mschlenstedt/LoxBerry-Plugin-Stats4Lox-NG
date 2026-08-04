@@ -301,17 +301,16 @@ if [ -d $LBHOMEDIR/data/plugins/$PTEMPDIR\_upgrade ]; then
 
 	#pause 'Press [Enter] key to continue...'
 
-	# Create backup
-	mkdir -p $PDATA/backups/plugininstall
-	mv $LBHOMEDIR/data/plugins/${PTEMPDIR}_upgrade $PDATA/backups/plugininstall/${DATE}_backup_plugininstall
-	PWD=`pwd`
-	cd $PDATA/backups/plugininstall
-	7z a ${DATE}_backup_plugininstall.7z ${DATE}_backup_plugininstall '-xr!*.7z'
-	if [ $? -eq 0 ]; then
-		rm -rf $PDATA/backups/plugininstall/${DATE}_backup_plugininstall
-	fi
-	chown -R loxberry:loxberry $PDATA/backups/plugininstall
-	cd $PWD
+	# The upgrade directory has served its purpose and is removed.
+	#
+	# It used to be turned into a 7z archive here instead - a backup nobody ever
+	# read back. It grew without limit (24 installations meant 8 GB and a full
+	# disk on the test machine), carried the whole time series database
+	# including _internal, and even contained the plugin's own backup directory.
+	# Backups are now made deliberately from the web interface, see
+	# bin/s4l_backup.pl. Existing archives are left alone - they belong to the
+	# user - and s4l_backup.pl points them out with the space they occupy.
+	rm -rf $LBHOMEDIR/data/plugins/${PTEMPDIR}_upgrade
 fi
 
 # Get InfluxDB credentials

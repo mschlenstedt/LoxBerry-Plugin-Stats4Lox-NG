@@ -1,1 +1,2 @@
 loxberry ALL = NOPASSWD: REPLACELBPBINDIR/config-handler.pl
+loxberry ALL = NOPASSWD: REPLACELBPBINDIR/s4l_backup.pl
