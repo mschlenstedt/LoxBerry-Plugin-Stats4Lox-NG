@@ -58,8 +58,10 @@
 		}
 		.s4lrow .lb_flex-item
 		{
-			width		:calc(100% - 330px);
-			max-width	:calc(100% - 330px);
+			flex		:1 1 0;
+			width		:auto;
+			max-width	:none;
+			min-width	:0;
 		}
 		.s4lrow .lb_flex-item-help
 		{
@@ -67,16 +69,21 @@
 			margin-left	:330px;
 		}
 	}
-	/* Selects and text fields share one width so they line up with each other.
-	   Not 100%: the field column already ends before the right edge, and at
-	   100% the dropdowns ran past it.
+	/* Selects and text fields fill the field column.
+	   The two margin resets are what this needs to work: jQuery Mobile gives
+	   .ui-select a left and right margin of .3125em, so a box of width 100%
+	   ends up 10px wider than its column - that was the part running off on
+	   the right.
 	   The flipswitch is deliberately left alone - jQuery Mobile builds it with
 	   a fixed width and places the "off" label inside; any width of ours pushes
 	   that label out of the switch. */
 	.s4lrow .lb_flex-item .ui-select,
 	.s4lrow .lb_flex-item .ui-input-text
 	{
-		width		:80%;
+		width		:100%;
+		margin-left	:0;
+		margin-right	:0;
+		box-sizing	:border-box;
 	}
 </style>
 

@@ -53,8 +53,10 @@
 		}
 		.s4lrow .lb_flex-item
 		{
-			width		:calc(100% - 330px);
-			max-width	:calc(100% - 330px);
+			flex		:1 1 0;
+			width		:auto;
+			max-width	:none;
+			min-width	:0;
 		}
 		.s4lrow .lb_flex-item-help
 		{
@@ -62,16 +64,21 @@
 			margin-left	:330px;
 		}
 	}
-	/* Selects and text fields share one width so they line up with each other.
-	   Not 100%: the field column already ends before the right edge, and at
-	   100% the dropdowns ran past it.
+	/* Selects and text fields fill the field column.
+	   The two margin resets are what this needs to work: jQuery Mobile gives
+	   .ui-select a left and right margin of .3125em, so a box of width 100%
+	   ends up 10px wider than its column - that was the part running off on
+	   the right.
 	   The flipswitch is deliberately left alone - jQuery Mobile builds it with
 	   a fixed width and places the "off" label inside; any width of ours pushes
 	   that label out of the switch. */
 	.s4lrow .lb_flex-item .ui-select,
 	.s4lrow .lb_flex-item .ui-input-text
 	{
-		width		:80%;
+		width		:100%;
+		margin-left	:0;
+		margin-right	:0;
+		box-sizing	:border-box;
 	}
 
 	/* Weekdays and time share one row. */
@@ -93,12 +100,12 @@
 		margin		:0;
 		white-space	:nowrap;
 	}
-	/* The two time lists keep their own narrow width - the 80% above is meant
-	   for the fields that sit alone in their row. */
+	/* The two time lists keep their own narrow width - the 100% above is for
+	   the fields that sit alone in their row. */
 	.dayssplit .timepart .ui-select
 	{
 		width		:auto;
-		min-width	:5em;
+		min-width	:4.5em;
 		margin		:0;
 	}
 	.dayssplit .timepart .timesep
@@ -194,7 +201,7 @@
 	<div class="lb_flex-container s4lrow">
 		<div	class="lb_flex-item-label"><TMPL_VAR BACKUP.LABEL_KEEP></div>
 		<div	class="lb_flex-item">
-			<select name="keep" id="keep" data-mini="true"><TMPL_VAR KEEP_OPTIONS></select>
+			<select name="keep" id="keep"><TMPL_VAR KEEP_OPTIONS></select>
 		</div>
 		<div	class="lb_flex-item-help hint"><TMPL_VAR BACKUP.HINT_KEEP></div>
 	</div>
@@ -202,7 +209,7 @@
 	<div class="lb_flex-container s4lrow">
 		<div	class="lb_flex-item-label"><TMPL_VAR BACKUP.LABEL_COMPRESSION></div>
 		<div	class="lb_flex-item">
-			<select name="compression" id="compression" data-mini="true"><TMPL_VAR COMPRESSION_OPTIONS></select>
+			<select name="compression" id="compression"><TMPL_VAR COMPRESSION_OPTIONS></select>
 		</div>
 		<div	class="lb_flex-item-help hint"><TMPL_VAR BACKUP.HINT_COMPRESSION></div>
 	</div>
@@ -221,7 +228,7 @@
 		<div	class="lb_flex-item-label"><TMPL_VAR BACKUP.LABEL_WEEKDAY></div>
 		<div	class="lb_flex-item">
 			<div class="dayssplit">
-				<fieldset data-role="controlgroup" data-type="horizontal" data-mini="true" id="weekdays">
+				<fieldset data-role="controlgroup" data-type="horizontal" id="weekdays">
 					<input type="checkbox" name="mon" id="mon" <TMPL_VAR CHECKED_MON>><label for="mon"><TMPL_VAR BACKUP.MON></label>
 					<input type="checkbox" name="tue" id="tue" <TMPL_VAR CHECKED_TUE>><label for="tue"><TMPL_VAR BACKUP.TUE></label>
 					<input type="checkbox" name="wed" id="wed" <TMPL_VAR CHECKED_WED>><label for="wed"><TMPL_VAR BACKUP.WED></label>
@@ -239,9 +246,9 @@
 				     scrolling this needs. -->
 				<div class="timepart">
 					<label for="timeh"><TMPL_VAR BACKUP.LABEL_TIME></label>
-					<select name="timeh" id="timeh" data-mini="true"><TMPL_VAR HOUR_OPTIONS></select>
+					<select name="timeh" id="timeh"><TMPL_VAR HOUR_OPTIONS></select>
 					<span class="timesep">:</span>
-					<select name="timem" id="timem" data-mini="true"><TMPL_VAR MINUTE_OPTIONS></select>
+					<select name="timem" id="timem"><TMPL_VAR MINUTE_OPTIONS></select>
 				</div>
 			</div>
 		</div>
@@ -250,7 +257,7 @@
 	<div class="lb_flex-container s4lrow schedulefields">
 		<div	class="lb_flex-item-label"><TMPL_VAR BACKUP.LABEL_REPEAT></div>
 		<div	class="lb_flex-item">
-			<select name="repeat" id="repeat" data-mini="true"><TMPL_VAR REPEAT_OPTIONS></select>
+			<select name="repeat" id="repeat"><TMPL_VAR REPEAT_OPTIONS></select>
 		</div>
 	</div>
 
