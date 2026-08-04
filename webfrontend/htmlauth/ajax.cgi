@@ -752,6 +752,12 @@ if( $q->{action} eq "savebackupconfig" ) {
 		$cfg->{backup}->{schedule}->{active} = $q->{scheduleactive} // 'False';
 		$cfg->{backup}->{schedule}->{repeat} = $q->{repeat} // 1;
 		$cfg->{backup}->{schedule}->{time}   = $q->{timef} // '03:00';
+		# The reference week for "every n weeks". Set on every save, so changing
+		# the schedule starts the cycle now instead of continuing an old one the
+		# user can no longer see.
+		my @now = localtime();
+		$cfg->{backup}->{schedule}->{since} =
+			sprintf( "%04d-%02d-%02d", $now[5]+1900, $now[4]+1, $now[3] );
 		foreach my $d ( qw( mon tue wed thu fre sat sun ) ) {
 			$cfg->{backup}->{schedule}->{$d} = $q->{$d} // 'False';
 		}
@@ -806,19 +812,13 @@ sub s4l_write_crontab
 		$hour   += 0;
 		$minute += 0;
 
-		# cron cannot express "every n weeks", so the day is filtered in the
-		# command: days since a fixed date modulo n*7. Same trick the LoxBerry
-		# backup widget uses.
-		my $prefix = "";
-		my $repeat = $b->{schedule}->{repeat} // 1;
-		if( $repeat > 1 ) {
-			my $divider = $repeat * 7;
-			my @t = localtime();
-			my $today = sprintf( "%04d%02d%02d", $t[5]+1900, $t[4]+1, $t[3] );
-			$prefix = '[[ $(("( $(date +%s) - $(date +%s --date=' . $today
-			          . ') ) / 86400 % ' . $divider . '")) -eq 0 ]] && ';
-		}
-
+		# cron cannot express "every n weeks". The obvious workaround - a shell
+		# prefix computing days since a reference date - does not survive here:
+		# cron runs commands through /bin/sh, which is dash on LoxBerry and has
+		# no [[ ]], and every unescaped % in a crontab command is turned into a
+		# newline, which kills any "date +%s". So cron only gets weekday and
+		# time, and "--cron" lets the script decide whether this week is due.
+		#
 		# installcrontab.sh rewrites " root " to " loxberry ", and the script
 		# itself insists on root - hence sudo, which the plugin's sudoers rule
 		# allows without a password.
@@ -826,7 +826,7 @@ sub s4l_write_crontab
 			-minute  => $minute,
 			-hour    => $hour,
 			-dow     => join( ",", @dow ),
-			-command => "loxberry " . $prefix . "sudo $lbpbindir/s4l_backup.pl create --scheduled > /dev/null 2>&1" ) );
+			-command => "loxberry sudo $lbpbindir/s4l_backup.pl create --cron > /dev/null 2>&1" ) );
 	}
 
 	$ct->last($block);

@@ -9,7 +9,7 @@
 #
 # Usage (root):
 #   s4l_backup.pl create  --target <dir> [--compression <c>] [--keep <n>]
-#   s4l_backup.pl create  --scheduled
+#   s4l_backup.pl create  --scheduled | --cron
 #   s4l_backup.pl list    --target <dir>
 #   s4l_backup.pl check   --file <archive> [--dbpath <dir>]
 #   s4l_backup.pl restore --file <archive> [--dbpath <dir>] [--force]
@@ -17,9 +17,10 @@
 #
 # --compression: none | gzip | xz | zip | 7z (default gzip)
 # --keep:        how many archives to keep in the target directory, 0 = all
-# --scheduled:   take target, compression and keep from stats4lox.json. This is
-#                the form the cron job uses, so a changed setting takes effect
-#                without rewriting the crontab entry.
+# --scheduled:   take target, compression and keep from stats4lox.json, so a
+#                changed setting takes effect without rewriting the crontab.
+# --cron:        like --scheduled, and additionally skip the run when the
+#                schedule says "every n weeks" and this is not one of them.
 #
 # "check" answers as JSON and changes nothing - the web interface uses it to
 # find out beforehand whether there is room and whether a database would be
@@ -45,7 +46,7 @@ if( $< ) {
 }
 
 my $command = shift @ARGV // '';
-my ( $target, $file, $dbpath, $force, $json_only, $compression, $keep, $scheduled );
+my ( $target, $file, $dbpath, $force, $json_only, $compression, $keep, $scheduled, $cron );
 GetOptions(
 	'target=s'      => \$target,
 	'file=s'        => \$file,
@@ -55,7 +56,9 @@ GetOptions(
 	'compression=s' => \$compression,
 	'keep=i'        => \$keep,
 	'scheduled'     => \$scheduled,
+	'cron'          => \$cron,
 );
+$scheduled = 1 if( $cron );
 
 # "check" and "list" only print JSON, so no log file for them
 my $log;
@@ -848,7 +851,63 @@ if( $scheduled ) {
 	$target      = $b->{storagepath} if( !$target and $b->{storagepath} );
 	$compression = $b->{compression} if( !defined $compression );
 	$keep        = $b->{keep}        if( !defined $keep );
+
+	# Whether this week is one of the wanted ones is decided here and not in the
+	# crontab. cron runs its commands through /bin/sh - dash on LoxBerry - which
+	# has no [[ ]], and every % in a crontab command is turned into a newline, so
+	# a "date +%s" in there never survives. The weekday and the time are what
+	# cron is good at; the rest is arithmetic and belongs in a program.
+	if( $cron ) {
+		my $repeat = $b->{schedule}->{repeat} || 1;
+		if( $repeat > 1 and !week_is_due( $b->{schedule}->{since}, $repeat ) ) {
+			LOG "Not due this week (every $repeat weeks) - nothing to do";
+			LOGEND if( $log );
+			exit 0;
+		}
+	}
 	LOG "Scheduled run";
+}
+
+# "Every n weeks" counted in whole weeks, not in days.
+#
+# The obvious "days since a reference date modulo n*7" only ever matches a
+# single day every n*7 days - with two weekdays selected, one of them would
+# never fire. Counting weeks instead means every selected weekday of a due week
+# is due.
+sub week_is_due
+{
+	my ($since, $repeat) = @_;
+	return 1 if( !$repeat or $repeat < 2 );
+	my ($y, $m, $d) = ( $since // '' ) =~ /^(\d{4})-(\d{2})-(\d{2})$/;
+	return 1 if( !$y );
+
+	require Time::Local;
+
+	# Day number of a date, anchored at noon so a daylight saving change - which
+	# moves the clock by an hour - cannot push a date into the neighbouring day.
+	my $daynum = sub {
+		my ($yy, $mm, $dd) = @_;
+		my $t = eval { Time::Local::timelocal( 0, 0, 12, $dd, $mm - 1, $yy ) };
+		return defined $t ? int( $t / 86400 ) : undef;
+	};
+
+	my $refday = $daynum->( $y, $m, $d );
+	my @now = localtime( time() );
+	my $today = $daynum->( $now[5] + 1900, $now[4] + 1, $now[3] );
+	return 1 if( !defined $refday or !defined $today );
+
+	# Both days pulled back to the Monday of their week, so the difference is a
+	# whole number of weeks whatever weekday either one falls on. Perl counts
+	# Sunday as 0, which belongs to the week that started six days earlier.
+	my $back = sub {
+		my ($dayno) = @_;
+		# 1970-01-01 was a Thursday, so day number + 4 gives the weekday with
+		# Monday = 0.
+		return $dayno - ( ( $dayno + 3 ) % 7 );
+	};
+
+	my $weeks = ( $back->($today) - $back->($refday) ) / 7;
+	return ( $weeks % $repeat == 0 ) ? 1 : 0;
 }
 
 my $rc = 0;

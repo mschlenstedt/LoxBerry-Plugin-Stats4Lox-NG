@@ -135,6 +135,8 @@ our $backup = {
 		active => "False",
 		repeat => 1,
 		time   => "03:00",
+		# Reference week for "every n weeks", set when the schedule is saved
+		since  => "",
 		mon    => "False",
 		tue    => "False",
 		wed    => "False",
