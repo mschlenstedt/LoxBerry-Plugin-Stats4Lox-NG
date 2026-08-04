@@ -140,6 +140,28 @@
 		white-space	:nowrap;
 		text-align	:right;
 	}
+	table.infolist
+	{
+		width		:100%;
+		border-collapse	:collapse;
+	}
+	table.infolist th, table.infolist td
+	{
+		padding		:4px 8px;
+		text-align	:left;
+		vertical-align	:top;
+		border-bottom	:1px solid rgba(128,128,128,0.3);
+		font-size	:smaller;
+	}
+	table.infolist th
+	{
+		white-space	:nowrap;
+		width		:45%;
+	}
+	table.infolist td
+	{
+		word-break	:break-all;
+	}
 
 	/* The LoxBerry jQuery Mobile theme only has the swatches a, b and c, none
 	   of them red. Destructive actions need to look destructive, so the plugin
@@ -309,6 +331,13 @@
 	<div class="chstatus" id="progress_status">&nbsp;</div>
 </div>
 
+<!-- What the manifest of an archive holds -->
+<div data-role="popup" id="popupInfo" data-position-to="window" data-transition="flip" data-theme="a" data-overlay-theme="a" class="ui-content" style="max-width:600px;">
+	<a href="#" data-rel="back" class="ui-btn ui-corner-all ui-shadow ui-btn-a ui-icon-delete ui-btn-icon-notext ui-btn-right"><TMPL_VAR COMMON.BUTTON_CLOSE></a>
+	<center><h2><TMPL_VAR BACKUP.POPUP_INFO_TITLE></h2></center>
+	<div id="info_detail"></div>
+</div>
+
 <!-- Restore has to be confirmed - it replaces the running installation -->
 <div data-role="popup" id="popupRestore" data-position-to="window" data-transition="flip" data-theme="a" data-overlay-theme="a" data-dismissible="false" class="ui-content" style="max-width:600px;">
 	<center><h2><TMPL_VAR BACKUP.CONFIRM_RESTORE_TITLE></h2></center>
@@ -324,6 +353,8 @@ var pollInterval;
 var restoreFile;
 var restoreForce = 0;
 var restoreDbPath = "";
+// Filled while the list is built, so the info popup needs no second request.
+var backupsByFile = {};
 
 $(function() {
 	toggleSchedule();
@@ -417,6 +448,11 @@ function loadBackups() {
 			   + '<td>' + esc(b.size_h) + '</td>'
 			   + '<td>' + esc(ver) + '</td>'
 			   + '<td class="actions">';
+			// The manifest is already here - the info popup does not have to
+			// ask the backend again.
+			backupsByFile[b.file] = b;
+			h += '<a href="javascript:showInfo(\'' + esc(b.file) + '\');" class="ui-btn ui-mini ui-corner-all ui-btn-inline ui-btn-icon-left ui-icon-info">'
+			   + '<TMPL_VAR BACKUP.BUTTON_INFO></a> ';
 			if( m.created ) {
 				h += '<a href="javascript:askRestore(\'' + esc(b.file) + '\');" class="ui-btn ui-mini ui-corner-all ui-btn-inline">'
 				   + '<TMPL_VAR BACKUP.BUTTON_RESTORE></a> ';
@@ -428,6 +464,63 @@ function loadBackups() {
 		h += '</tbody></table>';
 		$('#backuplist').html(h);
 	} );
+}
+
+// Everything the manifest holds, as a plain table. No request of its own - the
+// list already carries the manifest of every archive.
+function showInfo( file ) {
+	var b = backupsByFile[file];
+	if( !b ) { return; }
+	var m = b.manifest;
+
+	var h = '<table class="infolist">';
+	function row( label, value ) {
+		if( value === undefined || value === null || value === '' ) { return; }
+		h += '<tr><th>' + label + '</th><td>' + esc(value) + '</td></tr>';
+	}
+
+	row( "<TMPL_VAR BACKUP.INFO_FILE>",        b.name );
+	row( "<TMPL_VAR BACKUP.INFO_SIZE>",        b.size_h );
+	row( "<TMPL_VAR BACKUP.INFO_COMPRESSION>", b.compression );
+
+	if( !m ) {
+		h += '</table><div class="warnbox"><TMPL_VAR BACKUP.INFO_NO_MANIFEST></div>';
+		$('#info_detail').html(h);
+		$('#popupInfo').popup('open');
+		return;
+	}
+
+	row( "<TMPL_VAR BACKUP.INFO_CREATED>",     m.created );
+	row( "<TMPL_VAR BACKUP.INFO_PLUGIN>",      m.plugin_version );
+	row( "<TMPL_VAR BACKUP.INFO_LOXBERRY>",    m.loxberry_version );
+	row( "<TMPL_VAR BACKUP.INFO_INFLUX>",      m.influxdb_version );
+	row( "<TMPL_VAR BACKUP.INFO_GRAFANA>",     m.grafana_version );
+	row( "<TMPL_VAR BACKUP.INFO_DBNAME>",      m.db_name );
+	row( "<TMPL_VAR BACKUP.INFO_DBPATH>",      m.db_path );
+	row( "<TMPL_VAR BACKUP.INFO_DBSIZE>",      human( m.db_size_bytes ) );
+	row( "<TMPL_VAR BACKUP.INFO_BACKUPSIZE>",  human( m.backup_size_bytes ) );
+	row( "<TMPL_VAR BACKUP.INFO_USERS>",       ( m.influx_users || [] ).join( ", " ) );
+	row( "<TMPL_VAR BACKUP.INFO_CQ>",          m.influx_cq_count );
+	h += '</table>';
+
+	$.each( m.warnings || [], function( i, w ) {
+		h += '<div class="warnbox">' + esc(w) + '</div>';
+	} );
+
+	$('#info_detail').html(h);
+	$('#popupInfo').popup('open');
+	$('#popupInfo').popup('reposition', { positionTo: 'window' } );
+}
+
+// The sizes come from the manifest as plain byte counts.
+function human( bytes ) {
+	if( bytes === undefined || bytes === null || bytes === '' ) { return ''; }
+	var u = [ 'B', 'KB', 'MB', 'GB', 'TB' ];
+	var i = 0;
+	var b = Number(bytes);
+	if( isNaN(b) ) { return ''; }
+	while( b >= 1024 && i < u.length - 1 ) { b = b / 1024; i++; }
+	return b.toFixed(1) + ' ' + u[i];
 }
 
 function deleteBackup( file ) {
