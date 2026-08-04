@@ -50,36 +50,33 @@
 	{
 		.s4lrow .lb_flex-item-label
 		{
-			min-width	:260px;
-			width		:260px;
-			max-width	:260px;
+			min-width	:320px;
+			width		:320px;
+			max-width	:320px;
 			margin-right	:10px;
 			padding-top	:8px;
 		}
 		.s4lrow .lb_flex-item
 		{
-			width		:calc(100% - 270px);
-			max-width	:calc(100% - 270px);
+			width		:calc(100% - 330px);
+			max-width	:calc(100% - 330px);
 		}
 		.s4lrow .lb_flex-item-help
 		{
-			width		:calc(100% - 270px);
-			margin-left	:270px;
+			width		:calc(100% - 330px);
+			margin-left	:330px;
 		}
 	}
-	/* Form controls fill the field column, the way the storage path picker
-	   already does. */
+	/* Selects and text fields share one width so they line up with each other.
+	   Not 100%: the field column already ends before the right edge, and at
+	   100% the dropdowns ran past it.
+	   The flipswitch is deliberately left alone - jQuery Mobile builds it with
+	   a fixed width and places the "off" label inside; any width of ours pushes
+	   that label out of the switch. */
 	.s4lrow .lb_flex-item .ui-select,
 	.s4lrow .lb_flex-item .ui-input-text
 	{
-		width		:100%;
-	}
-	/* Except the flipswitch - it has a fixed size and would look absurd
-	   stretched across the whole width. */
-	.s4lrow .lb_flex-item .ui-flipswitch
-	{
-		width		:auto;
-		display		:inline-block;
+		width		:80%;
 	}
 </style>
 

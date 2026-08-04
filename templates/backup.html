@@ -45,36 +45,33 @@
 	{
 		.s4lrow .lb_flex-item-label
 		{
-			min-width	:260px;
-			width		:260px;
-			max-width	:260px;
+			min-width	:320px;
+			width		:320px;
+			max-width	:320px;
 			margin-right	:10px;
 			padding-top	:8px;
 		}
 		.s4lrow .lb_flex-item
 		{
-			width		:calc(100% - 270px);
-			max-width	:calc(100% - 270px);
+			width		:calc(100% - 330px);
+			max-width	:calc(100% - 330px);
 		}
 		.s4lrow .lb_flex-item-help
 		{
-			width		:calc(100% - 270px);
-			margin-left	:270px;
+			width		:calc(100% - 330px);
+			margin-left	:330px;
 		}
 	}
-	/* Selects and text fields fill the field column, the way the storage path
-	   picker already does. */
+	/* Selects and text fields share one width so they line up with each other.
+	   Not 100%: the field column already ends before the right edge, and at
+	   100% the dropdowns ran past it.
+	   The flipswitch is deliberately left alone - jQuery Mobile builds it with
+	   a fixed width and places the "off" label inside; any width of ours pushes
+	   that label out of the switch. */
 	.s4lrow .lb_flex-item .ui-select,
 	.s4lrow .lb_flex-item .ui-input-text
 	{
-		width		:100%;
-	}
-	/* Except the flipswitch and the time field - both have a natural size and
-	   would look absurd stretched across the whole width. */
-	.s4lrow .lb_flex-item .ui-flipswitch
-	{
-		width		:auto;
-		display		:inline-block;
+		width		:80%;
 	}
 
 	/* Weekdays and time share one row. */
@@ -96,10 +93,18 @@
 		margin		:0;
 		white-space	:nowrap;
 	}
-	.dayssplit .timepart .ui-input-text
+	/* The two time lists keep their own narrow width - the 80% above is meant
+	   for the fields that sit alone in their row. */
+	.dayssplit .timepart .ui-select
 	{
-		width		:9em;
+		width		:auto;
+		min-width	:5em;
 		margin		:0;
+	}
+	.dayssplit .timepart .timesep
+	{
+		font-weight	:bold;
+		margin		:0 -4px;
 	}
 	/* jQuery Mobile 1.4.5 lays out a horizontal controlgroup as one row of
 	   buttons. Seven weekdays fit on a desktop but not on a phone, so it is
@@ -225,9 +230,18 @@
 					<input type="checkbox" name="sat" id="sat" <TMPL_VAR CHECKED_SAT>><label for="sat"><TMPL_VAR BACKUP.SAT></label>
 					<input type="checkbox" name="sun" id="sun" <TMPL_VAR CHECKED_SUN>><label for="sun"><TMPL_VAR BACKUP.SUN></label>
 				</fieldset>
+				<!-- Hour and minute as two lists instead of <input type="time">.
+				     The native field accepted letters here and showed no clock,
+				     and there is nothing in jQuery Mobile 1.4.5 to fix that with
+				     - it has no time widget of its own, LoxBerry ships no
+				     extension, and it leaves type="time" untouched. Two lists
+				     cannot take a wrong entry at all and give the hour/minute
+				     scrolling this needs. -->
 				<div class="timepart">
-					<label for="timef"><TMPL_VAR BACKUP.LABEL_TIME></label>
-					<input type="time" name="timef" id="timef" data-mini="true" value="<TMPL_VAR SCHEDULE_TIME>">
+					<label for="timeh"><TMPL_VAR BACKUP.LABEL_TIME></label>
+					<select name="timeh" id="timeh" data-mini="true"><TMPL_VAR HOUR_OPTIONS></select>
+					<span class="timesep">:</span>
+					<select name="timem" id="timem" data-mini="true"><TMPL_VAR MINUTE_OPTIONS></select>
 				</div>
 			</div>
 		</div>
@@ -327,7 +341,7 @@ function saveBackupConfig() {
 			keep:           $('#keep').val(),
 			compression:    $('#compression').val(),
 			scheduleactive: cb('scheduleactive'),
-			timef:          $('#timef').val(),
+			timef:          $('#timeh').val() + ':' + $('#timem').val(),
 			repeat:         $('#repeat').val(),
 			mon: cb('mon'), tue: cb('tue'), wed: cb('wed'), thu: cb('thu'),
 			fre: cb('fre'), sat: cb('sat'), sun: cb('sun')

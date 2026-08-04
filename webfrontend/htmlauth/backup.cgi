@@ -76,7 +76,20 @@ foreach my $n ( 2 .. 8 ) {
 }
 $template->param( 'REPEAT_OPTIONS', $rephtml );
 
-$template->param( 'SCHEDULE_TIME', $s->{time} || '03:00' );
+# Hour and minute as two lists. Minutes in five minute steps - a backup runs
+# for minutes anyway, so the exact minute is not worth twelve times the options.
+my ( $th, $tm ) = ( $s->{time} || '03:00' ) =~ /^(\d{1,2}):(\d{2})$/;
+$th = 3  if( !defined $th or $th > 23 );
+$tm = 0  if( !defined $tm or $tm > 59 );
+$tm = int( $tm / 5 ) * 5;
+
+my $hourhtml = '';
+$hourhtml .= opt( sprintf("%02d",$_), sprintf("%02d",$_), sprintf("%02d",$th) ) foreach ( 0 .. 23 );
+$template->param( 'HOUR_OPTIONS', $hourhtml );
+
+my $minhtml = '';
+$minhtml .= opt( sprintf("%02d",$_), sprintf("%02d",$_), sprintf("%02d",$tm) ) foreach ( grep { $_ % 5 == 0 } 0 .. 59 );
+$template->param( 'MINUTE_OPTIONS', $minhtml );
 $template->param( 'SCHEDULEACTIVE',
 	LoxBerry::System::is_enabled( $s->{active} ) ? 'checked="checked"' : '' );
 
