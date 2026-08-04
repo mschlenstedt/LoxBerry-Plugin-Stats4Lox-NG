@@ -1,0 +1,443 @@
+<style>
+	.datahidden {
+		display: none;
+	}
+	.chstatus
+	{
+		min-height	:4.0em;
+		line-height	:1.2em;
+		word-wrap	:break-word;
+		width		:100%;
+		text-align	:center;
+	}
+	.buttonrow
+	{
+		min-height	:2em;
+		overflow	:auto;
+		width		:100%;
+		text-align	:center;
+		font-size	:smaller;
+	}
+	.lb_flex-item
+	{
+		min-width	:650px;
+		width		:100%;
+		flex-wrap	:nowrap;
+		margin-top	:10px;
+	}
+	.lb_flex-item-help
+	{
+		min-width	:100px;
+		width		:100%;
+		position	:relative;
+		margin-left	:10px;
+	}
+	/* The wide .lb_flex-item above exists for the storage path picker. A
+	   flipswitch, a time field or the weekday group would be pushed onto a line
+	   of their own by it, so the narrow rows bring their own width. */
+	.lb_flex-item-narrow
+	{
+		min-width	:0;
+		width		:auto;
+		flex		:0 0 auto;
+		margin-top	:0;
+		margin-left	:10px;
+	}
+	.backuprow .lb_flex-item-label
+	{
+		width		:260px;
+		max-width	:260px;
+	}
+	/* jQuery Mobile lays out a horizontal controlgroup as a single row of
+	   buttons. Seven weekdays fit on a desktop but not on a phone, so it is
+	   allowed to wrap. */
+	#weekdays.ui-controlgroup-horizontal .ui-controlgroup-controls
+	{
+		display		:flex;
+		flex-wrap	:wrap;
+	}
+	table.backuplist
+	{
+		width		:100%;
+		border-collapse	:collapse;
+	}
+	table.backuplist th, table.backuplist td
+	{
+		padding		:6px 8px;
+		text-align	:left;
+		border-bottom	:1px solid rgba(128,128,128,0.3);
+		font-size	:smaller;
+		vertical-align	:middle;
+	}
+	table.backuplist td.actions
+	{
+		white-space	:nowrap;
+		text-align	:right;
+	}
+	.warnbox
+	{
+		border		:1px solid #c00;
+		padding		:8px;
+		margin		:8px 0;
+		border-radius	:4px;
+	}
+</style>
+
+<div class="datahidden" id="lang_sub_system_settings"><TMPL_VAR NAVBAR.SUB_SYSTEM_SETTINGS></div>
+<div class="datahidden" id="lang_sub_system_backup"><TMPL_VAR NAVBAR.SUB_SYSTEM_BACKUP></div>
+
+<form>
+<div class="ui-body ui-body-a ui-corner-all">
+
+	<h2><TMPL_VAR BACKUP.TITLE_SETTINGS></h2>
+
+	<div class="lb_flex-container backuprow">
+		<div	class="lb_flex-item-label"><TMPL_VAR BACKUP.LABEL_STORAGEPATH></div>
+		<div	class="lb_flex-item-spacer"></div>
+		<div	class="lb_flex-item">
+			<TMPL_VAR STORAGE_PATH>
+		</div>
+		<div	class="lb_flex-item-spacer"></div>
+		<div	class="lb_flex-item-help hint"><TMPL_VAR BACKUP.HINT_STORAGEPATH></div>
+		<div	class="lb_flex-item-spacer"></div>
+	</div>
+
+	<div class="lb_flex-container backuprow">
+		<div	class="lb_flex-item-label"><TMPL_VAR BACKUP.LABEL_KEEP></div>
+		<div	class="lb_flex-item-narrow">
+			<select name="keep" id="keep" data-mini="true"><TMPL_VAR KEEP_OPTIONS></select>
+		</div>
+		<div	class="lb_flex-item-help hint"><TMPL_VAR BACKUP.HINT_KEEP></div>
+	</div>
+
+	<div class="lb_flex-container backuprow">
+		<div	class="lb_flex-item-label"><TMPL_VAR BACKUP.LABEL_COMPRESSION></div>
+		<div	class="lb_flex-item-narrow">
+			<select name="compression" id="compression" data-mini="true"><TMPL_VAR COMPRESSION_OPTIONS></select>
+		</div>
+		<div	class="lb_flex-item-help hint"><TMPL_VAR BACKUP.HINT_COMPRESSION></div>
+	</div>
+
+	<h2><TMPL_VAR BACKUP.TITLE_SCHEDULE></h2>
+
+	<div class="lb_flex-container backuprow">
+		<div	class="lb_flex-item-label"><TMPL_VAR BACKUP.LABEL_SCHEDULEACTIVE></div>
+		<div	class="lb_flex-item-narrow">
+			<input type="checkbox" data-role="flipswitch" name="scheduleactive" id="scheduleactive" <TMPL_VAR SCHEDULEACTIVE>>
+		</div>
+		<div	class="lb_flex-item-help hint"><TMPL_VAR BACKUP.HINT_SCHEDULEACTIVE></div>
+	</div>
+
+	<div class="lb_flex-container backuprow schedulefields">
+		<div	class="lb_flex-item-label"><TMPL_VAR BACKUP.LABEL_WEEKDAY></div>
+		<div	class="lb_flex-item-narrow">
+			<fieldset data-role="controlgroup" data-type="horizontal" data-mini="true" id="weekdays">
+				<input type="checkbox" name="mon" id="mon" <TMPL_VAR CHECKED_MON>><label for="mon"><TMPL_VAR BACKUP.MON></label>
+				<input type="checkbox" name="tue" id="tue" <TMPL_VAR CHECKED_TUE>><label for="tue"><TMPL_VAR BACKUP.TUE></label>
+				<input type="checkbox" name="wed" id="wed" <TMPL_VAR CHECKED_WED>><label for="wed"><TMPL_VAR BACKUP.WED></label>
+				<input type="checkbox" name="thu" id="thu" <TMPL_VAR CHECKED_THU>><label for="thu"><TMPL_VAR BACKUP.THU></label>
+				<input type="checkbox" name="fre" id="fre" <TMPL_VAR CHECKED_FRE>><label for="fre"><TMPL_VAR BACKUP.FRE></label>
+				<input type="checkbox" name="sat" id="sat" <TMPL_VAR CHECKED_SAT>><label for="sat"><TMPL_VAR BACKUP.SAT></label>
+				<input type="checkbox" name="sun" id="sun" <TMPL_VAR CHECKED_SUN>><label for="sun"><TMPL_VAR BACKUP.SUN></label>
+			</fieldset>
+		</div>
+	</div>
+
+	<div class="lb_flex-container backuprow schedulefields">
+		<div	class="lb_flex-item-label"><TMPL_VAR BACKUP.LABEL_TIME></div>
+		<div	class="lb_flex-item-narrow">
+			<input type="time" name="timef" id="timef" data-mini="true" value="<TMPL_VAR SCHEDULE_TIME>">
+		</div>
+	</div>
+
+	<div class="lb_flex-container backuprow schedulefields">
+		<div	class="lb_flex-item-label"><TMPL_VAR BACKUP.LABEL_REPEAT></div>
+		<div	class="lb_flex-item-narrow">
+			<select name="repeat" id="repeat" data-mini="true"><TMPL_VAR REPEAT_OPTIONS></select>
+		</div>
+	</div>
+
+	<div style="padding: 0px 0px 20px 0px;"></div>
+
+	<div class="lb_flex-container backupsettings">
+		<div	class="buttonrow">
+			<a href="javascript:saveBackupConfig();" id="btnsavebackup" class="ui-btn ui-corner-all ui-shadow ui-btn-b ui-btn-icon-left ui-icon-check ui-btn-inline"
+				data-inline="true"><TMPL_VAR BACKUP.BUTTON_SAVE></a>
+		</div>
+	</div>
+
+	<div class="lb_flex-container">
+		<div class="buttonrow" id="hint_backupsettings">&nbsp;</div>
+	</div>
+
+	<h2><TMPL_VAR BACKUP.TITLE_ARCHIVES></h2>
+
+	<div class="lb_flex-container">
+		<div	class="buttonrow">
+			<a href="javascript:backupNow();" id="btnbackupnow" class="ui-btn ui-corner-all ui-shadow ui-btn-b ui-btn-icon-left ui-icon-plus ui-btn-inline"
+				data-inline="true"><TMPL_VAR BACKUP.BUTTON_BACKUP_NOW></a>
+			<a href="javascript:loadBackups();" id="btnrefresh" class="ui-btn ui-corner-all ui-shadow ui-btn-icon-left ui-icon-refresh ui-btn-inline"
+				data-inline="true"><TMPL_VAR BACKUP.BUTTON_REFRESH></a>
+		</div>
+	</div>
+
+	<div id="backuplist"><p><TMPL_VAR BACKUP.HINT_LOADING></p></div>
+
+</div>
+</form>
+
+<!-- Progress while a backup or a restore runs -->
+<div data-role="popup" id="popupProgress" data-position-to="window" data-transition="flip" data-theme="a" data-overlay-theme="a" data-dismissible="false" class="ui-content" style="min-width:300px;">
+	<center><h2 id="progress_title">&nbsp;</h2></center>
+	<div class="chstatus" id="progress_hint">&nbsp;</div>
+	<div class="chstatus" id="progress_status">&nbsp;</div>
+</div>
+
+<!-- Restore has to be confirmed - it replaces the running installation -->
+<div data-role="popup" id="popupRestore" data-position-to="window" data-transition="flip" data-theme="a" data-overlay-theme="a" data-dismissible="false" class="ui-content" style="max-width:600px;">
+	<center><h2><TMPL_VAR BACKUP.CONFIRM_RESTORE_TITLE></h2></center>
+	<div id="restore_detail"></div>
+	<div style="padding: 10px 0px 0px 0px; text-align:center;">
+		<a href="javascript:closeRestore();" class="ui-btn ui-corner-all ui-shadow ui-btn-inline" data-inline="true"><TMPL_VAR BACKUP.BUTTON_CANCEL></a>
+		<a href="javascript:doRestore();" id="btndorestore" class="ui-btn ui-corner-all ui-shadow ui-btn-b ui-btn-inline" data-inline="true"><TMPL_VAR BACKUP.BUTTON_RESTORE_CONFIRM></a>
+	</div>
+</div>
+
+<script>
+var pollInterval;
+var restoreFile;
+var restoreForce = 0;
+var restoreDbPath = "";
+
+$(function() {
+	toggleSchedule();
+	$('#scheduleactive').on( 'change', toggleSchedule );
+	loadBackups();
+});
+
+// The schedule fields say nothing while the schedule is off.
+function toggleSchedule() {
+	if( $('#scheduleactive').is(':checked') ) {
+		$('.schedulefields').removeClass('ui-disabled');
+	} else {
+		$('.schedulefields').addClass('ui-disabled');
+	}
+}
+
+function cb( id ) {
+	return $('#'+id).is(':checked') ? 'True' : 'False';
+}
+
+function saveBackupConfig() {
+	$('.backupsettings').addClass('ui-disabled');
+	$('#hint_backupsettings').html("");
+	$.ajax( {
+		url:  'ajax.cgi',
+		type: 'POST',
+		data: {
+			action:         'savebackupconfig',
+			storagepath:    $('#storagepath').val(),
+			keep:           $('#keep').val(),
+			compression:    $('#compression').val(),
+			scheduleactive: cb('scheduleactive'),
+			timef:          $('#timef').val(),
+			repeat:         $('#repeat').val(),
+			mon: cb('mon'), tue: cb('tue'), wed: cb('wed'), thu: cb('thu'),
+			fre: cb('fre'), sat: cb('sat'), sun: cb('sun')
+		}
+	} )
+	.fail( function( data ) {
+		console.log( "savebackupconfig failed", data );
+		$('#hint_backupsettings').attr("style","color:red").html("<TMPL_VAR BACKUP.HINT_SAVING_FAIL>");
+	} )
+	.done( function( data ) {
+		if( data && data.error == 0 ) {
+			$('#hint_backupsettings').attr("style","color:green").html("<TMPL_VAR BACKUP.HINT_SAVING_SUCCESS>");
+			loadBackups();
+		} else {
+			$('#hint_backupsettings').attr("style","color:red").html("<TMPL_VAR BACKUP.HINT_SAVING_FAIL>");
+		}
+	} )
+	.always( function() {
+		$('.backupsettings').removeClass('ui-disabled');
+	} );
+}
+
+function esc( s ) {
+	return $('<div>').text( s === undefined || s === null ? '' : s ).html();
+}
+
+function loadBackups() {
+	$('#backuplist').html("<p><TMPL_VAR BACKUP.HINT_LOADING></p>");
+	$.ajax( { url: 'ajax.cgi', type: 'POST', data: { action: 'backup_list' } } )
+	.fail( function( data ) {
+		console.log( "backup_list failed", data );
+		$('#backuplist').html("<p><TMPL_VAR COMMON.ERROR_COULD_NOT_GET_DATA></p>");
+	} )
+	.done( function( data ) {
+		if( !data || data.nostorage ) {
+			$('#backuplist').html("<p><TMPL_VAR BACKUP.HINT_NO_STORAGE></p>");
+			return;
+		}
+		var list = data.backups || [];
+		if( list.length == 0 ) {
+			$('#backuplist').html("<p><TMPL_VAR BACKUP.HINT_NO_ARCHIVES></p>");
+			return;
+		}
+		var h = '<table class="backuplist"><thead><tr>'
+		      + '<th><TMPL_VAR BACKUP.COL_NAME></th>'
+		      + '<th><TMPL_VAR BACKUP.COL_DATE></th>'
+		      + '<th><TMPL_VAR BACKUP.COL_SIZE></th>'
+		      + '<th><TMPL_VAR BACKUP.COL_VERSION></th>'
+		      + '<th></th></tr></thead><tbody>';
+		$.each( list, function( i, b ) {
+			var m = b.manifest || {};
+			// Without a manifest the archive is not ours - it is listed so the
+			// user sees what is lying there, but it cannot be restored.
+			var created = m.created ? m.created : '-';
+			var ver     = m.plugin_version ? m.plugin_version : '-';
+			h += '<tr><td>' + esc(b.name) + '</td>'
+			   + '<td>' + esc(created) + '</td>'
+			   + '<td>' + esc(b.size_h) + '</td>'
+			   + '<td>' + esc(ver) + '</td>'
+			   + '<td class="actions">';
+			if( m.created ) {
+				h += '<a href="javascript:askRestore(\'' + esc(b.file) + '\');" class="ui-btn ui-mini ui-corner-all ui-btn-inline">'
+				   + '<TMPL_VAR BACKUP.BUTTON_RESTORE></a> ';
+			}
+			h += '<a href="javascript:deleteBackup(\'' + esc(b.file) + '\');" class="ui-btn ui-mini ui-corner-all ui-btn-inline">'
+			   + '<TMPL_VAR BACKUP.BUTTON_DELETE></a>';
+			h += '</td></tr>';
+		} );
+		h += '</tbody></table>';
+		$('#backuplist').html(h);
+	} );
+}
+
+function deleteBackup( file ) {
+	if( !confirm("<TMPL_VAR BACKUP.CONFIRM_DELETE>") ) { return; }
+	$.ajax( { url: 'ajax.cgi', type: 'POST', data: { action: 'backup_delete', file: file } } )
+	.always( function() { loadBackups(); } );
+}
+
+function backupNow() {
+	$('#progress_title').html("<TMPL_VAR BACKUP.POPUP_BACKUP_TITLE>");
+	$('#progress_hint').attr("style","").html("<TMPL_VAR BACKUP.HINT_BACKUP_RUNNING>");
+	$('#progress_status').html("");
+	$('#popupProgress').popup('open');
+	$.ajax( { url: 'ajax.cgi', type: 'POST', data: { action: 'backup_create' } } )
+	.fail( function( data ) {
+		console.log( "backup_create failed", data );
+		finishProgress( false, "<TMPL_VAR BACKUP.HINT_BACKUP_FAIL>" );
+	} )
+	.done( function() {
+		startPolling( "<TMPL_VAR BACKUP.HINT_BACKUP_DONE>", "<TMPL_VAR BACKUP.HINT_BACKUP_FAIL>" );
+	} );
+}
+
+// Asks the backend first: is there room, and would an existing database with
+// data be deleted? Only then is the confirmation shown - with the answer in it.
+function askRestore( file ) {
+	restoreFile = file;
+	restoreForce = 0;
+	restoreDbPath = "";
+	$('#restore_detail').html("<p><TMPL_VAR BACKUP.HINT_LOADING></p>");
+	$('#popupRestore').popup('open');
+	$.ajax( { url: 'ajax.cgi', type: 'POST', data: { action: 'backup_check', file: file } } )
+	.fail( function( data ) {
+		console.log( "backup_check failed", data );
+		$('#restore_detail').html("<p><TMPL_VAR COMMON.ERROR_COULD_NOT_GET_DATA></p>");
+		$('#btndorestore').addClass('ui-disabled');
+	} )
+	.done( function( data ) {
+		if( !data || !data.ok ) {
+			var msg = ( data && data.error ) ? data.error : "<TMPL_VAR COMMON.ERROR_COULD_NOT_GET_DATA>";
+			$('#restore_detail').html('<div class="warnbox">' + esc(msg) + '</div>');
+			$('#btndorestore').addClass('ui-disabled');
+			return;
+		}
+		restoreDbPath = data.chosen;
+		restoreForce  = data.needs_confirmation ? 1 : 0;
+
+		var h = '<p><TMPL_VAR BACKUP.CONFIRM_RESTORE></p>';
+		h += '<p>' + "<TMPL_VAR BACKUP.HINT_RESTORE_TARGET>".replace('__PATH__', esc(data.chosen)) + '</p>';
+		if( data.alternative ) {
+			h += '<div class="warnbox">'
+			   + "<TMPL_VAR BACKUP.HINT_RESTORE_ALTERNATIVE>".replace('__PATH__', esc(data.chosen))
+			   + '</div>';
+		}
+		// A freshly created, empty database is what an installation leaves
+		// behind - saying anything about it would only unsettle the user.
+		if( data.needs_confirmation ) {
+			h += '<div class="warnbox">'
+			   + "<TMPL_VAR BACKUP.CONFIRM_RESTORE_DB>".replace('__PATH__', esc(data.chosen))
+			   + '</div>';
+		}
+		$.each( ( data.manifest && data.manifest.warnings ) || [], function( i, w ) {
+			h += '<div class="warnbox">' + esc(w) + '</div>';
+		} );
+		$('#restore_detail').html(h);
+		$('#btndorestore').removeClass('ui-disabled');
+		$('#popupRestore').popup('reposition', { positionTo: 'window' } );
+	} );
+}
+
+function closeRestore() {
+	$('#popupRestore').popup('close');
+}
+
+function doRestore() {
+	$('#popupRestore').popup('close');
+	$('#progress_title').html("<TMPL_VAR BACKUP.POPUP_RESTORE_TITLE>");
+	$('#progress_hint').attr("style","").html("<TMPL_VAR BACKUP.HINT_RESTORE_RUNNING>");
+	$('#progress_status').html("");
+	$('#popupProgress').popup('open');
+	$.ajax( {
+		url: 'ajax.cgi',
+		type: 'POST',
+		data: {
+			action:  'backup_restore',
+			file:    restoreFile,
+			dbpath:  restoreDbPath,
+			force:   restoreForce ? 'true' : 'false'
+		}
+	} )
+	.fail( function( data ) {
+		console.log( "backup_restore failed", data );
+		finishProgress( false, "<TMPL_VAR BACKUP.HINT_RESTORE_FAIL>" );
+	} )
+	.done( function() {
+		startPolling( "<TMPL_VAR BACKUP.HINT_RESTORE_DONE>", "<TMPL_VAR BACKUP.HINT_RESTORE_FAIL>" );
+	} );
+}
+
+// The script writes its progress into a status file; this reads it every three
+// seconds. A backup of a large database takes minutes, so there is no timeout -
+// the popup stays until the script says it is done.
+function startPolling( okmsg, failmsg ) {
+	clearInterval( pollInterval );
+	pollInterval = window.setInterval( function() {
+		$.ajax( { url: 'ajax.cgi', type: 'POST', data: { action: 'backup_status' } } )
+		.done( function( data ) {
+			if( !data || data.running === undefined ) { return; }
+			if( data.message ) {
+				$('#progress_status').attr("style","color:blue").html( esc(data.message) );
+			}
+			if( !data.running ) {
+				clearInterval( pollInterval );
+				finishProgress( !data.errors, data.errors ? failmsg : okmsg );
+			}
+		} );
+	}, 3000 );
+}
+
+function finishProgress( ok, msg ) {
+	clearInterval( pollInterval );
+	$('#progress_status').attr("style", ok ? "color:green" : "color:red").html( msg );
+	window.setTimeout( function() {
+		$('#popupProgress').popup('close');
+		loadBackups();
+	}, 3000 );
+}
+
+</script>

@@ -586,6 +586,263 @@ if( $q->{action} eq "savepluginconfig" ) {
 	$response = '{ "error":' . $errors . '}';
 }
 
+##
+## Backup
+##
+## Everything here runs s4l_backup.pl through sudo - the script needs root for
+## influxd and for the service restarts. The sudoers rule covers exactly this
+## one script.
+
+# The archive names come back from the browser, so they are checked before they
+# are handed to a root script: only our own name pattern, and only inside the
+# configured storage directory. Returns the checked path or undef.
+sub s4l_backup_file
+{
+	my ($wanted) = @_;
+	return undef if( !$wanted );
+
+	require File::Basename;
+	my $name = File::Basename::basename($wanted);
+	return undef if( $name !~ /^stats4lox_\d{8}_\d{6}\.(?:tar|tar\.gz|tar\.xz|zip|7z)$/ );
+
+	my $dir = $Globals::backup->{storagepath};
+	return undef if( !$dir );
+	# Compare the resolved directory, not the string - a path with ".." in it
+	# must not be able to point somewhere else.
+	require Cwd;
+	my $realdir = Cwd::realpath($dir) // return undef;
+	my $realwanted = Cwd::realpath( File::Basename::dirname($wanted) ) // return undef;
+	return undef if( $realwanted ne $realdir );
+
+	return "$realdir/$name";
+}
+
+sub s4l_backup_bin { return "sudo $lbpbindir/s4l_backup.pl" }
+
+# The page polls the status file to find out when the script is done. Between
+# the click and the first line the script writes there is a gap of a second or
+# two - and in that gap the file still holds "running: 0" from the last run, so
+# the page would report success immediately. Marked as running before forking.
+sub s4l_backup_status_reset
+{
+	my ($step) = @_;
+	my $dir = $Globals::stats4lox->{s4ltmp};
+	require File::Path;
+	File::Path::make_path($dir) if( ! -d $dir );
+	my $statfile = "$dir/backup-status.json";
+	if( open( my $fh, '>', $statfile ) ) {
+		print {$fh} '{"running":1,"step":"'.$step.'","message":"","time":' . time() . '}';
+		close $fh;
+	}
+	return;
+}
+
+## backup_list
+if( $q->{action} eq "backup_list" ) {
+	my $dir = $Globals::backup->{storagepath};
+	if( !$dir or ! -d $dir ) {
+		$response = '{ "backups": [], "nostorage": 1 }';
+	}
+	else {
+		$response = `@{[ s4l_backup_bin() ]} list --target "$dir" 2>/dev/null`;
+		$response = '{ "backups": [] }' if( !$response or $response !~ /\S/ );
+	}
+}
+
+## backup_check - may a restore go ahead, and where would the database land
+if( $q->{action} eq "backup_check" ) {
+	my $f = s4l_backup_file( $q->{file} );
+	if( !$f ) {
+		$response = '{ "ok": 0, "error": "Unknown archive" }';
+	}
+	else {
+		$response = `@{[ s4l_backup_bin() ]} check --file "$f" 2>/dev/null`;
+		$response = '{ "ok": 0, "error": "The check produced no answer" }' if( !$response or $response !~ /\S/ );
+	}
+}
+
+## backup_status
+if( $q->{action} eq "backup_status" ) {
+	my $statfile = $Globals::stats4lox->{s4ltmp} . "/backup-status.json";
+	$response = ( -e $statfile ) ? LoxBerry::System::read_file($statfile) : undef;
+	$response = '{ }' if( !$response );
+}
+
+## backup_create
+if( $q->{action} eq "backup_create" ) {
+	my $dir = $Globals::backup->{storagepath};
+	if( !$dir or ! -d $dir ) {
+		$error = "No storage location configured";
+	}
+	else {
+		# The backup takes minutes - the browser must not wait for it. The
+		# status file is what the page polls.
+		s4l_backup_status_reset("preparing");
+		my $pid = fork();
+		if( !defined $pid ) {
+			$error = "Could not start the backup";
+		}
+		elsif( $pid == 0 ) {
+			open STDIN,  "< /dev/null";
+			open STDOUT, "> /dev/null";
+			open STDERR, "> /dev/null";
+			system( s4l_backup_bin() . " create --scheduled" );
+			exit 0;
+		}
+		else {
+			$response = '{ "started": 1 }';
+		}
+	}
+}
+
+## backup_restore
+if( $q->{action} eq "backup_restore" ) {
+	my $f = s4l_backup_file( $q->{file} );
+	if( !$f ) {
+		$error = "Unknown archive";
+	}
+	else {
+		my $dbopt = ( $q->{dbpath} ) ? " --dbpath " . quotemeta( $q->{dbpath} ) : "";
+		# --force is only passed on when the page has shown the warning about an
+		# existing database and the user confirmed it.
+		my $forceopt = ( defined $q->{force} and $q->{force} eq "true" ) ? " --force" : "";
+		s4l_backup_status_reset("preparing");
+		my $pid = fork();
+		if( !defined $pid ) {
+			$error = "Could not start the restore";
+		}
+		elsif( $pid == 0 ) {
+			open STDIN,  "< /dev/null";
+			open STDOUT, "> /dev/null";
+			open STDERR, "> /dev/null";
+			system( s4l_backup_bin() . " restore --file " . quotemeta($f) . $dbopt . $forceopt );
+			exit 0;
+		}
+		else {
+			$response = '{ "started": 1 }';
+		}
+	}
+}
+
+## backup_delete
+if( $q->{action} eq "backup_delete" ) {
+	my $f = s4l_backup_file( $q->{file} );
+	if( !$f ) {
+		$error = "Unknown archive";
+	}
+	else {
+		system( s4l_backup_bin() . " delete --file " . quotemeta($f) . " >/dev/null 2>&1" );
+		$response = ( -e $f ) ? '{ "deleted": 0 }' : '{ "deleted": 1 }';
+	}
+}
+
+## savebackupconfig
+if( $q->{action} eq "savebackupconfig" ) {
+	require LoxBerry::JSON;
+	my $errors = 0;
+	my $jsonobj = LoxBerry::JSON->new();
+	my $cfg = $jsonobj->open( filename => $stats4loxconfig );
+	if( !$cfg ) {
+		$errors++;
+	}
+	else {
+		$cfg->{backup}->{storagepath} = $q->{storagepath} // '';
+		$cfg->{backup}->{compression} = $q->{compression} // 'gzip';
+		$cfg->{backup}->{keep}        = $q->{keep} // 3;
+		$cfg->{backup}->{schedule}->{active} = $q->{scheduleactive} // 'False';
+		$cfg->{backup}->{schedule}->{repeat} = $q->{repeat} // 1;
+		$cfg->{backup}->{schedule}->{time}   = $q->{timef} // '03:00';
+		foreach my $d ( qw( mon tue wed thu fre sat sun ) ) {
+			$cfg->{backup}->{schedule}->{$d} = $q->{$d} // 'False';
+		}
+		$jsonobj->write();
+
+		$errors++ if( !s4l_write_crontab( $cfg->{backup} ) );
+	}
+	$response = '{ "error":' . $errors . '}';
+}
+
+# Writes the schedule as a crontab, in the same way the LoxBerry backup widget
+# does it: build the file with Config::Crontab, then let installcrontab.sh put
+# it in place - that is the only path a plugin has into ~/system/cron/cron.d.
+sub s4l_write_crontab
+{
+	my ($b) = @_;
+
+	require Config::Crontab;
+	require LoxBerry::System;
+
+	# The crontab is named after the plugin, and the name may carry a suffix if
+	# another plugin claimed it first - so it is read, not assumed.
+	my $pdata = LoxBerry::System::plugindata();
+	my $pname = $pdata ? $pdata->{PLUGINDB_NAME} : undef;
+	if( !$pname ) {
+		LOGERR "Could not determine the plugin name - crontab not written";
+		return 0;
+	}
+
+	my $tmp = "/tmp/crontab_stats4lox_$$.txt";
+	unlink $tmp if( -e $tmp );
+	my $ct = Config::Crontab->new( -file => $tmp );
+
+	my @dow;
+	push @dow, "0" if( is_enabled( $b->{schedule}->{sun} ) );
+	push @dow, "1" if( is_enabled( $b->{schedule}->{mon} ) );
+	push @dow, "2" if( is_enabled( $b->{schedule}->{tue} ) );
+	push @dow, "3" if( is_enabled( $b->{schedule}->{wed} ) );
+	push @dow, "4" if( is_enabled( $b->{schedule}->{thu} ) );
+	push @dow, "5" if( is_enabled( $b->{schedule}->{fre} ) );
+	push @dow, "6" if( is_enabled( $b->{schedule}->{sat} ) );
+
+	my $block = Config::Crontab::Block->new();
+	$block->last( Config::Crontab::Comment->new(
+		-data => '## Stats4Lox Backup - do not change manually. Your changes will be overwritten!' ) );
+	$block->last( Config::Crontab::Env->new( -name => 'MAILTO', -value => '""' ) );
+
+	if( is_enabled( $b->{schedule}->{active} ) and scalar @dow ) {
+		my ($hour, $minute) = split( /:/, $b->{schedule}->{time} // '03:00' );
+		$hour   = 0 if( !$hour   or $hour   eq "00" );
+		$minute = 0 if( !$minute or $minute eq "00" );
+		$hour   += 0;
+		$minute += 0;
+
+		# cron cannot express "every n weeks", so the day is filtered in the
+		# command: days since a fixed date modulo n*7. Same trick the LoxBerry
+		# backup widget uses.
+		my $prefix = "";
+		my $repeat = $b->{schedule}->{repeat} // 1;
+		if( $repeat > 1 ) {
+			my $divider = $repeat * 7;
+			my @t = localtime();
+			my $today = sprintf( "%04d%02d%02d", $t[5]+1900, $t[4]+1, $t[3] );
+			$prefix = '[[ $(("( $(date +%s) - $(date +%s --date=' . $today
+			          . ') ) / 86400 % ' . $divider . '")) -eq 0 ]] && ';
+		}
+
+		# installcrontab.sh rewrites " root " to " loxberry ", and the script
+		# itself insists on root - hence sudo, which the plugin's sudoers rule
+		# allows without a password.
+		$block->last( Config::Crontab::Event->new(
+			-minute  => $minute,
+			-hour    => $hour,
+			-dow     => join( ",", @dow ),
+			-command => "loxberry " . $prefix . "sudo $lbpbindir/s4l_backup.pl create --scheduled > /dev/null 2>&1" ) );
+	}
+
+	$ct->last($block);
+	$ct->write;
+
+	my $rc = system( "sudo $lbhomedir/sbin/installcrontab.sh " . quotemeta($pname)
+	                 . " " . quotemeta($tmp) . " >/dev/null 2>&1" );
+	unlink $tmp;
+	if( $rc != 0 ) {
+		LOGERR "installcrontab.sh failed (rc $rc)";
+		return 0;
+	}
+	LOGOK "Backup schedule written to the crontab";
+	return 1;
+}
+
 ## config-handler-status
 if( $q->{action} eq "config-handler-status" ) {
 	my $section = $q->{section};

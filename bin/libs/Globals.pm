@@ -34,8 +34,8 @@ our %navbar = (
 			target => "_blank"
 	},
 	40 => {
-			Name => "Settings",
-			URL => "settings.cgi"
+			Name => "System",
+			URL => "system.cgi"
 	},
 	90 => {
 			Name => "Logfiles",
@@ -123,6 +123,28 @@ our $stats4lox = {
 	servicelogging => "False"
 };
 
+# Backup of configuration, Grafana and the time series database. The storage
+# path stays empty on purpose: an empty path means "not configured yet", and the
+# web interface then offers the LoxBerry storage picker instead of silently
+# filling a directory the user never chose.
+our $backup = {
+	storagepath => "",
+	compression => "gzip",
+	keep        => 3,
+	schedule    => {
+		active => "False",
+		repeat => 1,
+		time   => "03:00",
+		mon    => "False",
+		tue    => "False",
+		wed    => "False",
+		thu    => "False",
+		fre    => "False",
+		sat    => "False",
+		sun    => "False",
+	},
+};
+
 our $telegraf = {
 	unixsocket => "/tmp/telegraf.sock",
 	telegraf_unix_socket => "/tmp/telegraf.sock",
@@ -149,7 +171,7 @@ sub init_navbar_i18n
 	$main::navbar{10}{Name} = $L{'NAVBAR.NAV_LOXONE_IMPORT'} if $L{'NAVBAR.NAV_LOXONE_IMPORT'};
 	$main::navbar{20}{Name} = $L{'NAVBAR.NAV_DATASOURCES'} if $L{'NAVBAR.NAV_DATASOURCES'};
 	$main::navbar{30}{Name} = $L{'NAVBAR.NAV_GRAFANA'} if $L{'NAVBAR.NAV_GRAFANA'};
-	$main::navbar{40}{Name} = $L{'NAVBAR.NAV_SETTINGS'} if $L{'NAVBAR.NAV_SETTINGS'};
+	$main::navbar{40}{Name} = $L{'NAVBAR.NAV_SYSTEM'} if $L{'NAVBAR.NAV_SYSTEM'};
 	$main::navbar{90}{Name} = $L{'NAVBAR.NAV_LOGS'} if $L{'NAVBAR.NAV_LOGS'};
 
 	# Grafana runs on its own port, so the link needs the host name the browser
@@ -661,6 +683,7 @@ sub merge_config
 	$Globals::miniserver = 	$merge->merge( $config->{miniserver}, $Globals::miniserver );
 	$Globals::stats4lox = 	$merge->merge( $config->{stats4lox}, $Globals::stats4lox );
 	$Globals::telegraf = 	$merge->merge( $config->{telegraf}, $Globals::telegraf );
+	$Globals::backup = 		$merge->merge( $config->{backup}, $Globals::backup );
 
 	$config_is_parsed = 1;
 }

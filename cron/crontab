@@ -1,0 +1,5 @@
+## Stats4Lox Backup - do not change manually. Your changes will be overwritten!
+##
+## This file is a placeholder. The schedule is set in the web interface under
+## System -> Backup and written here by ajax.cgi via installcrontab.sh.
+MAILTO=""

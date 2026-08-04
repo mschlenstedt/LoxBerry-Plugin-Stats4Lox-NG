@@ -8,10 +8,18 @@
 # database including _internal.
 #
 # Usage (root):
-#   s4l_backup.pl create  --target <dir>
+#   s4l_backup.pl create  --target <dir> [--compression <c>] [--keep <n>]
+#   s4l_backup.pl create  --scheduled
 #   s4l_backup.pl list    --target <dir>
 #   s4l_backup.pl check   --file <archive> [--dbpath <dir>]
 #   s4l_backup.pl restore --file <archive> [--dbpath <dir>] [--force]
+#   s4l_backup.pl delete  --file <archive>
+#
+# --compression: none | gzip | xz | zip | 7z (default gzip)
+# --keep:        how many archives to keep in the target directory, 0 = all
+# --scheduled:   take target, compression and keep from stats4lox.json. This is
+#                the form the cron job uses, so a changed setting takes effect
+#                without rewriting the crontab entry.
 #
 # "check" answers as JSON and changes nothing - the web interface uses it to
 # find out beforehand whether there is room and whether a database would be
@@ -37,18 +45,21 @@ if( $< ) {
 }
 
 my $command = shift @ARGV // '';
-my ( $target, $file, $dbpath, $force, $json_only );
+my ( $target, $file, $dbpath, $force, $json_only, $compression, $keep, $scheduled );
 GetOptions(
-	'target=s' => \$target,
-	'file=s'   => \$file,
-	'dbpath=s' => \$dbpath,
-	'force'    => \$force,
-	'json'     => \$json_only,
+	'target=s'      => \$target,
+	'file=s'        => \$file,
+	'dbpath=s'      => \$dbpath,
+	'force'         => \$force,
+	'json'          => \$json_only,
+	'compression=s' => \$compression,
+	'keep=i'        => \$keep,
+	'scheduled'     => \$scheduled,
 );
 
-# "check" only prints JSON, so no log file for it
+# "check" and "list" only print JSON, so no log file for them
 my $log;
-if( $command ne 'check' ) {
+if( $command ne 'check' and $command ne 'list' ) {
 	$log = LoxBerry::Log->new( name => 'Backup', stderr => 1, append => 1 );
 	LOGSTART "Backup: $command";
 }
@@ -169,6 +180,93 @@ sub run
 	return ( $?, $out );
 }
 
+# ---------------------------------------------------------------- archives
+#
+# The archive always holds the same tree (manifest.json, config/, data/,
+# influxdb/) - only the container differs. tar is used for none/gzip/xz because
+# it keeps ownership and symlinks; zip and 7z are offered because the LoxBerry
+# backup widget offers them and users expect to find them here as well.
+#
+# Everything that has to know about the format goes through these four
+# functions, so nothing else in this script has to care.
+
+my %EXT = (
+	none => '.tar',
+	gzip => '.tar.gz',
+	xz   => '.tar.xz',
+	zip  => '.zip',
+	'7z' => '.7z',
+);
+
+sub compressions { return sort keys %EXT }
+
+sub normalize_compression
+{
+	my ($c) = @_;
+	$c = lc( $c // '' );
+	$c = 'gzip' if( $c eq 'gz' or $c eq 'tgz' );
+	return exists $EXT{$c} ? $c : 'gzip';
+}
+
+sub archive_ext { return $EXT{ normalize_compression( $_[0] ) } }
+
+# All archive names this script may have produced, newest first
+sub archive_list
+{
+	my ($dir) = @_;
+	return () if( !$dir or ! -d $dir );
+	my @all;
+	foreach my $e ( values %EXT ) {
+		push @all, glob( quotemeta($dir) . "/stats4lox_*" . $e );
+	}
+	# The name carries the timestamp, so sorting by name sorts by age. .tar and
+	# .tar.gz share a prefix, which does not matter - the timestamp decides.
+	return sort { $b cmp $a } @all;
+}
+
+sub format_of
+{
+	my ($archive) = @_;
+	return 'zip'  if( $archive =~ /\.zip$/i );
+	return '7z'   if( $archive =~ /\.7z$/i );
+	return 'xz'   if( $archive =~ /\.tar\.xz$/i );
+	return 'gzip' if( $archive =~ /\.tar\.gz$/i );
+	return 'none' if( $archive =~ /\.tar$/i );
+	return 'gzip';
+}
+
+sub pack_archive
+{
+	my ($archive, $workdir) = @_;
+	my $f = format_of($archive);
+	my $a = quotemeta($archive);
+	my $w = quotemeta($workdir);
+
+	# zip and 7z are told to work from inside the directory, so the archive has
+	# the same relative layout as the tar variants.
+	return run( "tar -cf $a -C $w ." )                     if( $f eq 'none' );
+	return run( "tar -czf $a -C $w ." )                    if( $f eq 'gzip' );
+	return run( "tar -cJf $a -C $w ." )                    if( $f eq 'xz' );
+	return run( "cd $w && zip -q -r -y $a ." )             if( $f eq 'zip' );
+	return run( "cd $w && 7z a -bd -bso0 -bsp0 $a ./*" )   if( $f eq '7z' );
+	return ( 1, "unknown archive format" );
+}
+
+sub unpack_archive
+{
+	my ($archive, $workdir) = @_;
+	my $f = format_of($archive);
+	my $a = quotemeta($archive);
+	my $w = quotemeta($workdir);
+
+	return run( "tar -xf $a -C $w" )        if( $f eq 'none' );
+	return run( "tar -xzf $a -C $w" )       if( $f eq 'gzip' );
+	return run( "tar -xJf $a -C $w" )       if( $f eq 'xz' );
+	return run( "unzip -q -o $a -d $w" )    if( $f eq 'zip' );
+	return run( "7z x -y -bd -bso0 -bsp0 -o$w $a" ) if( $f eq '7z' );
+	return ( 1, "unknown archive format" );
+}
+
 sub influx_cli
 {
 	my ($sql, $db) = @_;
@@ -246,10 +344,10 @@ sub cmd_create
 
 	my $stamp = strftime( "%Y%m%d_%H%M%S", localtime );
 	my $work  = "$target/.s4lbackup_$$";
-	my $archive = "$target/stats4lox_$stamp.tar.gz";
+	my $archive = "$target/stats4lox_$stamp" . archive_ext($compression);
 
 	status( running => 1, step => 'preparing', message => 'Preparing backup' );
-	LOG "Target: $archive";
+	LOG "Target: $archive (compression: " . normalize_compression($compression) . ")";
 
 	make_path( "$work/config", "$work/data", "$work/influxdb" );
 
@@ -358,7 +456,7 @@ sub cmd_create
 
 	# --- pack ------------------------------------------------------------
 	status( running => 1, step => 'packing', message => 'Packing the archive' );
-	($rc, $out) = run( "tar -czf " . quotemeta($archive) . " -C " . quotemeta($work) . " ." );
+	($rc, $out) = pack_archive( $archive, $work );
 	remove_tree($work);
 	if( $rc != 0 ) { LOGE "Could not pack the archive: $out"; unlink $archive; exit 1 }
 
@@ -366,6 +464,11 @@ sub cmd_create
 	chmod 0644, $archive;
 
 	LOGO "Backup finished: $archive (" . human( -s $archive ) . ")";
+
+	# Only after the new archive is complete - a failed backup must never cost
+	# the user an older, working one.
+	prune_archives( $target, $keep );
+
 	hint_old_archives();
 	status( running => 0, step => 'done', message => 'Backup finished',
 	        archive => $archive, size => ( -s $archive ), warnings => \@warnings, errors => 0 );
@@ -391,27 +494,63 @@ sub cmd_list
 {
 	if( !$target ) { print JSON::encode_json( { error => "target missing" } ), "\n"; exit 1 }
 	my @out;
-	foreach my $a ( sort { $b cmp $a } glob( quotemeta($target) . "/stats4lox_*.tar.gz" ) ) {
+	foreach my $a ( archive_list($target) ) {
 		my $m = read_manifest($a);
 		push @out, {
-			file     => $a,
-			name     => basename($a),
-			size     => ( -s $a ),
-			size_h   => human( -s $a ),
-			manifest => $m,
+			file        => $a,
+			name        => basename($a),
+			size        => ( -s $a ),
+			size_h      => human( -s $a ),
+			mtime       => ( stat($a) )[9],
+			compression => format_of($a),
+			manifest    => $m,
 		};
 	}
 	print JSON->new->canonical->encode( { backups => \@out } ), "\n";
 	return 0;
 }
 
+# Reads the manifest out of the archive without unpacking the rest. The leading
+# "./" is tried as well - tar stores it that way, zip and 7z usually do not.
 sub read_manifest
 {
 	my ($archive) = @_;
-	my $raw = `tar -xzOf "$archive" ./manifest.json 2>/dev/null`;
-	$raw = `tar -xzOf "$archive" manifest.json 2>/dev/null` if( !$raw );
+	return undef if( !$archive or ! -e $archive );
+	my $f = format_of($archive);
+	my $a = quotemeta($archive);
+
+	my %reader = (
+		none => sub { `tar -xOf $a $_[0] 2>/dev/null` },
+		gzip => sub { `tar -xzOf $a $_[0] 2>/dev/null` },
+		xz   => sub { `tar -xJOf $a $_[0] 2>/dev/null` },
+		zip  => sub { `unzip -p $a $_[0] 2>/dev/null` },
+		'7z' => sub { `7z x -so -bd -bso0 -bsp0 $a $_[0] 2>/dev/null` },
+	);
+	my $read = $reader{$f} or return undef;
+
+	my $raw = '';
+	foreach my $name ( 'manifest.json', './manifest.json' ) {
+		$raw = $read->($name);
+		last if( $raw and $raw =~ /\S/ );
+	}
+	return undef if( !$raw or $raw !~ /\S/ );
 	my $m = eval { JSON::decode_json($raw) };
 	return $@ ? undef : $m;
+}
+
+# Deletes the oldest archives in the target directory until only $keep are left.
+# 0 or undef means keep everything.
+sub prune_archives
+{
+	my ($dir, $n) = @_;
+	return if( !$n or $n < 1 );
+	my @a = archive_list($dir);
+	return if( scalar(@a) <= $n );
+	foreach my $old ( @a[ $n .. $#a ] ) {
+		if( unlink $old ) { LOG "Removed old backup: " . basename($old) }
+		else              { LOGW "Could not remove $old: $!" }
+	}
+	return;
 }
 
 # ---------------------------------------------------------------- check
@@ -538,7 +677,7 @@ sub cmd_restore
 	make_path($work);
 
 	status( running => 1, step => 'unpacking', message => 'Unpacking the archive' );
-	my ($rc, $out) = run( "tar -xzf " . quotemeta($file) . " -C " . quotemeta($work) );
+	my ($rc, $out) = unpack_archive( $file, $work );
 	if( $rc != 0 ) { LOGE "Could not unpack the archive: $out"; remove_tree($work); restart_services(); exit 1 }
 
 	# --- configuration ---------------------------------------------------
@@ -682,19 +821,50 @@ sub restart_services
 	return;
 }
 
+# ---------------------------------------------------------------- delete
+
+sub cmd_delete
+{
+	if( !$file ) { LOGE "--file is missing"; exit 1 }
+	# Only our own archives, and only inside the configured storage - a path
+	# from the web interface must not be able to delete anything else.
+	if( basename($file) !~ /^stats4lox_\d{8}_\d{6}\./ ) {
+		LOGE "Not a Stats4Lox backup: $file";
+		exit 1;
+	}
+	if( ! -e $file ) { LOGE "Archive does not exist: $file"; exit 1 }
+	if( unlink $file ) { LOGO "Deleted: $file"; return 0 }
+	LOGE "Could not delete $file: $!";
+	return 1;
+}
+
 # ---------------------------------------------------------------- dispatch
+
+# The cron job takes its parameters from the configuration, so changing a
+# setting in the web interface does not require rewriting the crontab entry.
+if( $scheduled ) {
+	my $c = cfg();
+	my $b = $c->{backup} || {};
+	$target      = $b->{storagepath} if( !$target and $b->{storagepath} );
+	$compression = $b->{compression} if( !defined $compression );
+	$keep        = $b->{keep}        if( !defined $keep );
+	LOG "Scheduled run";
+}
 
 my $rc = 0;
 if   ( $command eq 'create'  ) { $rc = cmd_create() }
 elsif( $command eq 'list'    ) { $rc = cmd_list() }
 elsif( $command eq 'check'   ) { $rc = cmd_check() }
 elsif( $command eq 'restore' ) { $rc = cmd_restore() }
+elsif( $command eq 'delete'  ) { $rc = cmd_delete() }
 else {
-	print STDERR "Usage: $0 create|list|check|restore [options]\n";
-	print STDERR "  create  --target <dir>\n";
+	print STDERR "Usage: $0 create|list|check|restore|delete [options]\n";
+	print STDERR "  create  --target <dir> [--compression none|gzip|xz|zip|7z] [--keep <n>]\n";
+	print STDERR "  create  --scheduled\n";
 	print STDERR "  list    --target <dir>\n";
 	print STDERR "  check   --file <archive> [--dbpath <dir>]\n";
 	print STDERR "  restore --file <archive> [--dbpath <dir>] [--force]\n";
+	print STDERR "  delete  --file <archive>\n";
 	exit 1;
 }
 
