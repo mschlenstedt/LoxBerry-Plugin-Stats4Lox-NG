@@ -49,19 +49,23 @@ sub opt
 	return "<option value=\"$value\"$sel>$label</option>";
 }
 
-# Number of archives: 1-10, plus "keep all"
+# Number of archives. Wording and order follow the LoxBerry backup widget
+# ("Behalte ein Backup" / "Behalte 3 Backups"), extended by "keep all".
 my $keep = defined $b->{keep} ? $b->{keep} : 3;
-my $keephtml = opt( 0, $L{'BACKUP.KEEP_ALL'}, $keep );
-$keephtml .= opt( $_, $_, $keep ) foreach ( 1 .. 10 );
+my $keephtml = opt( 1, $L{'BACKUP.KEEP_ONE'}, $keep );
+$keephtml .= opt( $_, "$L{'BACKUP.KEEP_MORE_1'} $_ $L{'BACKUP.KEEP_MORE_2'}", $keep )
+	foreach ( 2 .. 10 );
+$keephtml .= opt( 0, $L{'BACKUP.KEEP_ALL'}, $keep );
 $template->param( 'KEEP_OPTIONS', $keephtml );
 
+# Same order as the widget: none, 7z, zip, gzip, xz
 my $comp = $b->{compression} || 'gzip';
 my $comphtml = '';
 $comphtml .= opt( 'none', $L{'BACKUP.COMPRESSION_NONE'}, $comp );
+$comphtml .= opt( '7z',   $L{'BACKUP.COMPRESSION_7Z'},   $comp );
+$comphtml .= opt( 'zip',  $L{'BACKUP.COMPRESSION_ZIP'},  $comp );
 $comphtml .= opt( 'gzip', $L{'BACKUP.COMPRESSION_GZIP'}, $comp );
 $comphtml .= opt( 'xz',   $L{'BACKUP.COMPRESSION_XZ'},   $comp );
-$comphtml .= opt( 'zip',  $L{'BACKUP.COMPRESSION_ZIP'},  $comp );
-$comphtml .= opt( '7z',   $L{'BACKUP.COMPRESSION_7Z'},   $comp );
 $template->param( 'COMPRESSION_OPTIONS', $comphtml );
 
 my $repeat = $s->{repeat} || 1;
@@ -79,6 +83,18 @@ $template->param( 'SCHEDULEACTIVE',
 foreach my $d ( qw( mon tue wed thu fre sat sun ) ) {
 	$template->param( 'CHECKED_' . uc($d),
 		LoxBerry::System::is_enabled( $s->{$d} ) ? 'checked="checked"' : '' );
+}
+
+# Link into the file manager widget. Its "p" parameter is a path below the
+# volume root, and the volume root is "/" (php/connector.minimal.php), so an
+# absolute path can be handed over unchanged. Only offered once a storage
+# location is configured - without one the link would just open "/".
+if( $b->{storagepath} ) {
+	require URI::Escape;
+	$template->param( 'FILEMANAGER_URL',
+		'/admin/system/tools/filemanager/index.cgi?p='
+		. URI::Escape::uri_escape( $b->{storagepath}, "^A-Za-z0-9\-\._~/" ) );
+	$template->param( 'STORAGEPATH_SET', 1 );
 }
 
 print $template->output();
