@@ -143,19 +143,27 @@
 
 	/* The LoxBerry jQuery Mobile theme only has the swatches a, b and c, none
 	   of them red. Destructive actions need to look destructive, so the plugin
-	   brings its own. */
-	.s4l-btn-danger.ui-btn
+	   brings its own.
+	   The selector needs the two leading elements. The theme colours buttons
+	   with "html .ui-body-a .ui-btn" - one element and two classes - and a plain
+	   ".s4l-btn-danger.ui-btn" has only two classes, so it lost every time and
+	   the buttons stayed grey. */
+	html body .s4l-btn-danger.ui-btn,
+	html body .s4l-btn-danger.ui-btn:visited
 	{
-		background-color:#c0392b;
+		background	:#c0392b;
 		border-color	:#a93226;
 		color		:#ffffff;
 		text-shadow	:none;
 	}
-	.s4l-btn-danger.ui-btn:hover
+	html body .s4l-btn-danger.ui-btn:hover,
+	html body .s4l-btn-danger.ui-btn:focus,
+	html body .s4l-btn-danger.ui-btn.ui-btn-active
 	{
-		background-color:#a93226;
+		background	:#a93226;
 		border-color	:#922b21;
 		color		:#ffffff;
+		text-shadow	:none;
 	}
 
 	/* A note, and a warning that something is about to be deleted. */
