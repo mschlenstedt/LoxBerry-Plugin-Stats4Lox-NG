@@ -664,15 +664,29 @@ function escAttr( s ) {
 // round button in a table of square cells.
 function actionButtons( statmatch ) {
 	var st = statusOf( statmatch );
-	if( !st ) return "";
-	if( st.error === "404" ) {
-		var del = escAttr( $('#lang_button_remove_from_s4l').text() );
-		return `<a href="#" class="s4l-tbtn s4l-tbtn-danger s4l-tbtn-cross btnDeleteStat"`
-		     + ` title="${del}" aria-label="${del}"></a>`;
+	var out = "";
+
+	// A statistic that ran into the time limit can be put back into service
+	// without any of the rest.
+	if( st && st.error !== "404" ) {
+		var res = escAttr( $('#lang_hover_reset_status').text() );
+		out += `<a href="#" class="s4l-tbtn s4l-tbtn-reset btnResetStatus"`
+		     + ` title="${res}" aria-label="${escAttr($('#lang_button_reset_status').text())}"></a>`;
 	}
-	var res = escAttr( $('#lang_hover_reset_status').text() );
-	return `<a href="#" class="s4l-tbtn s4l-tbtn-reset btnResetStatus"`
-	     + ` title="${res}" aria-label="${escAttr($('#lang_button_reset_status').text())}"></a>`;
+
+	// The red button appears for a block that is gone and for a statistic that
+	// is running. What it does differs - remove there, switch off here - and the
+	// tooltip and the dialog say which of the two it is. Deciding it is the
+	// backend's job, it reads the status from the entry itself.
+	var gone = ( st && st.error === "404" );
+	if( gone || statmatch?.active === "true" ) {
+		var lbl = escAttr( gone ? $('#lang_button_remove_from_s4l').text()
+		                        : $('#lang_hover_button_deactivate').text() );
+		out += `<a href="#" class="s4l-tbtn s4l-tbtn-danger s4l-tbtn-cross btnDeleteStat"`
+		     + ` title="${lbl}" aria-label="${lbl}"></a>`;
+	}
+
+	return out;
 }
 
 // Settings button - grey, gear. The hole in the gear is an element of its own:
@@ -948,9 +962,24 @@ var deleteStatTarget = {};
 function askDeleteStat( uid, msno ) {
 	var stat = statsconfigLoxone.find( obj => { return obj.uuid === uid && obj.msno == msno } );
 	if( !stat ) return;
-	deleteStatTarget = { uuid: uid, msno: msno };
-	$("#deleteStat_what").html(
-		escHtml( $('#lang_confirm_delete_stat').text().replace( '__NAME__', stat.name || stat.measurementname || uid ) ) );
+
+	// Same rule the backend applies, so the dialog promises what actually
+	// happens: only a block the Miniserver no longer knows is removed.
+	var st = statusOf( stat );
+	var gone = ( st && st.error === "404" ) ? true : false;
+	deleteStatTarget = { uuid: uid, msno: msno, gone: gone };
+
+	var name = stat.name || stat.measurementname || uid;
+	$("#deleteStat_title").text( gone ? $('#lang_popup_delete_title').text()
+	                                  : $('#lang_popup_deactivate_title').text() );
+	$("#deleteStat_what").html( escHtml(
+		( gone ? $('#lang_confirm_delete_stat').text() : $('#lang_confirm_deactivate_stat').text() )
+			.replace( '__NAME__', name ) ) );
+	$("#deleteStat_keep").text( gone ? $('#lang_button_delete_keepdata').text()
+	                                 : $('#lang_button_deactivate_keepdata').text() );
+	$("#deleteStat_drop").text( gone ? $('#lang_button_delete_withdata').text()
+	                                 : $('#lang_button_deactivate_withdata').text() );
+
 	$("#deleteStat_hint").html("&nbsp;");
 	$("#deleteStat_keep, #deleteStat_drop, #deleteStat_cancel").removeClass("ui-disabled");
 	$("#popupDeleteStat").popup("option","positionTo","window");
@@ -978,12 +1007,23 @@ function deleteStat( dropdata ) {
 			$("#deleteStat_cancel").removeClass("ui-disabled");
 			return;
 		}
-		// Out of the local copy as well, otherwise the row would come back on
-		// the next redraw until the page is reloaded.
+		// The local copy follows what the backend reports, otherwise the row
+		// would come back unchanged on the next redraw until the page is
+		// reloaded.
 		var idx = statsconfigLoxone.findIndex( obj => {
 			return obj.uuid === deleteStatTarget.uuid && obj.msno == deleteStatTarget.msno } );
-		if( idx > -1 ) statsconfigLoxone.splice( idx, 1 );
-		$("#deleteStat_hint").attr("style","color:green").html( $('#lang_hint_delete_done').text() );
+		if( idx > -1 ) {
+			if( data.mode == "removed" ) {
+				statsconfigLoxone.splice( idx, 1 );
+			}
+			else {
+				statsconfigLoxone[idx].active = "false";
+				delete statsconfigLoxone[idx].status;
+			}
+		}
+		$("#deleteStat_hint").attr("style","color:green").html(
+			( data.mode == "removed" ) ? $('#lang_hint_delete_done').text()
+			                           : $('#lang_hint_deactivate_done').text() );
 		window.setTimeout( function() {
 			$("#popupDeleteStat").popup("close");
 			updateTable();

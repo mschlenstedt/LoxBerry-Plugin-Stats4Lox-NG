@@ -465,6 +465,15 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 <div class="datahidden" id="lang_button_reset_status"><TMPL_VAR SETTINGS.BUTTON_RESET_STATUS></div>
 <div class="datahidden" id="lang_hover_reset_status"><TMPL_VAR SETTINGS.HOVER_RESET_STATUS></div>
 <div class="datahidden" id="lang_confirm_delete_stat"><TMPL_VAR SETTINGS.CONFIRM_DELETE_STAT></div>
+<div class="datahidden" id="lang_confirm_deactivate_stat"><TMPL_VAR SETTINGS.CONFIRM_DEACTIVATE_STAT></div>
+<div class="datahidden" id="lang_popup_delete_title"><TMPL_VAR SETTINGS.POPUP_DELETE_TITLE></div>
+<div class="datahidden" id="lang_popup_deactivate_title"><TMPL_VAR SETTINGS.POPUP_DEACTIVATE_TITLE></div>
+<div class="datahidden" id="lang_button_delete_keepdata"><TMPL_VAR SETTINGS.BUTTON_DELETE_KEEPDATA></div>
+<div class="datahidden" id="lang_button_delete_withdata"><TMPL_VAR SETTINGS.BUTTON_DELETE_WITHDATA></div>
+<div class="datahidden" id="lang_button_deactivate_keepdata"><TMPL_VAR SETTINGS.BUTTON_DEACTIVATE_KEEPDATA></div>
+<div class="datahidden" id="lang_button_deactivate_withdata"><TMPL_VAR SETTINGS.BUTTON_DEACTIVATE_WITHDATA></div>
+<div class="datahidden" id="lang_hover_button_deactivate"><TMPL_VAR SETTINGS.HOVER_BUTTON_DEACTIVATE></div>
+<div class="datahidden" id="lang_hint_deactivate_done"><TMPL_VAR SETTINGS.HINT_DEACTIVATE_DONE></div>
 <div class="datahidden" id="lang_hint_delete_done"><TMPL_VAR SETTINGS.HINT_DELETE_DONE></div>
 <div class="datahidden" id="lang_hint_delete_fail"><TMPL_VAR SETTINGS.HINT_DELETE_FAIL></div>
 <div class="datahidden" id="lang_hint_reset_done"><TMPL_VAR SETTINGS.HINT_RESET_DONE></div>
@@ -528,13 +537,13 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
      still there at all. So two buttons instead of a checkbox: whichever is
      pressed says plainly what it does. -->
 <div data-role="popup" id="popupDeleteStat" data-dismissible="false" data-theme="a" data-overlay-theme="a" class="ui-content" style="max-width:520px">
-	<center><h3 class="popuptitle"><TMPL_VAR SETTINGS.POPUP_DELETE_TITLE></h3></center>
+	<center><h3 class="popuptitle" id="deleteStat_title">&nbsp;</h3></center>
 	<p id="deleteStat_what">&nbsp;</p>
 	<p><TMPL_VAR SETTINGS.CONFIRM_DELETE_DATA></p>
 	<div style="text-align:center;padding-top:10px;">
 		<a href="#" id="deleteStat_cancel" class="ui-btn ui-btn-inline ui-mini ui-corner-all"><TMPL_VAR COMMON.BUTTON_CLOSE></a>
-		<a href="#" id="deleteStat_keep" class="ui-btn ui-btn-inline ui-mini ui-corner-all"><TMPL_VAR SETTINGS.BUTTON_DELETE_KEEPDATA></a>
-		<a href="#" id="deleteStat_drop" class="ui-btn ui-btn-inline ui-mini ui-corner-all s4l-btn-danger"><TMPL_VAR SETTINGS.BUTTON_DELETE_WITHDATA></a>
+		<a href="#" id="deleteStat_keep" class="ui-btn ui-btn-inline ui-mini ui-corner-all">&nbsp;</a>
+		<a href="#" id="deleteStat_drop" class="ui-btn ui-btn-inline ui-mini ui-corner-all s4l-btn-danger">&nbsp;</a>
 	</div>
 	<div id="deleteStat_hint" style="text-align:center;padding-top:8px;">&nbsp;</div>
 </div>

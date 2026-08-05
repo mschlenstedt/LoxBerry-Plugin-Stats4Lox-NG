@@ -363,11 +363,23 @@ if( $q->{action} eq "deleteimport" and $q->{msno} and $q->{uuid} ) {
 	}
 }
 
-## deletestat - removes a statistic from stats.json and from the dashboard
+## deletestat - gets rid of a statistic
 ##
-## Used for blocks that no longer exist on the Miniserver. The measurements in
-## InfluxDB are only removed when the user explicitly asks for it - they are the
-## history, and the history is usually the reason the entry was kept at all.
+## Two cases, and the entry itself decides which one applies - not the caller:
+##
+##   The block is gone from the Miniserver (status 404). Then the entry is
+##   removed from stats.json and its panels from the dashboard; there is nothing
+##   left it could belong to.
+##
+##   The block still exists. Then the entry is only switched off. Removing it
+##   would throw away the measurement name, the chosen outputs and the interval,
+##   and the user would have to set all of it up again to switch the statistic
+##   back on. The panels stay for the same reason - update_dashboards.pl builds
+##   them regardless of whether a statistic is active.
+##
+## The measurements in InfluxDB are only removed when the user explicitly asks
+## for it, in both cases - they are the history, and the history usually
+## outlives the reason the statistic was set up.
 if( $q->{action} eq "deletestat" and $q->{msno} and $q->{uuid} ) {
 	require LoxBerry::JSON;
 	my $msno = $q->{msno};
@@ -391,25 +403,44 @@ if( $q->{action} eq "deletestat" and $q->{msno} and $q->{uuid} ) {
 		else {
 			my $element = $cfg->{loxone}[$index];
 			my $measurement = $element->{measurementname};
-			LOGINF "Deleting statistic $msno / $uuid ($element->{name})";
 
-			# Panels first: the ids live on the entry we are about to remove.
-			my @panel_ids = ( defined $element->{grafana}->{panels} )
-			              ? values %{ $element->{grafana}->{panels} } : ();
-			if( @panel_ids ) {
-				eval {
-					require Grafana;
-					Grafana->deletePanelFromDashboard(
-						"$Globals::grafana->{s4l_provisioning_dir}/dashboards/defaultDashboard.json",
-						\@panel_ids );
-					LOGOK "Removed " . scalar(@panel_ids) . " panels from the dashboard";
-				};
-				LOGERR "Could not remove the panels: $@" if( $@ );
+			# The entry decides, not the caller: only a block the Miniserver no
+			# longer knows is removed outright.
+			my $gone = ( $element->{status} and $element->{status}->{error}
+			             and $element->{status}->{error} eq '404' ) ? 1 : 0;
+			my $mode = $gone ? 'removed' : 'deactivated';
+			LOGINF "Statistic $msno / $uuid ($element->{name}): $mode";
+
+			my @panel_ids = ();
+			if( $gone ) {
+				# Panels first: the ids live on the entry we are about to remove.
+				@panel_ids = ( defined $element->{grafana}->{panels} )
+				           ? values %{ $element->{grafana}->{panels} } : ();
+				if( @panel_ids ) {
+					eval {
+						require Grafana;
+						Grafana->deletePanelFromDashboard(
+							"$Globals::grafana->{s4l_provisioning_dir}/dashboards/defaultDashboard.json",
+							\@panel_ids );
+						LOGOK "Removed " . scalar(@panel_ids) . " panels from the dashboard";
+					};
+					LOGERR "Could not remove the panels: $@" if( $@ );
+				}
+				splice @{ $cfg->{loxone} }, $index, 1;
+				$obj->write();
+				LOGOK "Statistic removed from stats.json";
 			}
-
-			splice @{ $cfg->{loxone} }, $index, 1;
-			$obj->write();
-			LOGOK "Statistic removed from stats.json";
+			else {
+				# Switched off, everything else kept: measurement name, outputs
+				# and interval are what the user configured, and they would all
+				# have to be entered again to switch it back on. A status from a
+				# previous failure goes, it describes a state that no longer
+				# applies to a statistic nobody fetches.
+				$element->{active} = "false";
+				delete $element->{status};
+				$obj->write();
+				LOGOK "Statistic switched off, entry and panels kept";
+			}
 
 			# Only the series of this block, addressed by its uuid tag - several
 			# statistics can share a measurement name, and dropping the whole
@@ -427,14 +458,19 @@ if( $q->{action} eq "deletestat" and $q->{msno} and $q->{uuid} ) {
 				else          { LOGERR "Could not delete the measurements: $out" }
 			}
 
-			# The import state file has no owner any more either.
-			createImportFolder();
-			my $importfile = $Globals::stats4lox->{importstatusdir}."/import_${msno}_${uuid}.json";
-			unlink $importfile     if( -e $importfile );
-			unlink "$importfile.log" if( -e "$importfile.log" );
+			# The import state file has no owner any more - but only when the
+			# entry itself is gone. A statistic that was merely switched off
+			# keeps its import history.
+			if( $gone ) {
+				createImportFolder();
+				my $importfile = $Globals::stats4lox->{importstatusdir}."/import_${msno}_${uuid}.json";
+				unlink $importfile     if( -e $importfile );
+				unlink "$importfile.log" if( -e "$importfile.log" );
+			}
 
 			$response = JSON::encode_json( {
 				deleted => 1,
+				mode    => $mode,
 				panels  => scalar(@panel_ids),
 				dropped => $dropped,
 			} );
