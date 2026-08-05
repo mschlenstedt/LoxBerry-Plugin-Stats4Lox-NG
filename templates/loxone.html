@@ -75,9 +75,19 @@
 	line-height	:21px;
 	min-height	:21px;
 }
-/* The status filter shows the same icons as the column. Inside a jQuery Mobile
-   controlgroup label they need a line of their own to sit straight. */
-.filter_icon { display:inline-block; line-height:21px; vertical-align:middle; }
+/* Every button of the status filter has the same box, whether it holds an icon
+   or the word "Alle". Without it the icon labels came out a pixel taller: an
+   inline-block sitting on the baseline adds the space for descenders below
+   itself, which stretches the line box. A box of exactly the line height,
+   aligned to the top, cannot do that - and the text button uses the same box so
+   nothing can drift apart in the first place. */
+.filter_icon
+{
+	display		:inline-block;
+	height		:21px;
+	line-height	:21px;
+	vertical-align	:top;
+}
 
 /* The buttons sit in the middle of the row, not at the top like the text
    cells - they belong to the whole row, not to its first line. */
@@ -776,7 +786,7 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 	<fieldset data-role="controlgroup" data-type="horizontal" data-mini="true" class="s4l-filtergroup">
 		<legend><TMPL_VAR SETTINGS.LABEL_FILTER_STATUS></legend>
 		<input type="radio" name="filter_status" id="filter_status_all" value="all" checked="checked" class="filter_radio">
-		<label for="filter_status_all"><TMPL_VAR SETTINGS.LABEL_ALL></label>
+		<label for="filter_status_all"><span class="filter_icon"><TMPL_VAR SETTINGS.LABEL_ALL></span></label>
 		<input type="radio" name="filter_status" id="filter_status_green" value="green" class="filter_radio">
 		<label for="filter_status_green" title="<TMPL_VAR SETTINGS.STATUS_OK>"><span class="filter_icon"><span class="s4l-icon s4l-icon-ok"></span></span></label>
 		<input type="radio" name="filter_status" id="filter_status_yellow" value="yellow" class="filter_radio">
