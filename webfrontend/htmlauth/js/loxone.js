@@ -276,11 +276,9 @@ $(function() {
 		resetStatStatus( row.data("uid"), row.data("msno") );
 	});
 
-	// Delete popup buttons
-	jQuery(document).on('click', '#deleteStat_cancel', function(event){
-		event.preventDefault();
-		$("#popupDeleteStat").popup("close");
-	});
+	// Delete popup buttons. Closing is the cross in the top right corner, the
+	// same one the details popup uses - jQuery Mobile builds it from
+	// data-rel="back".
 	jQuery(document).on('click', '#deleteStat_keep', function(event){
 		event.preventDefault();
 		deleteStat( false );
@@ -981,14 +979,14 @@ function askDeleteStat( uid, msno ) {
 	                                 : $('#lang_button_deactivate_withdata').text() );
 
 	$("#deleteStat_hint").html("&nbsp;");
-	$("#deleteStat_keep, #deleteStat_drop, #deleteStat_cancel").removeClass("ui-disabled");
+	$("#deleteStat_keep, #deleteStat_drop").removeClass("ui-disabled");
 	$("#popupDeleteStat").popup("option","positionTo","window");
 	$("#popupDeleteStat").popup("open");
 }
 
 function deleteStat( dropdata ) {
 	if( !deleteStatTarget.uuid ) return;
-	$("#deleteStat_keep, #deleteStat_drop, #deleteStat_cancel").addClass("ui-disabled");
+	$("#deleteStat_keep, #deleteStat_drop").addClass("ui-disabled");
 	$("#deleteStat_hint").html( $('#lang_status_updating').text() );
 	$.post( "ajax.cgi", {
 		action:   "deletestat",
@@ -996,15 +994,17 @@ function deleteStat( dropdata ) {
 		msno:     deleteStatTarget.msno,
 		dropdata: dropdata ? "true" : "false"
 	} )
+	// On failure the buttons come back so a second attempt is possible - the
+	// popup itself is closed with the cross in the corner.
 	.fail( function( data ) {
 		console.log( "deletestat failed", data );
 		$("#deleteStat_hint").attr("style","color:red").html( $('#lang_hint_delete_fail').text() );
-		$("#deleteStat_cancel").removeClass("ui-disabled");
+		$("#deleteStat_keep, #deleteStat_drop").removeClass("ui-disabled");
 	} )
 	.done( function( data ) {
 		if( !data || !data.deleted ) {
 			$("#deleteStat_hint").attr("style","color:red").html( $('#lang_hint_delete_fail').text() );
-			$("#deleteStat_cancel").removeClass("ui-disabled");
+			$("#deleteStat_keep, #deleteStat_drop").removeClass("ui-disabled");
 			return;
 		}
 		// The local copy follows what the backend reports, otherwise the row

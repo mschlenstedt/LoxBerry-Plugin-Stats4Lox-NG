@@ -537,11 +537,11 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
      still there at all. So two buttons instead of a checkbox: whichever is
      pressed says plainly what it does. -->
 <div data-role="popup" id="popupDeleteStat" data-dismissible="false" data-theme="a" data-overlay-theme="a" class="ui-content" style="max-width:520px">
+	<a href="#" data-rel="back" class="ui-btn ui-corner-all ui-shadow ui-btn-a ui-icon-delete ui-btn-icon-notext ui-btn-right"><TMPL_VAR COMMON.BUTTON_CLOSE></a>
 	<center><h3 class="popuptitle" id="deleteStat_title">&nbsp;</h3></center>
 	<p id="deleteStat_what">&nbsp;</p>
 	<p><TMPL_VAR SETTINGS.CONFIRM_DELETE_DATA></p>
 	<div style="text-align:center;padding-top:10px;">
-		<a href="#" id="deleteStat_cancel" class="ui-btn ui-btn-inline ui-mini ui-corner-all"><TMPL_VAR COMMON.BUTTON_CLOSE></a>
 		<a href="#" id="deleteStat_keep" class="ui-btn ui-btn-inline ui-mini ui-corner-all">&nbsp;</a>
 		<a href="#" id="deleteStat_drop" class="ui-btn ui-btn-inline ui-mini ui-corner-all s4l-btn-danger">&nbsp;</a>
 	</div>
