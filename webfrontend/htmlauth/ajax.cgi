@@ -794,9 +794,15 @@ if( $q->{action} eq "influx_overview" ) {
 		};
 	}
 
-	# Configured but never written - the counterpart of an orphaned measurement
+	# Switched on, but nothing in the database yet.
+	#
+	# Only active statistics are worth reporting. One that is switched off has
+	# no data by definition - that is not a finding, and listing it only raises
+	# the question what it is supposed to mean. An active one without data is
+	# either brand new (the first value arrives within one interval) or
+	# something is wrong.
 	my %have = map { $_ => 1 } @$names;
-	my @nodata = grep { !$have{$_} } sort keys %$stats;
+	my @nodata = grep { !$have{$_} and $stats->{$_}->{active} } sort keys %$stats;
 
 	$response = JSON::encode_json( {
 		measurements => \@out,
