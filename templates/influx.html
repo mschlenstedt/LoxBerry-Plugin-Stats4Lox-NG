@@ -212,7 +212,9 @@ html body .s4l-btn-danger.ui-btn:focus {
 	<a href="#" data-rel="back" class="ui-btn ui-corner-all ui-shadow ui-btn-a ui-icon-delete ui-btn-icon-notext ui-btn-right"><TMPL_VAR COMMON.BUTTON_CLOSE></a>
 	<center><h3 class="popuptitle"><TMPL_VAR INFLUXPAGE.POPUP_DROP_TITLE></h3></center>
 	<p id="drop_what">&nbsp;</p>
-	<div id="drop_activewarn" style="display:none;border:1px solid #c0392b;border-radius:4px;padding:8px;margin:8px 0;">
+	<!-- A warning, not an error: the statistic is switched off along the way,
+	     so nothing is left for the user to do. Hence the yellow box. -->
+	<div id="drop_activewarn" class="hintbox small" style="display:none;">
 		<TMPL_VAR INFLUXPAGE.CONFIRM_DROP_ACTIVE>
 	</div>
 	<div style="text-align:center;padding-top:10px;">

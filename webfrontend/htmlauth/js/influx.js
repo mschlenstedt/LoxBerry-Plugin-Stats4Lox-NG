@@ -313,12 +313,12 @@ function updateTable() {
 		     +  ( m.blockname && m.blockname != m.name
 		          ? '<br><span class="small grayed">' + escHtml(m.blockname) + '</span>' : '' )
 		     +  '</td>'
-		     +  '<td class="small">' + escHtml( ( m.sources || [] ).join(", ") ) + '</td>'
+		     +  '<td class="small center">' + escHtml( ( m.sources || [] ).join(", ") ) + '</td>'
 		     +  statusCell( m )
 		     +  '<td class="small" title="' + escAttr( fields.join(", ") ) + '">'
 		     +  escHtml( fields.join(", ") ) + '</td>'
-		     +  '<td class="small">' + fmtTime( m.first ) + '</td>'
-		     +  '<td class="small">' + fmtTime( m.last ) + '</td>'
+		     +  '<td class="small center">' + fmtTime( m.first ) + '</td>'
+		     +  '<td class="small center">' + fmtTime( m.last ) + '</td>'
 		     +  '<td class="small center">' + fmtCount( m ) + '</td>'
 		     +  '<td class="actionbuttons">'
 		     +  '<a href="#" class="s4l-tbtn s4l-tbtn-danger s4l-tbtn-cross btnDropMeasurement" title="'
