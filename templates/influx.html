@@ -76,7 +76,22 @@ tr:nth-child(odd).influxtable_tr  { background:#FFF }
 	content:""; position:absolute; left:-1px; top:12px;
 	width:2px; height:2px; border-radius:50%; background-color:#4a3b00;
 }
-.s4l-icon-off { background-color:transparent; border:2px solid #9a9a9a; }
+/* Grey badges that carry a word instead of a drawn symbol: "Off" for a
+   statistic that is switched off, "?" for a measurement whose origin cannot be
+   determined. A shape would have to be invented for both, and a shape nobody
+   recognises explains less than two letters. */
+.s4l-icon-label {
+	width:auto;
+	min-width:18px;
+	padding:0 4px;
+	background-color:#9a9a9a;
+	color:#ffffff;
+	font-size:10px;
+	font-weight:bold;
+	line-height:18px;
+	text-align:center;
+	font-family:sans-serif;
+}
 
 /* Square buttons of our own - jQuery Mobile puts an icon-only glyph on a round
    grey disc, which looks out of place in a table of square cells. */
@@ -141,14 +156,24 @@ html body .s4l-btn-danger.ui-btn:focus {
 <div class="datahidden" id="lang_th_first"><TMPL_VAR INFLUXPAGE.TH_FIRST></div>
 <div class="datahidden" id="lang_th_last"><TMPL_VAR INFLUXPAGE.TH_LAST></div>
 <div class="datahidden" id="lang_th_count"><TMPL_VAR INFLUXPAGE.TH_COUNT></div>
-<div class="datahidden" id="lang_status_active"><TMPL_VAR INFLUXPAGE.STATUS_ACTIVE></div>
-<div class="datahidden" id="lang_status_inactive"><TMPL_VAR INFLUXPAGE.STATUS_INACTIVE></div>
+<div class="datahidden" id="lang_status_ok"><TMPL_VAR INFLUXPAGE.STATUS_OK></div>
+<div class="datahidden" id="lang_status_404"><TMPL_VAR INFLUXPAGE.STATUS_404></div>
+<div class="datahidden" id="lang_status_limit"><TMPL_VAR INFLUXPAGE.STATUS_LIMIT></div>
+<div class="datahidden" id="lang_status_off"><TMPL_VAR INFLUXPAGE.STATUS_OFF></div>
 <div class="datahidden" id="lang_status_orphaned"><TMPL_VAR INFLUXPAGE.STATUS_ORPHANED></div>
-<div class="datahidden" id="lang_status_encoding"><TMPL_VAR INFLUXPAGE.STATUS_ENCODING></div>
-<div class="datahidden" id="lang_hover_active"><TMPL_VAR INFLUXPAGE.HOVER_ACTIVE></div>
-<div class="datahidden" id="lang_hover_inactive"><TMPL_VAR INFLUXPAGE.HOVER_INACTIVE></div>
+<div class="datahidden" id="lang_status_blockleft"><TMPL_VAR INFLUXPAGE.STATUS_BLOCKLEFT></div>
+<div class="datahidden" id="lang_status_system"><TMPL_VAR INFLUXPAGE.STATUS_SYSTEM></div>
+<div class="datahidden" id="lang_status_mqtt"><TMPL_VAR INFLUXPAGE.STATUS_MQTT></div>
+<div class="datahidden" id="lang_status_unknown"><TMPL_VAR INFLUXPAGE.STATUS_UNKNOWN></div>
+<div class="datahidden" id="lang_hover_ok"><TMPL_VAR INFLUXPAGE.HOVER_OK></div>
+<div class="datahidden" id="lang_hover_404"><TMPL_VAR INFLUXPAGE.HOVER_404></div>
+<div class="datahidden" id="lang_hover_limit"><TMPL_VAR INFLUXPAGE.HOVER_LIMIT></div>
+<div class="datahidden" id="lang_hover_off"><TMPL_VAR INFLUXPAGE.HOVER_OFF></div>
 <div class="datahidden" id="lang_hover_orphaned"><TMPL_VAR INFLUXPAGE.HOVER_ORPHANED></div>
-<div class="datahidden" id="lang_hover_encoding"><TMPL_VAR INFLUXPAGE.HOVER_ENCODING></div>
+<div class="datahidden" id="lang_hover_blockleft"><TMPL_VAR INFLUXPAGE.HOVER_BLOCKLEFT></div>
+<div class="datahidden" id="lang_hover_system"><TMPL_VAR INFLUXPAGE.HOVER_SYSTEM></div>
+<div class="datahidden" id="lang_hover_mqtt"><TMPL_VAR INFLUXPAGE.HOVER_MQTT></div>
+<div class="datahidden" id="lang_hover_unknown"><TMPL_VAR INFLUXPAGE.HOVER_UNKNOWN></div>
 <div class="datahidden" id="lang_loading_timestamps"><TMPL_VAR INFLUXPAGE.LABEL_LOADING_TIMESTAMPS></div>
 <div class="datahidden" id="lang_hover_count_one"><TMPL_VAR INFLUXPAGE.HOVER_COUNT_ONE></div>
 <div class="datahidden" id="lang_counting"><TMPL_VAR INFLUXPAGE.LABEL_COUNTING></div>
@@ -172,12 +197,14 @@ html body .s4l-btn-danger.ui-btn:focus {
 		<legend><TMPL_VAR INFLUXPAGE.LABEL_FILTER_STATUS></legend>
 		<input type="radio" name="filter_status" id="filter_status_all" value="all" checked="checked" class="filter_radio">
 		<label for="filter_status_all"><span class="filter_icon"><TMPL_VAR INFLUXPAGE.LABEL_ALL></span></label>
-		<input type="radio" name="filter_status" id="filter_status_active" value="active" class="filter_radio">
-		<label for="filter_status_active" title="<TMPL_VAR INFLUXPAGE.STATUS_ACTIVE>"><span class="filter_icon"><span class="s4l-icon s4l-icon-ok"></span></span></label>
-		<input type="radio" name="filter_status" id="filter_status_inactive" value="inactive" class="filter_radio">
-		<label for="filter_status_inactive" title="<TMPL_VAR INFLUXPAGE.STATUS_INACTIVE>"><span class="filter_icon"><span class="s4l-icon s4l-icon-off"></span></span></label>
-		<input type="radio" name="filter_status" id="filter_status_orphaned" value="orphaned" class="filter_radio">
-		<label for="filter_status_orphaned" title="<TMPL_VAR INFLUXPAGE.STATUS_ORPHANED>"><span class="filter_icon"><span class="s4l-icon s4l-icon-warn"></span></span></label>
+		<input type="radio" name="filter_status" id="filter_status_ok" value="ok" class="filter_radio">
+		<label for="filter_status_ok" title="<TMPL_VAR INFLUXPAGE.STATUS_OK>"><span class="filter_icon"><span class="s4l-icon s4l-icon-ok"></span></span></label>
+		<input type="radio" name="filter_status" id="filter_status_warn" value="warn" class="filter_radio">
+		<label for="filter_status_warn" title="<TMPL_VAR INFLUXPAGE.STATUS_LIMIT>"><span class="filter_icon"><span class="s4l-icon s4l-icon-warn"></span></span></label>
+		<input type="radio" name="filter_status" id="filter_status_err" value="err" class="filter_radio">
+		<label for="filter_status_err" title="<TMPL_VAR INFLUXPAGE.STATUS_404>"><span class="filter_icon"><span class="s4l-icon s4l-icon-err"></span></span></label>
+		<input type="radio" name="filter_status" id="filter_status_grey" value="grey" class="filter_radio">
+		<label for="filter_status_grey" title="<TMPL_VAR INFLUXPAGE.STATUS_OFF>"><span class="filter_icon"><span class="s4l-icon s4l-icon-label">Off</span></span></label>
 	</fieldset>
 	</div>
 

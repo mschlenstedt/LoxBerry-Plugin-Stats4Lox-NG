@@ -213,19 +213,64 @@ function doDrop( deactivate ) {
 
 // --- the table -------------------------------------------------------------
 
+// The state of a measurement, using the same wording and the same symbols as
+// the Loxone page - a red cross means the same thing on both, otherwise the two
+// pages would contradict each other.
+//
+//   ok         green tick    statistic exists and is running, no error
+//   404        red cross     statistic has the grabber's 404 status
+//   limit      yellow        statistic has the grabber's time limit status
+//   off        grey "Off"    statistic exists but is switched off
+//   orphaned   red cross     no statistic, and the block is not in the LoxPLAN
+//   blockleft  yellow        no statistic, but the block still exists
+//   system     green tick    stats_miniserver / stats_loxberry, written by us
+//   mqtt       green tick    comes from the MQTT collector
+//   unknown    grey "?"      none of the above - origin cannot be determined
 function statusOf( m ) {
-	if( m.encoding && m.encoding !== "ok" ) return "encoding";
-	if( !m.configured ) return "orphaned";
-	return m.active ? "active" : "inactive";
+	if( m.configured ) {
+		if( m.error === "404" )   return "404";
+		if( m.error )             return "limit";
+		return m.active ? "ok" : "off";
+	}
+	// No entry in stats.json. What it is depends on where it came from.
+	if( m.system ) return "system";
+	if( ( m.sources || [] ).indexOf("mqtt") > -1 ) return "mqtt";
+	if( ( m.sources || [] ).indexOf("grabber") > -1 && m.hasuuid ) {
+		return m.inplan ? "blockleft" : "orphaned";
+	}
+	return "unknown";
+}
+
+// Which symbol a state gets. Three of them share the green tick: a running
+// statistic, our own system measurements and the MQTT collector are all simply
+// in order.
+var STATUS_ICON = {
+	ok:        { kind: "ok" },
+	system:    { kind: "ok" },
+	mqtt:      { kind: "ok" },
+	limit:     { kind: "warn" },
+	blockleft: { kind: "warn" },
+	"404":     { kind: "err" },
+	orphaned:  { kind: "err" },
+	off:       { kind: "label", text: "Off" },
+	unknown:   { kind: "label", text: "?" }
+};
+
+// For the filter: which of the four buttons a state belongs to.
+function statusColour( m ) {
+	var k = STATUS_ICON[ statusOf(m) ].kind;
+	return ( k == "label" ) ? "grey" : ( k == "off" ? "grey" : k );
 }
 
 function statusCell( m ) {
 	var s = statusOf( m );
-	var kind = { active: "ok", inactive: "off", orphaned: "warn", encoding: "err" }[s];
+	var def = STATUS_ICON[s];
 	var label = $('#lang_status_' + s).text();
-	var hover = $('#lang_hover_' + ( s == "encoding" ? "encoding" : s ) ).text();
-	return '<td class="center" title="' + escAttr( label + " - " + hover ) + '">'
-	     + '<span class="s4l-icon s4l-icon-' + kind + '"></span></td>';
+	var hover = $('#lang_hover_' + s).text();
+	var inner = ( def.kind == "label" )
+		? '<span class="s4l-icon s4l-icon-label">' + escHtml(def.text) + '</span>'
+		: '<span class="s4l-icon s4l-icon-' + def.kind + '"></span>';
+	return '<td class="center" title="' + escAttr( label + " - " + hover ) + '">' + inner + '</td>';
 }
 
 function fmtTime( ns ) {
@@ -244,7 +289,9 @@ function fmtCount( m ) {
 }
 
 function matchesFilter( m ) {
-	if( filters.status != "all" && statusOf(m) != filters.status ) return false;
+	// The filter works on the symbol, not on the state: several states share a
+	// symbol, and someone clicking the red cross wants everything that is red.
+	if( filters.status != "all" && statusColour(m) != filters.status ) return false;
 	if( filters.source != "all" && ( m.sources || [] ).indexOf( filters.source ) == -1 ) return false;
 	if( filters.search != "" && m.name.toLowerCase().indexOf( filters.search ) == -1 ) return false;
 	return true;
@@ -253,7 +300,13 @@ function matchesFilter( m ) {
 function sortValue( m, key ) {
 	if( key == "name" )   return m.name.toLowerCase();
 	if( key == "source" ) return ( m.sources || [] ).join(",");
-	if( key == "status" ) return { active: 0, inactive: 1, orphaned: 2, encoding: 3 }[ statusOf(m) ];
+	// Sorted by severity, so one click brings whatever needs attention up top.
+	if( key == "status" ) return {
+		ok: 0, system: 0, mqtt: 0,
+		off: 1, unknown: 2,
+		limit: 3, blockleft: 4,
+		orphaned: 5, "404": 6
+	}[ statusOf(m) ];
 	if( key == "fields" ) return ( m.fields || [] ).length;
 	if( key == "first" )  return Number( m.first ) || 0;
 	if( key == "last" )   return Number( m.last )  || 0;
@@ -320,12 +373,14 @@ function updateTable() {
 
 	$('#influxtablediv').html( html );
 
-	var counts = { active:0, inactive:0, orphaned:0, encoding:0 };
-	$.each( measurements, function( i, m ) { counts[ statusOf(m) ]++; } );
+	// Summary by symbol, the same grouping the filter uses.
+	var counts = { ok:0, warn:0, err:0, grey:0 };
+	$.each( measurements, function( i, m ) { counts[ statusColour(m) ]++; } );
 	$('#influx_summary').text(
 		$('#lang_hint_summary').text()
 			.replace( '__TOTAL__', measurements.length )
-			.replace( '__ACTIVE__', counts.active )
-			.replace( '__INACTIVE__', counts.inactive )
-			.replace( '__ORPHANED__', counts.orphaned + counts.encoding ) );
+			.replace( '__OK__', counts.ok )
+			.replace( '__WARN__', counts.warn )
+			.replace( '__ERR__', counts.err )
+			.replace( '__GREY__', counts.grey ) );
 }

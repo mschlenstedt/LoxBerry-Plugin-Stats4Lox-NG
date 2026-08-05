@@ -764,6 +764,9 @@ sub s4l_stats_by_measurement
 			msno   => $e->{msno},
 			name   => $e->{name},
 			active => ( defined $e->{active} and $e->{active} eq 'true' ) ? 1 : 0,
+			# The status the grabber recorded - the same source the Loxone page
+			# uses, so both pages say the same thing about a statistic.
+			error  => ( $e->{status} and $e->{status}->{error} ) ? $e->{status}->{error} : undef,
 		};
 	}
 	return \%out;
@@ -775,22 +778,35 @@ if( $q->{action} eq "influx_overview" ) {
 	my $names  = InfluxInfo::measurements();
 	my $fields = InfluxInfo::fieldkeys();
 	my $srcs   = InfluxInfo::sources();
+	my $tags   = InfluxInfo::uuids();
+	my $plan   = InfluxInfo::loxplan_uuids();
+	my $system = InfluxInfo::system_measurements();
 	my $stats  = s4l_stats_by_measurement();
 
 	my @out;
 	foreach my $n ( @$names ) {
 		my $s = $stats->{$n};
+		my @tag_uuids = @{ $tags->{$n} // [] };
+		# Is a block behind this measurement still part of the Loxone
+		# configuration we read in? Only asked for measurements without an entry
+		# - for the others stats.json and the grabber's status say more.
+		my $inplan = ( grep { $plan->{$_} } @tag_uuids ) ? 1 : 0;
+
 		push @out, {
 			name     => $n,
 			fields   => $fields->{$n} // [],
 			sources  => $srcs->{$n}   // [],
-			encoding => InfluxInfo::name_encoding($n),
 			# configured: there is an entry in stats.json using this name
 			configured => $s ? 1 : 0,
 			active     => $s ? $s->{active} : 0,
+			error      => ( $s and $s->{error} ) ? $s->{error} : undef,
 			uuid       => $s ? $s->{uuid} : undef,
 			msno       => $s ? $s->{msno} : undef,
 			blockname  => $s ? $s->{name} : undef,
+			# for a measurement without an entry
+			hasuuid    => scalar(@tag_uuids) ? 1 : 0,
+			inplan     => $inplan,
+			system     => $system->{$n} ? 1 : 0,
 		};
 	}
 
