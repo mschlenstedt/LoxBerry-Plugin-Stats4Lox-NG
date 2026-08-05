@@ -1,0 +1,225 @@
+<style>
+.datahidden { display:none; }
+.small      { font-size:70%; }
+.grayed     { color:gray; }
+
+/* Table, filters and icons follow the Loxone page so both look like one
+   plugin. Kept local to this template rather than shared, because the two
+   pages have different columns. */
+.influxtable {
+	border-bottom: 1px solid gray;
+	width: 100%;
+	table-layout: fixed;
+}
+.influxtable th.col-name   { width: 26%; }
+.influxtable th.col-source { width: 11%; }
+.influxtable th.col-status { width: 6%;  }
+.influxtable th.col-fields { width: 13%; }
+.influxtable th.col-first  { width: 14%; }
+.influxtable th.col-last   { width: 14%; }
+.influxtable th.col-count  { width: 10%; }
+.influxtable th.col-btn    { width: 6%;  }
+
+.influxtable tr { padding: 2px 5px; }
+.influxtable td {
+	padding: 2px 5px;
+	border-collapse: collapse;
+	border-top: 1px solid gray;
+	vertical-align: top;
+	overflow-wrap: break-word;
+	word-break: break-word;
+}
+.influxtable td.actionbuttons { text-align:right; white-space:nowrap; vertical-align:middle; }
+.influxtable td.center { text-align:center; }
+tr:nth-child(even).influxtable_tr { background:#EEE }
+tr:nth-child(odd).influxtable_tr  { background:#FFF }
+
+.influxtable th.s4l-sortable { cursor:pointer; user-select:none; }
+.influxtable th.s4l-sortable:hover { text-decoration:underline; }
+.influxtable th .sortarrow { opacity:0.35; padding-left:3px; }
+.influxtable th.sortactive .sortarrow { opacity:1; }
+
+/* Icons, drawn with CSS - same set as on the Loxone page. */
+.s4l-icon {
+	display:inline-block;
+	width:18px; height:18px;
+	border-radius:3px;
+	position:relative;
+	vertical-align:middle;
+	box-sizing:border-box;
+}
+.s4l-icon-ok { background-color:#3c9a3c; }
+.s4l-icon-ok::after {
+	content:""; position:absolute; left:6px; top:3px;
+	width:5px; height:9px;
+	border:solid #ffffff; border-width:0 2px 2px 0;
+	transform:rotate(45deg);
+}
+.s4l-icon-err { background-color:#c0392b; }
+.s4l-icon-err::before, .s4l-icon-err::after {
+	content:""; position:absolute; left:8px; top:3px;
+	width:2px; height:12px; background-color:#ffffff;
+}
+.s4l-icon-err::before { transform:rotate(45deg); }
+.s4l-icon-err::after  { transform:rotate(-45deg); }
+.s4l-icon-warn {
+	width:0; height:0; border-radius:0;
+	border-left:9px solid transparent;
+	border-right:9px solid transparent;
+	border-bottom:16px solid #e0a800;
+}
+.s4l-icon-warn::before {
+	content:""; position:absolute; left:-1px; top:5px;
+	width:2px; height:5px; background-color:#4a3b00;
+}
+.s4l-icon-warn::after {
+	content:""; position:absolute; left:-1px; top:12px;
+	width:2px; height:2px; border-radius:50%; background-color:#4a3b00;
+}
+.s4l-icon-off { background-color:transparent; border:2px solid #9a9a9a; }
+
+/* Square buttons of our own - jQuery Mobile puts an icon-only glyph on a round
+   grey disc, which looks out of place in a table of square cells. */
+.s4l-tbtn {
+	display:inline-block;
+	width:26px; height:26px;
+	border-radius:3px;
+	border:1px solid #7e7e7e;
+	background:#e6e6e6;
+	position:relative;
+	vertical-align:middle;
+	margin:0 0 0 4px;
+	box-sizing:border-box;
+	cursor:pointer;
+	font-size:0;
+	line-height:0;
+}
+.s4l-tbtn:hover { background:#d5d5d5; }
+.s4l-tbtn-danger { background:#c0392b; border-color:#a93226; }
+.s4l-tbtn-danger:hover { background:#a93226; }
+.s4l-tbtn-cross::before, .s4l-tbtn-cross::after {
+	content:""; position:absolute; left:11px; top:5px;
+	width:2px; height:14px; background:#ffffff;
+}
+.s4l-tbtn-cross::before { transform:rotate(45deg); }
+.s4l-tbtn-cross::after  { transform:rotate(-45deg); }
+/* Magnifier for "count the values of this one" */
+.s4l-tbtn-count::before {
+	content:""; position:absolute; left:5px; top:5px;
+	width:10px; height:10px;
+	border:2px solid #3a3a3a; border-radius:50%;
+}
+.s4l-tbtn-count::after {
+	content:""; position:absolute; left:15px; top:15px;
+	width:6px; height:2px; background:#3a3a3a;
+	transform:rotate(45deg);
+}
+
+/* Filter row, same height for every group - see the Loxone page for why the
+   buttons are made a little taller than the text needs. */
+.s4l-filtergroup label.ui-btn { line-height:21px; min-height:21px; }
+.filter_icon { display:inline-block; height:21px; line-height:21px; vertical-align:top; }
+.filter-highlight { background-color:#ffff99 !important; }
+
+.s4l-btn-danger.ui-btn, html body .s4l-btn-danger.ui-btn,
+html body .s4l-btn-danger.ui-btn:visited {
+	background:#c0392b; border-color:#a93226; color:#ffffff; text-shadow:none;
+}
+html body .s4l-btn-danger.ui-btn:hover,
+html body .s4l-btn-danger.ui-btn:focus {
+	background:#a93226; border-color:#922b21; color:#ffffff; text-shadow:none;
+}
+
+.hintbox { background-color:#ffff73; padding:10px; border:1px solid gray; margin:10px 0; }
+</style>
+
+<!-- Language strings for JavaScript -->
+<div class="datahidden" id="lang_th_measurement"><TMPL_VAR INFLUXPAGE.TH_MEASUREMENT></div>
+<div class="datahidden" id="lang_th_source"><TMPL_VAR INFLUXPAGE.TH_SOURCE></div>
+<div class="datahidden" id="lang_th_status"><TMPL_VAR INFLUXPAGE.TH_STATUS></div>
+<div class="datahidden" id="lang_th_fields"><TMPL_VAR INFLUXPAGE.TH_FIELDS></div>
+<div class="datahidden" id="lang_th_first"><TMPL_VAR INFLUXPAGE.TH_FIRST></div>
+<div class="datahidden" id="lang_th_last"><TMPL_VAR INFLUXPAGE.TH_LAST></div>
+<div class="datahidden" id="lang_th_count"><TMPL_VAR INFLUXPAGE.TH_COUNT></div>
+<div class="datahidden" id="lang_status_active"><TMPL_VAR INFLUXPAGE.STATUS_ACTIVE></div>
+<div class="datahidden" id="lang_status_inactive"><TMPL_VAR INFLUXPAGE.STATUS_INACTIVE></div>
+<div class="datahidden" id="lang_status_orphaned"><TMPL_VAR INFLUXPAGE.STATUS_ORPHANED></div>
+<div class="datahidden" id="lang_status_encoding"><TMPL_VAR INFLUXPAGE.STATUS_ENCODING></div>
+<div class="datahidden" id="lang_hover_active"><TMPL_VAR INFLUXPAGE.HOVER_ACTIVE></div>
+<div class="datahidden" id="lang_hover_inactive"><TMPL_VAR INFLUXPAGE.HOVER_INACTIVE></div>
+<div class="datahidden" id="lang_hover_orphaned"><TMPL_VAR INFLUXPAGE.HOVER_ORPHANED></div>
+<div class="datahidden" id="lang_hover_encoding"><TMPL_VAR INFLUXPAGE.HOVER_ENCODING></div>
+<div class="datahidden" id="lang_loading_timestamps"><TMPL_VAR INFLUXPAGE.LABEL_LOADING_TIMESTAMPS></div>
+<div class="datahidden" id="lang_hover_count_one"><TMPL_VAR INFLUXPAGE.HOVER_COUNT_ONE></div>
+<div class="datahidden" id="lang_counting"><TMPL_VAR INFLUXPAGE.LABEL_COUNTING></div>
+<div class="datahidden" id="lang_hover_button_drop"><TMPL_VAR INFLUXPAGE.HOVER_BUTTON_DROP></div>
+<div class="datahidden" id="lang_confirm_drop"><TMPL_VAR INFLUXPAGE.CONFIRM_DROP></div>
+<div class="datahidden" id="lang_confirm_drop_active"><TMPL_VAR INFLUXPAGE.CONFIRM_DROP_ACTIVE></div>
+<div class="datahidden" id="lang_hint_drop_done"><TMPL_VAR INFLUXPAGE.HINT_DROP_DONE></div>
+<div class="datahidden" id="lang_hint_drop_fail"><TMPL_VAR INFLUXPAGE.HINT_DROP_FAIL></div>
+<div class="datahidden" id="lang_hint_nodata"><TMPL_VAR INFLUXPAGE.HINT_NODATA></div>
+<div class="datahidden" id="lang_hint_no_measurements"><TMPL_VAR INFLUXPAGE.HINT_NO_MEASUREMENTS></div>
+<div class="datahidden" id="lang_hint_summary"><TMPL_VAR INFLUXPAGE.HINT_SUMMARY></div>
+<div class="datahidden" id="lang_error_generic"><TMPL_VAR COMMON.ERROR_COULD_NOT_GET_DATA></div>
+
+<h3><TMPL_VAR INFLUXPAGE.TITLE></h3>
+<p><TMPL_VAR INFLUXDB_DESCRIPTION></p>
+
+<!-- Filter -->
+<div style="display:flex;align-items:flex-end;flex-wrap:wrap;">
+
+	<div style="padding:5px;">
+	<fieldset data-role="controlgroup" data-type="horizontal" data-mini="true" class="s4l-filtergroup">
+		<legend><TMPL_VAR INFLUXPAGE.LABEL_FILTER_STATUS></legend>
+		<input type="radio" name="filter_status" id="filter_status_all" value="all" checked="checked" class="filter_radio">
+		<label for="filter_status_all"><span class="filter_icon"><TMPL_VAR INFLUXPAGE.LABEL_ALL></span></label>
+		<input type="radio" name="filter_status" id="filter_status_active" value="active" class="filter_radio">
+		<label for="filter_status_active" title="<TMPL_VAR INFLUXPAGE.STATUS_ACTIVE>"><span class="filter_icon"><span class="s4l-icon s4l-icon-ok"></span></span></label>
+		<input type="radio" name="filter_status" id="filter_status_inactive" value="inactive" class="filter_radio">
+		<label for="filter_status_inactive" title="<TMPL_VAR INFLUXPAGE.STATUS_INACTIVE>"><span class="filter_icon"><span class="s4l-icon s4l-icon-off"></span></span></label>
+		<input type="radio" name="filter_status" id="filter_status_orphaned" value="orphaned" class="filter_radio">
+		<label for="filter_status_orphaned" title="<TMPL_VAR INFLUXPAGE.STATUS_ORPHANED>"><span class="filter_icon"><span class="s4l-icon s4l-icon-warn"></span></span></label>
+	</fieldset>
+	</div>
+
+	<div style="padding:5px;">
+	<fieldset data-role="controlgroup" data-type="horizontal" data-mini="true">
+		<legend><TMPL_VAR INFLUXPAGE.LABEL_FILTER_SOURCE></legend>
+		<select name="filter_source" id="filter_source" class="filter_select" data-mini="true">
+			<option value="all"><TMPL_VAR INFLUXPAGE.LABEL_ALL></option>
+		</select>
+	</fieldset>
+	</div>
+
+	<div style="padding:5px;">
+		<label for="filter_search"><TMPL_VAR INFLUXPAGE.LABEL_SEARCH></label>
+		<input type="search" name="filter_search" id="filter_search" data-mini="true" value="">
+	</div>
+
+	<div style="padding:5px;">
+		<a href="javascript:countAll();" id="btncountall" class="ui-btn ui-btn-inline ui-mini ui-corner-all"
+		   title="<TMPL_VAR INFLUXPAGE.HOVER_COUNT_ALL>"><TMPL_VAR INFLUXPAGE.BUTTON_COUNT_ALL></a>
+	</div>
+
+</div>
+
+<div id="influx_summary" class="small grayed" style="padding:5px;">&nbsp;</div>
+<div id="influx_nodata"></div>
+<div id="influxtablediv"><p><TMPL_VAR COMMON.HINT_PLEASE_WAIT></p></div>
+
+<!-- Deleting a measurement has to be confirmed - the values are gone for good -->
+<div data-role="popup" id="popupDrop" data-dismissible="false" data-theme="a" data-overlay-theme="a" class="ui-content" style="max-width:520px">
+	<a href="#" data-rel="back" class="ui-btn ui-corner-all ui-shadow ui-btn-a ui-icon-delete ui-btn-icon-notext ui-btn-right"><TMPL_VAR COMMON.BUTTON_CLOSE></a>
+	<center><h3 class="popuptitle"><TMPL_VAR INFLUXPAGE.POPUP_DROP_TITLE></h3></center>
+	<p id="drop_what">&nbsp;</p>
+	<div id="drop_activewarn" style="display:none;border:1px solid #c0392b;border-radius:4px;padding:8px;margin:8px 0;">
+		<TMPL_VAR INFLUXPAGE.CONFIRM_DROP_ACTIVE>
+	</div>
+	<div style="text-align:center;padding-top:10px;">
+		<a href="#" id="drop_only" class="ui-btn ui-btn-inline ui-mini ui-corner-all s4l-btn-danger"><TMPL_VAR INFLUXPAGE.BUTTON_DROP></a>
+		<a href="#" id="drop_and_off" class="ui-btn ui-btn-inline ui-mini ui-corner-all s4l-btn-danger" style="display:none;"><TMPL_VAR INFLUXPAGE.BUTTON_DROP_AND_DEACTIVATE></a>
+	</div>
+	<div id="drop_hint" style="text-align:center;padding-top:8px;">&nbsp;</div>
+</div>
+
+<script type="application/javascript" src="js/influx.js"></script>

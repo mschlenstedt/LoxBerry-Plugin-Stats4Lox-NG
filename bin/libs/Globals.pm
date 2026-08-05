@@ -21,6 +21,10 @@ our %navbar = (
 			Name => "Data Sources",
 			URL => "data_inputs.cgi"
 	},
+	25 => {
+			Name => "InfluxDB",
+			URL => "influx.cgi"
+	},
 	30 => {
 			Name => "Grafana",
 			# The real URL is set in init_navbar_i18n(): the configured port is
@@ -172,6 +176,7 @@ sub init_navbar_i18n
 	$main::navbar{1}{Name} = $L{'NAVBAR.NAV_HOME'} if $L{'NAVBAR.NAV_HOME'};
 	$main::navbar{10}{Name} = $L{'NAVBAR.NAV_LOXONE_IMPORT'} if $L{'NAVBAR.NAV_LOXONE_IMPORT'};
 	$main::navbar{20}{Name} = $L{'NAVBAR.NAV_DATASOURCES'} if $L{'NAVBAR.NAV_DATASOURCES'};
+	$main::navbar{25}{Name} = $L{'NAVBAR.NAV_INFLUX'} if $L{'NAVBAR.NAV_INFLUX'};
 	$main::navbar{30}{Name} = $L{'NAVBAR.NAV_GRAFANA'} if $L{'NAVBAR.NAV_GRAFANA'};
 	$main::navbar{40}{Name} = $L{'NAVBAR.NAV_SYSTEM'} if $L{'NAVBAR.NAV_SYSTEM'};
 	$main::navbar{90}{Name} = $L{'NAVBAR.NAV_LOGS'} if $L{'NAVBAR.NAV_LOGS'};

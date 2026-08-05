@@ -734,6 +734,149 @@ if( $q->{action} eq "savepluginconfig" ) {
 }
 
 ##
+## Influx page
+##
+## Split into three requests on purpose. Measured on 134 measurements: the
+## overview costs 0.4 s, the timestamps 4.5 s, and counting the values 23.5 s.
+## Putting all of that into one request would mean staring at an empty page for
+## half a minute.
+
+# stats.json read as characters, not as bytes.
+#
+# LoxBerry::JSON hands back byte strings, while the measurement names coming out
+# of InfluxDB are decoded characters. Comparing the two directly fails for every
+# name with an umlaut - "Alkalinität" from the database would never match
+# "Alkalinit\xc3\xa4t" from the configuration.
+sub s4l_stats_by_measurement
+{
+	my %out;
+	open( my $fh, '<:raw', $statsconfig ) or return \%out;
+	local $/;
+	my $raw = <$fh>;
+	close $fh;
+	my $cfg = eval { JSON::decode_json( $raw ) };
+	return \%out if( $@ or ref($cfg->{loxone}) ne 'ARRAY' );
+
+	foreach my $e ( @{ $cfg->{loxone} } ) {
+		next if( !$e->{measurementname} );
+		$out{ $e->{measurementname} } = {
+			uuid   => $e->{uuid},
+			msno   => $e->{msno},
+			name   => $e->{name},
+			active => ( defined $e->{active} and $e->{active} eq 'true' ) ? 1 : 0,
+		};
+	}
+	return \%out;
+}
+
+## influx_overview - everything that is cheap to know
+if( $q->{action} eq "influx_overview" ) {
+	require InfluxInfo;
+	my $names  = InfluxInfo::measurements();
+	my $fields = InfluxInfo::fieldkeys();
+	my $srcs   = InfluxInfo::sources();
+	my $stats  = s4l_stats_by_measurement();
+
+	my @out;
+	foreach my $n ( @$names ) {
+		my $s = $stats->{$n};
+		push @out, {
+			name     => $n,
+			fields   => $fields->{$n} // [],
+			sources  => $srcs->{$n}   // [],
+			encoding => InfluxInfo::name_encoding($n),
+			# configured: there is an entry in stats.json using this name
+			configured => $s ? 1 : 0,
+			active     => $s ? $s->{active} : 0,
+			uuid       => $s ? $s->{uuid} : undef,
+			msno       => $s ? $s->{msno} : undef,
+			blockname  => $s ? $s->{name} : undef,
+		};
+	}
+
+	# Configured but never written - the counterpart of an orphaned measurement
+	my %have = map { $_ => 1 } @$names;
+	my @nodata = grep { !$have{$_} } sort keys %$stats;
+
+	$response = JSON::encode_json( {
+		measurements => \@out,
+		nodata       => \@nodata,
+		database     => $Globals::influx->{influxdatabase} // 'stats4lox',
+	} );
+}
+
+## influx_timestamps - first and last value of every measurement
+if( $q->{action} eq "influx_timestamps" ) {
+	require InfluxInfo;
+	my $names = InfluxInfo::measurements();
+	$response = JSON::encode_json( { timestamps => InfluxInfo::timestamps($names) } );
+}
+
+## influx_count - how many values, for one measurement or for all of them
+if( $q->{action} eq "influx_count" ) {
+	require InfluxInfo;
+	my $names;
+	if( defined $q->{name} and $q->{name} ne '' ) {
+		# One name, and only if it really exists - the value ends up in a query.
+		my $all = InfluxInfo::measurements();
+		my $wanted = $q->{name};
+		require Encode;
+		$wanted = Encode::decode( 'UTF-8', $wanted, Encode::FB_DEFAULT() | Encode::LEAVE_SRC() );
+		$names = [ grep { $_ eq $wanted } @$all ];
+		$error = "Unknown measurement" if( !@$names );
+	}
+	else {
+		$names = InfluxInfo::measurements();
+	}
+	$response = JSON::encode_json( { counts => InfluxInfo::valuecount($names) } ) if( !$error );
+}
+
+## influx_drop - removes a measurement, and on request switches its statistic off
+if( $q->{action} eq "influx_drop" and defined $q->{name} and $q->{name} ne '' ) {
+	require InfluxInfo;
+	require Encode;
+	my $wanted = Encode::decode( 'UTF-8', $q->{name}, Encode::FB_DEFAULT() | Encode::LEAVE_SRC() );
+
+	# Only a measurement that is really there - the name goes into a DROP.
+	my $all = InfluxInfo::measurements();
+	if( !grep { $_ eq $wanted } @$all ) {
+		$error = "Unknown measurement";
+	}
+	else {
+		# Switching the statistic off first, then dropping. The other way round
+		# the grabber could write the measurement again in the second between
+		# the two - it runs every minute.
+		my $deactivated = 0;
+		if( defined $q->{deactivate} and $q->{deactivate} eq 'true' ) {
+			my $stats = s4l_stats_by_measurement();
+			my $s = $stats->{$wanted};
+			if( $s and $s->{uuid} ) {
+				require LoxBerry::JSON;
+				my $obj = LoxBerry::JSON->new();
+				my $cfg = $obj->open( filename => $statsconfig, lockexclusive => 1, locktimeout => 10 );
+				if( $cfg and ref($cfg->{loxone}) eq 'ARRAY' ) {
+					foreach my $e ( @{ $cfg->{loxone} } ) {
+						next if( $e->{uuid} ne $s->{uuid} or $e->{msno} ne $s->{msno} );
+						$e->{active} = "false";
+						delete $e->{status};
+						$deactivated = 1;
+						last;
+					}
+					$obj->write() if( $deactivated );
+					LOGOK "Statistic $s->{msno} / $s->{uuid} switched off before dropping the measurement"
+						if( $deactivated );
+				}
+			}
+		}
+
+		my $dropped = InfluxInfo::drop_measurement( $wanted );
+		if( $dropped ) { LOGOK "Measurement dropped: $q->{name}" }
+		else           { LOGERR "Could not drop the measurement: $q->{name}" }
+		$response = JSON::encode_json( { dropped => $dropped, deactivated => $deactivated } );
+	}
+}
+
+##
 ## Backup
 ##
 ## Everything here runs s4l_backup.pl through sudo - the script needs root for
