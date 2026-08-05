@@ -666,20 +666,22 @@ function actionButtons( statmatch ) {
 	var st = statusOf( statmatch );
 	if( !st ) return "";
 	if( st.error === "404" ) {
+		var del = escAttr( $('#lang_button_remove_from_s4l').text() );
 		return `<a href="#" class="s4l-tbtn s4l-tbtn-danger s4l-tbtn-cross btnDeleteStat"`
-		     + ` title="${escAttr($('#lang_button_remove_from_s4l').text())}">${escHtml($('#lang_button_remove_from_s4l').text())}</a>`;
+		     + ` title="${del}" aria-label="${del}"></a>`;
 	}
+	var res = escAttr( $('#lang_hover_reset_status').text() );
 	return `<a href="#" class="s4l-tbtn s4l-tbtn-reset btnResetStatus"`
-	     + ` title="${escAttr($('#lang_hover_reset_status').text())}">${escHtml($('#lang_button_reset_status').text())}</a>`;
+	     + ` title="${res}" aria-label="${escAttr($('#lang_button_reset_status').text())}"></a>`;
 }
 
-// Settings button - grey, gear, no text. The hole in the gear is an element of
-// its own: it has to be painted in the button colour, and the two pseudo
-// elements are already taken by the two squares that form the teeth.
+// Settings button - grey, gear. The hole in the gear is an element of its own:
+// it has to be painted in the button colour, and the two pseudo elements are
+// already taken by the two squares that form the teeth.
 function settingsButton() {
+	var lbl = escAttr( $('#lang_hover_button_settings').text() );
 	return `<a href="#" class="s4l-tbtn s4l-tbtn-gear btnLoxoneDetails"`
-	     + ` title="${escAttr($('#lang_hover_button_settings').text())}"><span class="hole"></span>`
-	     + `${escHtml($('#lang_button_settings').text())}</a>`;
+	     + ` title="${lbl}" aria-label="${lbl}"><span class="hole"></span></a>`;
 }
 
 // The "Statistics" cell. A block the Miniserver no longer knows shows since

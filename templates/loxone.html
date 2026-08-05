@@ -67,7 +67,9 @@
    controlgroup label they need a line of their own to sit straight. */
 .filter_icon { display:inline-block; line-height:18px; vertical-align:middle; }
 
-.controlstable .actionbuttons { white-space:nowrap; text-align:right; }
+/* The buttons sit in the middle of the row, not at the top like the text
+   cells - they belong to the whole row, not to its first line. */
+.controlstable td.actionbuttons { white-space:nowrap; text-align:right; vertical-align:middle; }
 
 /* Own square buttons instead of jQuery Mobile's.
    Its icon-only buttons put the glyph on a round grey disc, which looks like a
@@ -85,10 +87,11 @@
 	vertical-align	:middle;
 	margin		:0 0 0 4px;
 	box-sizing	:border-box;
-	text-indent	:-9999px;
-	overflow	:hidden;
-	white-space	:nowrap;
 	cursor		:pointer;
+	/* The buttons carry no text at all - what they do is in the title and in
+	   aria-label. Hiding a text with text-indent left it showing through. */
+	font-size	:0;
+	line-height	:0;
 }
 .s4l-tbtn:hover { background:#d5d5d5; }
 .s4l-tbtn-danger
@@ -309,16 +312,30 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 		border-right	:9px solid transparent;
 		border-bottom	:16px solid #e0a800;
 	}
+	/* The exclamation mark: stroke and dot as two separate elements. It was one
+	   element with a box-shadow underneath it, and a box-shadow copies the
+	   whole box - so instead of a dot there was a second stroke of the same
+	   length. */
+	.s4l-icon-warn::before
+	{
+		content		:"";
+		position	:absolute;
+		left		:-1px;
+		top		:5px;
+		width		:2px;
+		height		:5px;
+		background-color:#4a3b00;
+	}
 	.s4l-icon-warn::after
 	{
 		content		:"";
 		position	:absolute;
 		left		:-1px;
-		top		:6px;
+		top		:12px;
 		width		:2px;
-		height		:5px;
+		height		:2px;
+		border-radius	:50%;
 		background-color:#4a3b00;
-		box-shadow	:0 7px 0 0 #4a3b00;
 	}
 	/* grey, empty - a statistic that is switched off */
 	.s4l-icon-off
