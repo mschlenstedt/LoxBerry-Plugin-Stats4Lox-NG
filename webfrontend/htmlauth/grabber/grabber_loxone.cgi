@@ -81,6 +81,56 @@ my @data;
 my $processed = 0;   # how many entries the loop has reached - needed to report
                      # which statistics were left out if we run out of time
 my %msfailed;        # Miniservers that failed in this cycle, see below
+
+# Status of a statistic, recorded in stats.json.
+#
+# Collected here and written once at the end of the cycle, not per block. The
+# configuration directory is on the SD card on most installations, so a write
+# per failing block would mean 21 writes a minute on a system with 21 deleted
+# blocks. One write per cycle, and only when something actually changed.
+my %statuschange;    # "msno|uuid" => hashref or undef (undef = clear it)
+
+# The status stays on the entry only while there is something wrong. No error
+# type and no timestamp means the statistic is fine, and that is also how an
+# entry that never failed looks - nothing is written for it at all.
+sub note_error
+{
+	my ($entry, $type) = @_;
+	my $old = $entry->{status};
+	my $count = ( $old and $old->{error} and $old->{error} eq $type ) ? ( $old->{count} // 0 ) : 0;
+	$count++;
+
+	# Keep the moment it started failing - the web interface shows "not
+	# reachable since ..." from it. A different error type starts over.
+	my $since = ( $old and $old->{error} and $old->{error} eq $type and $old->{since} )
+	          ? $old->{since} : time();
+
+	my $new = { error => $type, since => $since, count => $count };
+	$statuschange{ $entry->{msno} . "|" . $entry->{uuid} } = $new;
+	$entry->{status} = $new;   # so the same cycle already sees the new count
+	return $new;
+}
+
+sub clear_error
+{
+	my ($entry) = @_;
+	return if( !$entry->{status} or !$entry->{status}->{error} );
+	$statuschange{ $entry->{msno} . "|" . $entry->{uuid} } = undef;
+	delete $entry->{status};
+	return;
+}
+
+# Ten failures are enough to stop asking. Nothing is written from then on
+# either, so a permanently deleted block costs exactly ten writes and then
+# nothing at all - neither requests nor log lines nor SD card writes.
+use constant MAX_ERRORS => 10;
+
+sub give_up
+{
+	my ($entry) = @_;
+	return ( $entry->{status} and $entry->{status}->{count}
+	         and $entry->{status}->{count} >= MAX_ERRORS ) ? 1 : 0;
+}
 for my $results( @{$cfg->{loxone}} ){
 	$processed++;
 	if (! $results->{uuid} || ! $results->{msno} || ! $results->{measurementname} ) {
@@ -94,7 +144,13 @@ for my $results( @{$cfg->{loxone}} ){
 		LOGINF "$results->{name} -> Statistic not activated - skipping";
 		next;
 	}
-	
+
+	# Given up on after MAX_ERRORS failures. Skipped without a request and
+	# without a log line of its own - the summary at the end names them.
+	if( give_up($results) ) {
+		next;
+	}
+
 	my $tag = $results->{measurementname};
 	my $now = time();
 	# Checking if interval is reached
@@ -126,7 +182,6 @@ for my $results( @{$cfg->{loxone}} ){
 	# Grab data
 	my ($code, $resp) = Stats4Lox::msget_value($results->{msno}, $results->{uuid});
 	if ( !$resp || $code ne "200" ) {
-		LOGERR "$results->{name} -> Could not grab data from Miniserver $results->{msno}: HTTP $code";
 
 		if( defined $code and $code eq "404" ) {
 			# The block does not exist on the Miniserver any anymore - typically a
@@ -134,12 +189,18 @@ for my $results( @{$cfg->{loxone}} ){
 			# stats.json. Retrying that every minute would only fill the log,
 			# so it waits for its regular slot.
 			$mem->{$tag}->{nextrun} = $now + $results->{interval};
+			my $st = note_error( $results, '404' );
+			LOGERR "$results->{name} -> gone from the Miniserver ($st->{count}. time)"
+			       . ( $st->{count} >= MAX_ERRORS
+			           ? " - not asked for again. Remove it under 'Loxone and Import' or restore the block in Loxone Config."
+			           : "" );
 		}
 		else {
 			# A connection problem or a timeout. Retry soon - nextrun used to be
 			# advanced BEFORE the request, so a single failed grab cost a whole
 			# interval of data. And do not touch this Miniserver again in this
 			# cycle, see the note above.
+			LOGERR "$results->{name} -> Could not grab data from Miniserver $results->{msno}: HTTP $code";
 			$msfailed{ $results->{msno} } = 1;
 			my $retry = ( $results->{interval} && $results->{interval} < 60 ) ? $results->{interval} : 60;
 			$mem->{$tag}->{nextrun} = $now + $retry;
@@ -149,7 +210,13 @@ for my $results( @{$cfg->{loxone}} ){
 
 	# Only a successful grab moves this block on to its next regular slot
 	$mem->{$tag}->{nextrun} = $now + $results->{interval};
-	
+
+	# It works again - the status goes away. This is the only place a status can
+	# clear itself for a timeout; a 404 additionally clears when the block turns
+	# up in the LoxPLAN again (see Loxone/ParseXML.pm), because a block given up
+	# on is never asked again and could not heal here.
+	clear_error( $results );
+
 	# Collect data and create Influx lineformat
 	my $measurement = $results->{measurementname};
 	my %tags = ();
@@ -208,12 +275,21 @@ for my $results( @{$cfg->{loxone}} ){
 		# Of those, the ones whose interval had already elapsed are the ones
 		# actually losing a measurement now. The others were not due anyway.
 		my $tnow = time();
+		# Entries that have been given up on are not due for anything - they
+		# would not have been fetched in this cycle either. Counting them here
+		# would also overwrite their 404 with a 'limit' and restart the counter.
 		my @due = grep {
 			     is_enabled($_->{active})
 			 and $_->{uuid} and $_->{msno} and $_->{measurementname}
+			 and !give_up($_)
 			 and ( !defined $mem->{ $_->{measurementname} }->{nextrun}
 			       or $tnow >= $mem->{ $_->{measurementname} }->{nextrun} )
 		} @remaining;
+
+		# Those that lose a measurement now get it recorded. They are the ones
+		# the runtime budget hit, and without this the web interface could not
+		# tell them apart from a statistic that is simply fine.
+		note_error( $_, 'limit' ) foreach ( @due );
 
 		if( @due ) {
 			# Deliberately LOGERR, not LOGWARN.
@@ -257,6 +333,87 @@ for my $results( @{$cfg->{loxone}} ){
 }
 
 #print STDERR Dumper @data;
+
+# Write the collected status back, once per cycle and only if something
+# changed.
+#
+# Deliberately a fresh handle on the file instead of writing back the copy this
+# script has been working on: that copy carries a 'nextrun' on every entry,
+# added further up for sorting, and it is a runtime value that has no business
+# in the configuration. The fresh copy also picks up anything the web interface
+# has changed in the meantime.
+#
+# The write is skipped when the file is busy. LoxBerry::JSON locks with a plain
+# blocking flock - it has no timeout, the 'locktimeout' parameter used in a few
+# places in this plugin does not exist in the module. update_dashboards.pl holds
+# that lock for as long as it takes to rebuild every panel, and Telegraf gives
+# this CGI 45 seconds before it drops the whole cycle. Recording a status is not
+# worth that risk: it is retried next cycle, and the counter picks up where it
+# left off because it is derived from what is in the file.
+if( %statuschange ) {
+	my $busy = 1;
+	if( open( my $lockfh, '<', $cfgfile ) ) {
+		require Fcntl;
+		$busy = flock( $lockfh, Fcntl::LOCK_EX() | Fcntl::LOCK_NB() ) ? 0 : 1;
+		flock( $lockfh, Fcntl::LOCK_UN() );
+		close $lockfh;
+	}
+	if( $busy ) {
+		LOGINF "stats.json is currently locked by another process - the status is recorded in the next cycle";
+		%statuschange = ();
+	}
+}
+
+if( %statuschange ) {
+	my $wobj = LoxBerry::JSON->new();
+	my $wcfg = $wobj->open( filename => $cfgfile, lockexclusive => 1 );
+	if( !$wcfg or ref($wcfg->{loxone}) ne 'ARRAY' ) {
+		LOGERR "Could not open stats.json to record the status";
+	}
+	else {
+		my $applied = 0;
+		foreach my $e ( @{$wcfg->{loxone}} ) {
+			next if( !$e->{uuid} or !defined $e->{msno} );
+			my $key = $e->{msno} . "|" . $e->{uuid};
+			next if( !exists $statuschange{$key} );
+			if( defined $statuschange{$key} ) { $e->{status} = $statuschange{$key} }
+			else                              { delete $e->{status} }
+			$applied++;
+		}
+		$wobj->write();
+		LOGINF "Status of $applied statistics recorded in stats.json";
+	}
+}
+
+# The ones that are no longer being asked for. One line for all of them instead
+# of one error per block per cycle - which is what made this log unreadable:
+# measured on a system with 21 deleted blocks, 206 error lines an hour, and
+# every single error line in the log was one of those.
+my @givenup = grep { is_enabled($_->{active}) and give_up($_) } @{$cfg->{loxone}};
+
+# Only when the set changes. The grabber is a fresh process every cycle and
+# cannot remember by itself, so the marker goes into the memory file it keeps in
+# /dev/shm anyway. Without this the line would appear once a minute for as long
+# as the entry exists, which is the noise this whole change is meant to end.
+my $givenup_key = join( ",", sort map { $_->{msno} . "|" . $_->{uuid} } @givenup );
+if( ( $mem->{_givenup} // '' ) ne $givenup_key ) {
+	$mem->{_givenup} = $givenup_key;
+	if( @givenup ) {
+		my @names = map { $_->{name} // $_->{measurementname} // '?' } @givenup;
+		my $shown = scalar(@names) > 5 ? 5 : scalar(@names);
+		# LOGERR, not LOGWARN: LoxBerry suppresses WARNING from loglevel 3
+		# downwards, and 3 is what most installations run on. A statistic that
+		# is no longer being fetched has to reach the person it affects.
+		LOGERR scalar(@givenup) . " statistics are not being fetched any more after "
+		       . MAX_ERRORS . " failures: "
+		       . join( ", ", @names[0 .. $shown-1] )
+		       . ( scalar(@names) > $shown ? ", ... (" . (scalar(@names)-$shown) . " more)" : "" );
+		LOGERR "They are shown with their status under 'Loxone and Import' and can be removed or reset there.";
+	}
+	else {
+		LOGOK "No statistics are being skipped any more";
+	}
+}
 
 # Output
 LOGOK "Returning lineprot dataset (" . scalar @data . " measures)";

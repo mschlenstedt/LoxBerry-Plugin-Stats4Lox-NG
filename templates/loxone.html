@@ -100,6 +100,48 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 }
 
 
+	/* Status of a statistic: green fine, yellow the grabber ran out of time,
+	   red the Miniserver does not know the block any more. A dot rather than
+	   text so the column stays narrow; the wording is in the tooltip. */
+	.statusdot
+	{
+		display		:inline-block;
+		width		:14px;
+		height		:14px;
+		border-radius	:50%;
+		vertical-align	:middle;
+		border		:1px solid rgba(0,0,0,0.35);
+	}
+	.statusdot-green  { background-color:#3c9a3c; }
+	.statusdot-yellow { background-color:#e0a800; }
+	.statusdot-red    { background-color:#c0392b; }
+	.statuscell       { text-align:center; white-space:nowrap; }
+	.statuscell .statustext { font-size:smaller; display:block; margin-top:2px; }
+
+	/* Statistics whose block is gone from the LoxPLAN. They have no row of
+	   their own in Loxone Config, so the row is marked to make clear it is not
+	   part of the list above. */
+	tr.orphanrow td { background-color:rgba(192,57,43,0.07); }
+
+	/* The LoxBerry jQuery Mobile theme has no red swatch, only a, b and c, and
+	   its rule "html .ui-body-a .ui-btn" has one element and two classes - a
+	   selector of two classes alone would lose against it. */
+	html body .s4l-btn-danger.ui-btn,
+	html body .s4l-btn-danger.ui-btn:visited
+	{
+		background	:#c0392b;
+		border-color	:#a93226;
+		color		:#ffffff;
+		text-shadow	:none;
+	}
+	html body .s4l-btn-danger.ui-btn:hover,
+	html body .s4l-btn-danger.ui-btn:focus
+	{
+		background	:#a93226;
+		border-color	:#922b21;
+		color		:#ffffff;
+		text-shadow	:none;
+	}
 </style>
 
 <div class="datahidden" id="loxone_elements_json"><TMPL_VAR LOXONE_ELEMENTS></div>
@@ -113,6 +155,23 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 <div class="datahidden" id="lang_th_name_type"><TMPL_VAR SETTINGS.TH_NAME_TYPE></div>
 <div class="datahidden" id="lang_th_location"><TMPL_VAR SETTINGS.TH_LOCATION></div>
 <div class="datahidden" id="lang_th_statistics"><TMPL_VAR SETTINGS.TH_STATISTICS></div>
+<div class="datahidden" id="lang_th_status"><TMPL_VAR SETTINGS.TH_STATUS></div>
+<div class="datahidden" id="lang_status_ok"><TMPL_VAR SETTINGS.STATUS_OK></div>
+<div class="datahidden" id="lang_status_limit"><TMPL_VAR SETTINGS.STATUS_LIMIT></div>
+<div class="datahidden" id="lang_status_404"><TMPL_VAR SETTINGS.STATUS_404></div>
+<div class="datahidden" id="lang_hover_status_ok"><TMPL_VAR SETTINGS.HOVER_STATUS_OK></div>
+<div class="datahidden" id="lang_hover_status_limit"><TMPL_VAR SETTINGS.HOVER_STATUS_LIMIT></div>
+<div class="datahidden" id="lang_hover_status_404"><TMPL_VAR SETTINGS.HOVER_STATUS_404></div>
+<div class="datahidden" id="lang_hover_status_givenup"><TMPL_VAR SETTINGS.HOVER_STATUS_GIVENUP></div>
+<div class="datahidden" id="lang_not_reachable_since"><TMPL_VAR SETTINGS.LABEL_NOT_REACHABLE_SINCE></div>
+<div class="datahidden" id="lang_button_delete_stat"><TMPL_VAR SETTINGS.BUTTON_DELETE_STAT></div>
+<div class="datahidden" id="lang_button_reset_status"><TMPL_VAR SETTINGS.BUTTON_RESET_STATUS></div>
+<div class="datahidden" id="lang_hover_reset_status"><TMPL_VAR SETTINGS.HOVER_RESET_STATUS></div>
+<div class="datahidden" id="lang_confirm_delete_stat"><TMPL_VAR SETTINGS.CONFIRM_DELETE_STAT></div>
+<div class="datahidden" id="lang_hint_delete_done"><TMPL_VAR SETTINGS.HINT_DELETE_DONE></div>
+<div class="datahidden" id="lang_hint_delete_fail"><TMPL_VAR SETTINGS.HINT_DELETE_FAIL></div>
+<div class="datahidden" id="lang_hint_reset_done"><TMPL_VAR SETTINGS.HINT_RESET_DONE></div>
+<div class="datahidden" id="lang_hint_block_gone"><TMPL_VAR SETTINGS.HINT_BLOCK_GONE></div>
 <div class="datahidden" id="lang_th_import"><TMPL_VAR SETTINGS.TH_IMPORT></div>
 <div class="datahidden" id="lang_button_settings"><TMPL_VAR SETTINGS.BUTTON_SETTINGS></div>
 <div class="datahidden" id="lang_label_details"><TMPL_VAR SETTINGS.LABEL_DETAILS></div>
@@ -165,6 +224,22 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 		<h4 class="ui-title popuptitle"><TMPL_VAR SETTINGS.LABEL_PROGRESS></h4>
 		<div id="progressState"></div>
 	</div>
+</div>
+
+<!-- Delete a statistic. The measurements in InfluxDB are a separate decision -
+     they are the history, and keeping it is usually the reason the entry was
+     still there at all. So two buttons instead of a checkbox: whichever is
+     pressed says plainly what it does. -->
+<div data-role="popup" id="popupDeleteStat" data-dismissible="false" data-theme="a" data-overlay-theme="a" class="ui-content" style="max-width:520px">
+	<center><h3 class="popuptitle"><TMPL_VAR SETTINGS.POPUP_DELETE_TITLE></h3></center>
+	<p id="deleteStat_what">&nbsp;</p>
+	<p><TMPL_VAR SETTINGS.CONFIRM_DELETE_DATA></p>
+	<div style="text-align:center;padding-top:10px;">
+		<a href="#" id="deleteStat_cancel" class="ui-btn ui-btn-inline ui-mini ui-corner-all"><TMPL_VAR COMMON.BUTTON_CLOSE></a>
+		<a href="#" id="deleteStat_keep" class="ui-btn ui-btn-inline ui-mini ui-corner-all"><TMPL_VAR SETTINGS.BUTTON_DELETE_KEEPDATA></a>
+		<a href="#" id="deleteStat_drop" class="ui-btn ui-btn-inline ui-mini ui-corner-all s4l-btn-danger"><TMPL_VAR SETTINGS.BUTTON_DELETE_WITHDATA></a>
+	</div>
+	<div id="deleteStat_hint" style="text-align:center;padding-top:8px;">&nbsp;</div>
 </div>
 
 <!-- Loxone Details popup -->
@@ -274,8 +349,19 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 			</table>
 		</div>
 		
-		<!-- Live Data from Miniserver table --> 
-		<div style="margin:3px;">
+		<!-- Shown instead of the live data when the block is gone from the
+		     LoxPLAN - there is nothing to ask the Miniserver for. -->
+		<div id="LoxoneDetails_gone" style="margin:3px;display:none;max-width:380px;">
+			<div style="border:1px solid #c0392b;border-radius:4px;padding:10px;margin:5px;">
+				<TMPL_VAR SETTINGS.HINT_BLOCK_GONE>
+			</div>
+			<div style="text-align:center;margin-top:10px;">
+				<a href="#" id="LoxoneDetails_deletebutton" class="ui-btn ui-btn-inline ui-mini ui-corner-all s4l-btn-danger"><TMPL_VAR SETTINGS.BUTTON_DELETE_STAT></a>
+			</div>
+		</div>
+
+		<!-- Live Data from Miniserver table -->
+		<div id="LoxoneDetails_livebox" style="margin:3px;">
 			<h4 id="valuesLoxoneDetailsLive_title" class="popuptitle" style="margin:5px">
 				&nbsp;
 			</h4>
@@ -395,6 +481,21 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 		<label for="filter_s4lstat_on"><TMPL_VAR COMMON.LABEL_ON></label>
 		<input type="radio" name="filter_s4lstat" id="filter_s4lstat_off" value="off" class="filter_radio">
 		<label for="filter_s4lstat_off"><TMPL_VAR COMMON.LABEL_OFF></label>
+	</fieldset>
+	</div>
+
+	<!-- Filter status of the statistic -->
+	<div style="padding:5px;">
+	<fieldset data-role="controlgroup" data-type="horizontal" data-mini="true">
+		<legend><TMPL_VAR SETTINGS.LABEL_FILTER_STATUS></legend>
+		<input type="radio" name="filter_status" id="filter_status_all" value="all" checked="checked" class="filter_radio">
+		<label for="filter_status_all"><TMPL_VAR SETTINGS.LABEL_ALL></label>
+		<input type="radio" name="filter_status" id="filter_status_green" value="green" class="filter_radio">
+		<label for="filter_status_green"><span class="statusdot statusdot-green"></span></label>
+		<input type="radio" name="filter_status" id="filter_status_yellow" value="yellow" class="filter_radio">
+		<label for="filter_status_yellow"><span class="statusdot statusdot-yellow"></span></label>
+		<input type="radio" name="filter_status" id="filter_status_red" value="red" class="filter_radio">
+		<label for="filter_status_red"><span class="statusdot statusdot-red"></span></label>
 	</fieldset>
 	</div>
 

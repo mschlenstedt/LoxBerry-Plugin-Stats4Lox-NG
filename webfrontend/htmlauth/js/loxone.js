@@ -226,6 +226,44 @@ $(function() {
 		popupLoxoneDetails(uid, msno);
 	});
 	
+	// Bind Delete button (rows and details popup)
+	jQuery(document).on('click', '.btnDeleteStat', function(event, ui){
+		event.preventDefault();
+		var row = $(event.target).closest('tr');
+		askDeleteStat( row.data("uid"), row.data("msno") );
+	});
+	jQuery(document).on('click', '#LoxoneDetails_deletebutton', function(event, ui){
+		event.preventDefault();
+		$("#popupLoxoneDetails").popup("close");
+		// jQuery Mobile refuses to open a second popup while the first is
+		// still closing, so wait for it to finish.
+		$("#popupLoxoneDetails").one( "popupafterclose", function() {
+			askDeleteStat( $("#LoxoneDetails_deletebutton").data("uid"),
+			               $("#LoxoneDetails_deletebutton").data("msno") );
+		});
+	});
+
+	// Bind Reset status button
+	jQuery(document).on('click', '.btnResetStatus', function(event, ui){
+		event.preventDefault();
+		var row = $(event.target).closest('tr');
+		resetStatStatus( row.data("uid"), row.data("msno") );
+	});
+
+	// Delete popup buttons
+	jQuery(document).on('click', '#deleteStat_cancel', function(event){
+		event.preventDefault();
+		$("#popupDeleteStat").popup("close");
+	});
+	jQuery(document).on('click', '#deleteStat_keep', function(event){
+		event.preventDefault();
+		deleteStat( false );
+	});
+	jQuery(document).on('click', '#deleteStat_drop', function(event){
+		event.preventDefault();
+		deleteStat( true );
+	});
+
 	// Bind Import Now button
 	jQuery(document).on('click', '#LoxoneDetails_s4lstatimportbutton', function(event, ui){
 		target = event.target;
@@ -493,6 +531,7 @@ function createTableHead() {
 		<th>${$('#lang_th_name_type').text()}</th>
 		<th>${$('#lang_th_location').text()}</th>
 		<th>${$('#lang_th_statistics').text()}</th>
+		<th>${$('#lang_th_status').text()}</th>
 		<th>${$('#lang_th_import').text()}</th>
 	</tr>
 	`;
@@ -501,6 +540,110 @@ function createTableHead() {
 
 function createTableEnd() {
 	controlstable += `</table>`;
+}
+
+// Status of a statistic, as the grabber recorded it in stats.json.
+//
+// No status means the statistic is fine - the grabber only writes when
+// something is wrong, because the configuration directory is on the SD card on
+// most installations.
+function statusOf( statmatch ) {
+	if( typeof statmatch === "undefined" || statmatch === null ) return null;
+	if( !statmatch.status || !statmatch.status.error ) return null;
+	return {
+		error: statmatch.status.error,
+		since: Number( statmatch.status.since ) || 0,
+		count: Number( statmatch.status.count ) || 0
+	};
+}
+
+// green = fine, yellow = the grabber ran out of time, red = the Miniserver
+// does not know the block any more.
+function statusColour( st ) {
+	if( !st ) return "green";
+	if( st.error === "404" ) return "red";
+	return "yellow";
+}
+
+function formatTimestamp( epoch ) {
+	if( !epoch ) return "?";
+	var d = new Date( epoch * 1000 );
+	return d.toLocaleString();
+}
+
+// The dot plus its tooltip. Statistics that are not switched on at all get
+// nothing - there is no status to report about them.
+function statusCell( statmatch ) {
+	if( typeof statmatch === "undefined" || statmatch === null ) {
+		return `<td class="statuscell">&nbsp;</td>`;
+	}
+	var st = statusOf( statmatch );
+	var colour = statusColour( st );
+	var title;
+	var label;
+	if( !st ) {
+		title = $('#lang_hover_status_ok').text();
+		label = $('#lang_status_ok').text();
+	}
+	else {
+		var key = ( st.error === "404" ) ? 'lang_hover_status_404' : 'lang_hover_status_limit';
+		title = $('#'+key).text()
+			.replace( '__COUNT__', st.count )
+			.replace( '__SINCE__', formatTimestamp( st.since ) );
+		if( st.count >= 10 ) title += $('#lang_hover_status_givenup').text();
+		label = ( st.error === "404" ) ? $('#lang_status_404').text() : $('#lang_status_limit').text();
+	}
+	return `<td class="statuscell" title="${escAttr(title)}">`
+	     + `<span class="statusdot statusdot-${colour}"></span>`
+	     + `<span class="statustext">${escHtml(label)}</span></td>`;
+}
+
+function escHtml( s ) {
+	return $('<div>').text( s === undefined || s === null ? '' : s ).html();
+}
+function escAttr( s ) {
+	return escHtml(s).replace( /"/g, '&quot;' );
+}
+
+// The buttons that belong to a status: remove a block that is gone, reset the
+// counter of one that only ran out of time.
+function actionButtons( statmatch ) {
+	var st = statusOf( statmatch );
+	if( !st ) return "";
+	if( st.error === "404" ) {
+		return `<a href="#" class="ui-btn ui-icon-delete ui-btn-icon-left ui-corner-all ui-mini ui-btn-inline s4l-btn-danger btnDeleteStat">${escHtml($('#lang_button_delete_stat').text())}</a> `;
+	}
+	return `<a href="#" class="ui-btn ui-icon-refresh ui-btn-icon-left ui-corner-all ui-mini ui-btn-inline btnResetStatus" title="${escAttr($('#lang_hover_reset_status').text())}">${escHtml($('#lang_button_reset_status').text())}</a> `;
+}
+
+// The "Statistics" cell. A block the Miniserver no longer knows shows since
+// when instead of the interval - the interval would be a promise that is not
+// being kept.
+function statisticsCell( statmatch, statmatchkey ) {
+	var out = `<td class="center" style="min-width:150px">`;
+	var st = statusOf( statmatch );
+	if( st && st.error === "404" ) {
+		out += `<div class="statdata"><span style="color:#c0392b">`
+		     + escHtml( $('#lang_not_reachable_since').text().replace( '__SINCE__', formatTimestamp( st.since ) ) )
+		     + `</span></div></td>`;
+		return out;
+	}
+
+	var checkedImg = `<img src="images/checkbox_checked_20.png">`;
+	var statDisplay, s4l_interval;
+	if( statmatch?.active === "true" ) {
+		statDisplay = "";
+		s4l_interval = statmatch.interval/60;
+	}
+	else {
+		statDisplay = "display:none;";
+		s4l_interval = "";
+	}
+	out += `<div class="statdata" id="statskey-${statmatchkey}" style="${statDisplay}">`;
+	out += checkedImg;
+	out += `&nbsp;<span name="s4l_interval">${s4l_interval}</span> ${$('#lang_label_minutes').text()}`;
+	out += `</div></td>`;
+	return out;
 }
 
 function createTableBody() {
@@ -551,7 +694,14 @@ function createTableBody() {
 			if( filters["filter_s4lstat"] == "on" && ( typeof statmatch === "undefined" || statmatch.active !== "true" ) ) continue;
 			if( filters["filter_s4lstat"] == "off" && typeof statmatch !== "undefined" &&  statmatch.active === "true" ) continue;
 		}
-		
+
+		// Status filter. Blocks without a statistic have no status at all and
+		// are therefore not part of any of the three colours.
+		if( typeof filters["filter_status"] !== "undefined" && filters["filter_status"] != "all" ) {
+			if( typeof statmatch === "undefined" ) continue;
+			if( statusColour( statusOf(statmatch) ) != filters["filter_status"] ) continue;
+		}
+
 		// Text filter (filterSearchString)
 		if( filterSearchStr_lc != "" ) {
 			if ( 
@@ -586,51 +736,163 @@ function createTableBody() {
 			</td>`;
 		
 		// Statistics
-		controlstable += `<td class="center" style="min-width:150px">`;
-		var checkedImg = `<img src="images/checkbox_checked_20.png">`;
-		var uncheckedImg = `<img src="images/checkbox_unchecked_20.png">`;
-		var statDisplay;
-		if (statmatch?.active === "true" ) {
-			statDisplay = "";
-			s4l_interval = statmatch.interval/60;
-		}
-		else {
-			statDisplay = "display:none;";
-			s4l_interval = "";
-			
-			// controlstable += "Not enabled";
-		}
+		controlstable += statisticsCell( statmatch, statmatchkey );
 
-		controlstable += `<div class="statdata" id="statskey-${statmatchkey}" style="${statDisplay}">`;
-			// controlstable += "Statistics enabled";
-			
-		controlstable += checkedImg;
-		controlstable += `&nbsp;<span name="s4l_interval">${s4l_interval}</span> ${$('#lang_label_minutes').text()}`;
-		controlstable += `</div>`;
-		
-		controlstable += `</td>`;
+		// Status
+		controlstable += statusCell( statmatch );
 
 		// Import section
 		controlstable += `
 		<td class="importInfo" style="min-width:100px">
-		
-		
+
+
 		</td>`;
 
 		// Button section
 		controlstable += `
-			<td>
-			<a href="#" class="ui-btn ui-icon-eye ui-corner-all ui-mini ui-btn-inline btnLoxoneDetails">${$('#lang_button_settings').text()}</a>
+			<td style="white-space:nowrap">
+			${actionButtons( statmatch )}<a href="#" class="ui-btn ui-icon-eye ui-corner-all ui-mini ui-btn-inline btnLoxoneDetails">${$('#lang_button_settings').text()}</a>
 			</td>`;
-		
-		
-		
+
+
+
 		// End of row
-		
+
 		controlstable += `</tr>`;
-		
+
 	}
-	
+
+	appendOrphanRows( filterSearchStr_lc );
+}
+
+// Statistics whose block is not in the LoxPLAN.
+//
+// The loop above walks the LoxPLAN, so these would be invisible - which is
+// exactly how they went unnoticed for two years on the author's system: 21
+// entries, all active, all being fetched every interval, none of them shown
+// anywhere. They get a row of their own, appended after the regular ones.
+//
+// Note what is NOT done here: the row is not declared "deleted" because the
+// block is missing. The blacklist keeps 276 control types out of the LoxPLAN
+// list entirely, so a perfectly working statistic of such a type is missing
+// here too. What its state is comes from the status the grabber recorded - the
+// Miniserver is the only one that can say whether a block answers.
+function appendOrphanRows( filterSearchStr_lc ) {
+
+	if( typeof statsconfigLoxone === "undefined" ) return;
+
+	for( var key in statsconfigLoxone ) {
+		var stat = statsconfigLoxone[key];
+		if( !stat || !stat.uuid ) continue;
+
+		// Still in the LoxPLAN? Then it already has its row.
+		var inPlan = controls.find( obj => { return obj.UID === stat.uuid && obj.msno == stat.msno } );
+		if( inPlan ) continue;
+
+		// Filters that can still be applied without a block
+		if( typeof filters["filter_miniserver"] !== "undefined" && filters["filter_miniserver"] != "all"
+		    && filters["filter_miniserver"] != stat.msno ) continue;
+		if( typeof filters["filter_room"] !== "undefined" && filters["filter_room"] != "all"
+		    && filters["filter_room"] != stat.room ) continue;
+		if( typeof filters["filter_category"] !== "undefined" && filters["filter_category"] != "all"
+		    && filters["filter_category"] != stat.category ) continue;
+		if( typeof filters["filter_element"] !== "undefined" && filters["filter_element"] != "all"
+		    && filters["filter_element"] != stat.type?.toUpperCase() ) continue;
+		if( typeof filters["filter_s4lstat"] !== "undefined" && filters["filter_s4lstat"] != "all" ) {
+			if( filters["filter_s4lstat"] == "on" && stat.active !== "true" ) continue;
+			if( filters["filter_s4lstat"] == "off" && stat.active === "true" ) continue;
+		}
+		if( typeof filters["filter_status"] !== "undefined" && filters["filter_status"] != "all" ) {
+			if( statusColour( statusOf(stat) ) != filters["filter_status"] ) continue;
+		}
+		if( filterSearchStr_lc != "" ) {
+			if( stat.name?.toLowerCase().indexOf(filterSearchStr_lc) == -1 &&
+			    stat.description?.toLowerCase().indexOf(filterSearchStr_lc) == -1 &&
+			    stat.uuid?.toLowerCase().indexOf(filterSearchStr_lc) == -1 ) continue;
+		}
+
+		controlstable += `<tr class="controlstable_tr orphanrow" data-uid="${escAttr(stat.uuid)}" data-msno="${escAttr(stat.msno)}">`;
+		controlstable += `<td>${escHtml(stat.msno)}</td>`;
+
+		controlstable += `<td>${escHtml(stat.name)}`;
+		if( stat.description && stat.description != stat.name )
+			controlstable += `<br>${escHtml(stat.description)}`;
+		var TypeLocal = loxone_elements[stat.type?.toUpperCase()]?.localname;
+		if( typeof TypeLocal == "undefined" ) TypeLocal = stat.type ? stat.type.toUpperCase() : "";
+		controlstable += `<br><span class="small">${escHtml(TypeLocal)}</span></td>`;
+
+		controlstable += `<td>${escHtml(stat.room)}<br>${escHtml(stat.category)}</td>`;
+
+		controlstable += statisticsCell( stat, key );
+		controlstable += statusCell( stat );
+		controlstable += `<td class="importInfo" style="min-width:100px"></td>`;
+		controlstable += `<td style="white-space:nowrap">`
+		               + actionButtons( stat )
+		               + `<a href="#" class="ui-btn ui-icon-eye ui-corner-all ui-mini ui-btn-inline btnLoxoneDetails">${$('#lang_button_settings').text()}</a>`
+		               + `</td>`;
+		controlstable += `</tr>`;
+	}
+}
+
+// --- Deleting and resetting a statistic ------------------------------------
+
+var deleteStatTarget = {};
+
+function askDeleteStat( uid, msno ) {
+	var stat = statsconfigLoxone.find( obj => { return obj.uuid === uid && obj.msno == msno } );
+	if( !stat ) return;
+	deleteStatTarget = { uuid: uid, msno: msno };
+	$("#deleteStat_what").html(
+		escHtml( $('#lang_confirm_delete_stat').text().replace( '__NAME__', stat.name || stat.measurementname || uid ) ) );
+	$("#deleteStat_hint").html("&nbsp;");
+	$("#deleteStat_keep, #deleteStat_drop, #deleteStat_cancel").removeClass("ui-disabled");
+	$("#popupDeleteStat").popup("option","positionTo","window");
+	$("#popupDeleteStat").popup("open");
+}
+
+function deleteStat( dropdata ) {
+	if( !deleteStatTarget.uuid ) return;
+	$("#deleteStat_keep, #deleteStat_drop, #deleteStat_cancel").addClass("ui-disabled");
+	$("#deleteStat_hint").html( $('#lang_status_updating').text() );
+	$.post( "ajax.cgi", {
+		action:   "deletestat",
+		uuid:     deleteStatTarget.uuid,
+		msno:     deleteStatTarget.msno,
+		dropdata: dropdata ? "true" : "false"
+	} )
+	.fail( function( data ) {
+		console.log( "deletestat failed", data );
+		$("#deleteStat_hint").attr("style","color:red").html( $('#lang_hint_delete_fail').text() );
+		$("#deleteStat_cancel").removeClass("ui-disabled");
+	} )
+	.done( function( data ) {
+		if( !data || !data.deleted ) {
+			$("#deleteStat_hint").attr("style","color:red").html( $('#lang_hint_delete_fail').text() );
+			$("#deleteStat_cancel").removeClass("ui-disabled");
+			return;
+		}
+		// Out of the local copy as well, otherwise the row would come back on
+		// the next redraw until the page is reloaded.
+		var idx = statsconfigLoxone.findIndex( obj => {
+			return obj.uuid === deleteStatTarget.uuid && obj.msno == deleteStatTarget.msno } );
+		if( idx > -1 ) statsconfigLoxone.splice( idx, 1 );
+		$("#deleteStat_hint").attr("style","color:green").html( $('#lang_hint_delete_done').text() );
+		window.setTimeout( function() {
+			$("#popupDeleteStat").popup("close");
+			updateTable();
+		}, 1200 );
+	} );
+}
+
+function resetStatStatus( uid, msno ) {
+	$.post( "ajax.cgi", { action: "resetstatstatus", uuid: uid, msno: msno } )
+	.fail( function( data ) { console.log( "resetstatstatus failed", data ); } )
+	.done( function( data ) {
+		if( !data || !data.reset ) return;
+		var stat = statsconfigLoxone.find( obj => { return obj.uuid === uid && obj.msno == msno } );
+		if( stat ) delete stat.status;
+		updateTable();
+	} );
 }
 
 function popupLoxoneDetails( uid, msno ) {
@@ -641,7 +903,30 @@ function popupLoxoneDetails( uid, msno ) {
 	}
 	//$("#contentLoxoneDetails #valuesLoxoneDetails").empty();
 	var control = controls.find( obj => { return obj.UID === uid && obj.msno == msno })
-	
+
+	// A statistic whose block is no longer in the LoxPLAN. Everything the popup
+	// needs is built from what stats.json remembers about it - that is all the
+	// information there is left. Live data is impossible, so that box is
+	// replaced by the note and the delete button.
+	var blockGone = ( typeof control === "undefined" );
+	if( blockGone ) {
+		var stat = statsconfigLoxone.find( obj => { return obj.uuid === uid && obj.msno == msno } );
+		if( !stat ) return;
+		control = {
+			UID: stat.uuid, msno: stat.msno,
+			Title: stat.name, Desc: stat.description,
+			Place: stat.room, Category: stat.category,
+			Type: stat.type, Page: "", Visu: "false", StatsType: 0
+		};
+		$("#LoxoneDetails_deletebutton").data("uid", uid).data("msno", msno);
+		$("#LoxoneDetails_gone").show();
+		$("#LoxoneDetails_livebox").hide();
+	}
+	else {
+		$("#LoxoneDetails_gone").hide();
+		$("#LoxoneDetails_livebox").show();
+	}
+
 	// Set data properties to tables
 	$(".data-uidmsno").data("uid", control.UID).data("msno", control.msno);
 	$("#LoxoneDetails_s4lstatimportbutton").data("uid", control.UID).data("msno", control.msno);
@@ -751,7 +1036,13 @@ function popupLoxoneDetails( uid, msno ) {
 	}
 	
 	// Live Data from Miniserver
-	
+	//
+	// Skipped when the block is gone: the request would come back 404 and the
+	// box is hidden anyway.
+	if( blockGone ) {
+		return;
+	}
+
 	$("#valuesLoxoneDetailsLive_title").html($('#lang_status_updating').text());
 	liveTable = $("#valuesLoxoneDetailsLive_table");
 	liveTable.empty();

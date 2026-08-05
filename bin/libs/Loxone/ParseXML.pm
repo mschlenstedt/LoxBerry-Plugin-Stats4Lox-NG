@@ -493,8 +493,56 @@ sub loxplan2json
 	writeStateNames( msno => $args{msno}, output => $args{output},
 	                 loxplan => $args{filename}, log => $log );
 
+	clearReturnedBlocks( msno => $args{msno}, result => $result, log => $log );
+
 	return 1;
 
+}
+
+#############################################################################
+# Clears the 404 status of statistics whose block is back in the LoxPLAN
+#
+# The grabber stops asking for a block after ten failures, so a block that is
+# restored in Loxone Config could never heal by itself - it is not being asked
+# any more. A freshly parsed LoxPLAN is the one reliable place to notice that
+# it is back.
+#
+# Only clears, never sets. Setting a 404 from the absence of a block would be
+# wrong: the blacklist keeps 276 control types out of this list entirely, so a
+# perfectly working statistic of such a type is missing here as well. Whether a
+# block answers is something only the Miniserver can say, and the grabber asks
+# it.
+#############################################################################
+
+sub clearReturnedBlocks
+{
+	my %args = @_;
+	my $log = $args{log};
+	my $msno = $args{msno};
+	return if( !$msno or !$args{result} or ref($args{result}->{controls}) ne 'HASH' );
+
+	require LoxBerry::JSON;
+	require Globals;
+
+	my $obj = LoxBerry::JSON->new();
+	my $cfg = eval { $obj->open( filename => $Globals::statsconfig, lockexclusive => 1 ) };
+	if( !$cfg or ref($cfg->{loxone}) ne 'ARRAY' ) {
+		$log->DEB("clearReturnedBlocks: stats.json not readable - skipped") if ($log);
+		return;
+	}
+
+	my $cleared = 0;
+	foreach my $e ( @{ $cfg->{loxone} } ) {
+		next if( !$e->{uuid} or !defined $e->{msno} or $e->{msno} ne $msno );
+		next if( !$e->{status} or !$e->{status}->{error} or $e->{status}->{error} ne '404' );
+		next if( !exists $args{result}->{controls}->{ $e->{uuid} } );
+		delete $e->{status};
+		$cleared++;
+		$log->OK("clearReturnedBlocks: $e->{name} is back in the LoxPLAN - status reset") if ($log);
+	}
+
+	if( $cleared ) { $obj->write() }
+	return $cleared;
 }
 
 #############################################################################

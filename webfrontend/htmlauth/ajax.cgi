@@ -227,6 +227,11 @@ if( $q->{action} eq "updatestat" ) {
 	);
 	$updatedelement{outputlabels} = \@outputlabels if(@outputlabels);
 	$updatedelement{outputkeys} = \@outputkeys if(@outputkeys);
+	# The element is rebuilt from scratch here, so anything not listed above is
+	# lost. 'grafana' is carried over in the list; the status recorded by the
+	# grabber has to be carried over as well - otherwise changing an interval
+	# would quietly clear the error state and start the counting again.
+	$updatedelement{status} = $element->{status} if( $element->{status} );
 	
 	
 	# Validation
@@ -354,6 +359,112 @@ if( $q->{action} eq "deleteimport" and $q->{msno} and $q->{uuid} ) {
 			$response = "{ }";
 			system("$lbpbindir/import_scheduler.pl > $lbplogdir/import_scheduler.log 2>&1 &");
 			sleep 1;
+		}
+	}
+}
+
+## deletestat - removes a statistic from stats.json and from the dashboard
+##
+## Used for blocks that no longer exist on the Miniserver. The measurements in
+## InfluxDB are only removed when the user explicitly asks for it - they are the
+## history, and the history is usually the reason the entry was kept at all.
+if( $q->{action} eq "deletestat" and $q->{msno} and $q->{uuid} ) {
+	require LoxBerry::JSON;
+	my $msno = $q->{msno};
+	my $uuid = $q->{uuid};
+	my $dropdata = ( defined $q->{dropdata} and $q->{dropdata} eq "true" ) ? 1 : 0;
+
+	my $obj = LoxBerry::JSON->new();
+	my $cfg = $obj->open( filename => $statsconfig, lockexclusive => 1 );
+	if( !$cfg or ref($cfg->{loxone}) ne 'ARRAY' ) {
+		$error = "Could not open stats.json";
+	}
+	else {
+		my ($index) = grep {
+			     $cfg->{loxone}[$_]->{uuid} eq $uuid
+			 and $cfg->{loxone}[$_]->{msno} eq $msno
+		} 0 .. $#{ $cfg->{loxone} };
+
+		if( !defined $index ) {
+			$error = "Statistic $msno / $uuid not found";
+		}
+		else {
+			my $element = $cfg->{loxone}[$index];
+			my $measurement = $element->{measurementname};
+			LOGINF "Deleting statistic $msno / $uuid ($element->{name})";
+
+			# Panels first: the ids live on the entry we are about to remove.
+			my @panel_ids = ( defined $element->{grafana}->{panels} )
+			              ? values %{ $element->{grafana}->{panels} } : ();
+			if( @panel_ids ) {
+				eval {
+					require Grafana;
+					Grafana->deletePanelFromDashboard(
+						"$Globals::grafana->{s4l_provisioning_dir}/dashboards/defaultDashboard.json",
+						\@panel_ids );
+					LOGOK "Removed " . scalar(@panel_ids) . " panels from the dashboard";
+				};
+				LOGERR "Could not remove the panels: $@" if( $@ );
+			}
+
+			splice @{ $cfg->{loxone} }, $index, 1;
+			$obj->write();
+			LOGOK "Statistic removed from stats.json";
+
+			# Only the series of this block, addressed by its uuid tag - several
+			# statistics can share a measurement name, and dropping the whole
+			# measurement would take the others with it.
+			my $dropped = 0;
+			if( $dropdata and $measurement ) {
+				my $bin = "$lbpbindir/s4linflux";
+				my $db = $Globals::influx->{influxdatabase} // 'stats4lox';
+				my $sql = "DELETE FROM \"$measurement\" WHERE \"uuid\"='$uuid'";
+				# quotemeta on the whole argument, no quotes of our own around
+				# it - measurement names contain spaces and umlauts.
+				my $cmd = "$bin -database " . quotemeta($db) . " -execute " . quotemeta($sql);
+				my $out = `$cmd 2>&1`;
+				if( $? == 0 ) { $dropped = 1; LOGOK "Measurements of $uuid deleted from $measurement" }
+				else          { LOGERR "Could not delete the measurements: $out" }
+			}
+
+			# The import state file has no owner any more either.
+			createImportFolder();
+			my $importfile = $Globals::stats4lox->{importstatusdir}."/import_${msno}_${uuid}.json";
+			unlink $importfile     if( -e $importfile );
+			unlink "$importfile.log" if( -e "$importfile.log" );
+
+			$response = JSON::encode_json( {
+				deleted => 1,
+				panels  => scalar(@panel_ids),
+				dropped => $dropped,
+			} );
+		}
+	}
+}
+
+## resetstatstatus - clears the recorded status so the grabber tries again
+if( $q->{action} eq "resetstatstatus" and $q->{msno} and $q->{uuid} ) {
+	require LoxBerry::JSON;
+	my $obj = LoxBerry::JSON->new();
+	my $cfg = $obj->open( filename => $statsconfig, lockexclusive => 1 );
+	if( !$cfg or ref($cfg->{loxone}) ne 'ARRAY' ) {
+		$error = "Could not open stats.json";
+	}
+	else {
+		my $found = 0;
+		foreach my $e ( @{ $cfg->{loxone} } ) {
+			next if( $e->{uuid} ne $q->{uuid} or $e->{msno} ne $q->{msno} );
+			delete $e->{status};
+			$found = 1;
+			last;
+		}
+		if( !$found ) {
+			$error = "Statistic $q->{msno} / $q->{uuid} not found";
+		}
+		else {
+			$obj->write();
+			LOGOK "Status of $q->{msno} / $q->{uuid} reset";
+			$response = '{ "reset": 1 }';
 		}
 	}
 }
