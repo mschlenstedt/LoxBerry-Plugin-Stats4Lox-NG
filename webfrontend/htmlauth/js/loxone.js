@@ -865,6 +865,33 @@ function createTableBody() {
 // Which column the table is sorted by. "name" is what it always was.
 var tableSort = { key: "name", dir: 1 };
 
+// Names that do not start with a letter or a digit belong at the end. Loxone
+// generates such names for the pseudo inputs of service blocks - _0, _1, _2 and
+// so on. The old sort compared the strings directly and put them last by
+// accident, because the underscore sits behind the letters in the character
+// table; localeCompare puts them first, which is how 30 of them suddenly
+// appeared at the top of the table.
+//
+// The letter test works without unicode regular expressions, so umlauts and
+// other scripts are covered too: only a character that has case differs between
+// its upper and its lower case form.
+function nameGroup( title ) {
+	var c = String( title || "" ).charAt(0);
+	return ( /[0-9]/.test(c) || c.toLowerCase() !== c.toUpperCase() ) ? 0 : 1;
+}
+
+// The group is compared separately and NOT folded into the sort key. A key like
+// "0" + name looks tempting, but with numeric collation the prefix digit merges
+// with a leading digit of the name into one number - "01W" then sorts as 1 and
+// lands behind everything beginning with a letter.
+function compareNames( a, b ) {
+	var ga = nameGroup( a ), gb = nameGroup( b );
+	if( ga !== gb ) return ga - gb;
+	return String( a || "" ).toLowerCase()
+	       .localeCompare( String( b || "" ).toLowerCase(), undefined,
+	                       { numeric: true, sensitivity: "base" } );
+}
+
 // Sort keys per column. Not the displayed text but what the text means: the
 // status sorts by severity, so one click brings everything that needs
 // attention to the top - sorting the words alphabetically would put "Nicht
@@ -874,7 +901,8 @@ function sortValue( element, key ) {
 		return obj.uuid === element.UID && obj.msno == element.msno } ) : undefined;
 
 	if( key == "ms" )   return Number( element.msno ) || 0;
-	if( key == "name" ) return ( element.Title || "" ).toLowerCase();
+	// "name" is handled in the comparator - it needs two stages, see
+	// compareNames().
 	if( key == "loc" )  return ( ( element.Place || "" ) + " " + ( element.Category || "" ) ).toLowerCase();
 	if( key == "stat" ) {
 		if( !stat || stat.active !== "true" ) return -1;
@@ -898,6 +926,8 @@ function sortRows( rows ) {
 	var key = tableSort.key;
 	var dir = tableSort.dir;
 	rows.sort( function( a, b ) {
+		if( key == "name" ) return compareNames( a.Title, b.Title ) * dir;
+
 		var va = sortValue( a, key );
 		var vb = sortValue( b, key );
 		var r;
@@ -905,10 +935,7 @@ function sortRows( rows ) {
 		else r = String(va).localeCompare( String(vb), undefined, { numeric: true, sensitivity: "base" } );
 		// Rows that compare equal fall back to the name, so the order stays
 		// predictable instead of depending on what the sort happens to do.
-		if( r === 0 && key != "name" ) {
-			return String( a.Title || "" ).toLowerCase()
-			       .localeCompare( String( b.Title || "" ).toLowerCase(), undefined, { numeric: true, sensitivity: "base" } );
-		}
+		if( r === 0 ) return compareNames( a.Title, b.Title );
 		return r * dir;
 	} );
 	return rows;

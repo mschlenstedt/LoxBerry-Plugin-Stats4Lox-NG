@@ -240,7 +240,11 @@ $ImportMapping->{Default} = [
 # ACTOR="Aktor (Relais)"
 # AUTOJALOUSIE="Automatikjalousie"
 # BRIGHTNESS="Helligkeitsregler (BETA)"
-# CALLERVIRTUALIN="Virtueller Eingang (Caller)"
+# CALLERVIRTUALIN: now on the blacklist below. These are the virtual inputs of
+#   a Caller service, not blocks anyone configures - Loxone names them _0, _1,
+#   _2 and so on, they have no page, no room ("Nicht zugeordnet") and StatsType
+#   0. Measured on a real installation: 30 of them from two Caller services, not
+#   one with a statistic on it.
 # CURRENTOUT="Stromausgang (20mA)"
 # DAYLIGHTCTRL="Tageslicht Steuerung (BETA)"
 # DIMCURRENTIN="Strommessung (A)"
@@ -381,6 +385,7 @@ ONLINE
 our @CONTROL_BLACKLIST = qw/
 APIACTOR
 AUDIOOUT
+CALLERVIRTUALIN
 DATETIME
 GENASENSOR
 GENSENSOR
