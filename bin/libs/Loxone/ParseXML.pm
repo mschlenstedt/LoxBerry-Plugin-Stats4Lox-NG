@@ -525,7 +525,7 @@ sub clearReturnedBlocks
 	require Globals;
 
 	my $obj = LoxBerry::JSON->new();
-	my $cfg = eval { $obj->open( filename => $Globals::statsconfig, lockexclusive => 1 ) };
+	my $cfg = eval { $obj->open( filename => $Globals::statsconfig, lockexclusive => 1, locktimeout => 10 ) };
 	if( !$cfg or ref($cfg->{loxone}) ne 'ARRAY' ) {
 		$log->DEB("clearReturnedBlocks: stats.json not readable - skipped") if ($log);
 		return;

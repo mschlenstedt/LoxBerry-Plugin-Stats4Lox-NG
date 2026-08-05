@@ -39,9 +39,45 @@ if ( ! is_enabled($pcfg->{loxone}->{active}) ) {
 }
 
 # Stats Configuration
+#
+# locktimeout matters here. 'readonly' only changes the open mode, the file is
+# locked shared either way - and without a timeout that lock is taken
+# blocking. update_dashboards.pl holds stats.json exclusively for the whole of
+# its run while it rebuilds a panel for every statistic, and Telegraf drops
+# this cycle after 45 seconds. Measured with a lock held for 20 seconds, the
+# cycle grew from 13.7 to 33.7 seconds.
+#
+# With a timeout the module asks non-blocking and gives up, returning undef.
+# Two seconds are enough: they cover the brief writes of the web interface,
+# while a dashboard rebuild takes far longer than any wait worth making - and
+# the copy below is just as good. The retry inside the module is a busy loop,
+# which is another reason not to wait long.
 my $jsonobjcfg = LoxBerry::JSON->new();
 my $cfgfile = $lbpconfigdir . "/stats.json";
-my $cfg = $jsonobjcfg->open(filename => $cfgfile, readonly => 1);
+my $cachefile = "/dev/shm/stats4lox_cfgcache_loxonegrabber.json";
+my $cfg = $jsonobjcfg->open(filename => $cfgfile, readonly => 1, locktimeout => 2);
+
+if( $cfg and ref($cfg->{loxone}) eq 'ARRAY' ) {
+	# Keep a copy for the case below. The configuration changes rarely and this
+	# is a ramdisk, so it costs nothing worth counting.
+	eval {
+		require File::Copy;
+		File::Copy::copy( $cfgfile, "$cachefile.new" ) and rename( "$cachefile.new", $cachefile );
+	};
+}
+else {
+	# Someone is writing. Rather than lose a whole cycle of measurements, this
+	# one runs on the last copy - the configuration is a minute old at worst,
+	# and nothing in it changes what the Miniserver answers.
+	LOGWARN "stats.json could not be read (locked by another process) - using the last copy";
+	$jsonobjcfg = LoxBerry::JSON->new();
+	$cfg = $jsonobjcfg->open( filename => $cachefile, readonly => 1, locktimeout => 2 );
+	if( !$cfg or ref($cfg->{loxone}) ne 'ARRAY' ) {
+		LOGERR "No usable configuration - this cycle is skipped";
+		LOGEND;
+		exit 0;
+	}
+}
 
 # Next runs
 my $jsonobjmem = LoxBerry::JSON->new();
@@ -343,32 +379,15 @@ for my $results( @{$cfg->{loxone}} ){
 # in the configuration. The fresh copy also picks up anything the web interface
 # has changed in the meantime.
 #
-# The write is skipped when the file is busy. LoxBerry::JSON locks with a plain
-# blocking flock - it has no timeout, the 'locktimeout' parameter used in a few
-# places in this plugin does not exist in the module. update_dashboards.pl holds
-# that lock for as long as it takes to rebuild every panel, and Telegraf gives
-# this CGI 45 seconds before it drops the whole cycle. Recording a status is not
-# worth that risk: it is retried next cycle, and the counter picks up where it
-# left off because it is derived from what is in the file.
-if( %statuschange ) {
-	my $busy = 1;
-	if( open( my $lockfh, '<', $cfgfile ) ) {
-		require Fcntl;
-		$busy = flock( $lockfh, Fcntl::LOCK_EX() | Fcntl::LOCK_NB() ) ? 0 : 1;
-		flock( $lockfh, Fcntl::LOCK_UN() );
-		close $lockfh;
-	}
-	if( $busy ) {
-		LOGINF "stats.json is currently locked by another process - the status is recorded in the next cycle";
-		%statuschange = ();
-	}
-}
-
+# locktimeout again: if the file is busy the write is simply skipped. Recording
+# a status is not worth stalling the cycle for - it is retried next time, and
+# the counter picks up where it left off because it is derived from what is in
+# the file.
 if( %statuschange ) {
 	my $wobj = LoxBerry::JSON->new();
-	my $wcfg = $wobj->open( filename => $cfgfile, lockexclusive => 1 );
+	my $wcfg = $wobj->open( filename => $cfgfile, lockexclusive => 1, locktimeout => 3 );
 	if( !$wcfg or ref($wcfg->{loxone}) ne 'ARRAY' ) {
-		LOGERR "Could not open stats.json to record the status";
+		LOGWARN "stats.json is busy - the status is recorded in the next cycle";
 	}
 	else {
 		my $applied = 0;

@@ -375,7 +375,7 @@ if( $q->{action} eq "deletestat" and $q->{msno} and $q->{uuid} ) {
 	my $dropdata = ( defined $q->{dropdata} and $q->{dropdata} eq "true" ) ? 1 : 0;
 
 	my $obj = LoxBerry::JSON->new();
-	my $cfg = $obj->open( filename => $statsconfig, lockexclusive => 1 );
+	my $cfg = $obj->open( filename => $statsconfig, lockexclusive => 1, locktimeout => 10 );
 	if( !$cfg or ref($cfg->{loxone}) ne 'ARRAY' ) {
 		$error = "Could not open stats.json";
 	}
@@ -446,7 +446,7 @@ if( $q->{action} eq "deletestat" and $q->{msno} and $q->{uuid} ) {
 if( $q->{action} eq "resetstatstatus" and $q->{msno} and $q->{uuid} ) {
 	require LoxBerry::JSON;
 	my $obj = LoxBerry::JSON->new();
-	my $cfg = $obj->open( filename => $statsconfig, lockexclusive => 1 );
+	my $cfg = $obj->open( filename => $statsconfig, lockexclusive => 1, locktimeout => 10 );
 	if( !$cfg or ref($cfg->{loxone}) ne 'ARRAY' ) {
 		$error = "Could not open stats.json";
 	}
