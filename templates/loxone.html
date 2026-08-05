@@ -63,9 +63,21 @@
 .iconline { display:block; font-size:smaller; margin-top:2px; }
 .statuscell { text-align:center; }
 
+/* All four radio filter groups get the same, slightly generous height.
+   The status group was taller by itself because of the 18px icon, and that
+   turned out to be useful: on LoxBerry 4 the native radio input of a jQuery
+   Mobile controlgroup is no longer covered and peeks out below the buttons as a
+   grey circle (LoxBerry issue #1541). A taller button hides it. 21px is the
+   icon plus the three pixels asked for; the other three groups follow so the
+   filter row stays even. */
+.s4l-filtergroup label.ui-btn
+{
+	line-height	:21px;
+	min-height	:21px;
+}
 /* The status filter shows the same icons as the column. Inside a jQuery Mobile
    controlgroup label they need a line of their own to sit straight. */
-.filter_icon { display:inline-block; line-height:18px; vertical-align:middle; }
+.filter_icon { display:inline-block; line-height:21px; vertical-align:middle; }
 
 /* The buttons sit in the middle of the row, not at the top like the text
    cells - they belong to the whole row, not to its first line. */
@@ -722,7 +734,7 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 
 <div style="display:flex;align-items:flex-end;">
 	<div style="padding:5px;">
-	<fieldset data-role="controlgroup" data-type="horizontal" data-mini="true">
+	<fieldset data-role="controlgroup" data-type="horizontal" data-mini="true" class="s4l-filtergroup">
 		<legend><TMPL_VAR SETTINGS.LABEL_LOXONE_VISU></legend>
 		<input type="radio" name="filter_loxvisu" id="filter_loxvisu_all" value="all" checked="checked" class="filter_radio">
 		<label for="filter_loxvisu_all"><TMPL_VAR SETTINGS.LABEL_ALL></label>
@@ -735,7 +747,7 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 
 	<!-- Filter Loxone Stat enabled -->
 	<div style="padding:5px;">
-	<fieldset data-role="controlgroup" data-type="horizontal" data-mini="true">
+	<fieldset data-role="controlgroup" data-type="horizontal" data-mini="true" class="s4l-filtergroup">
 		<legend><TMPL_VAR SETTINGS.LABEL_LOXONE_STATISTIC></legend>
 		<input type="radio" name="filter_loxstat" id="filter_loxstat_all" value="all" checked="checked" class="filter_radio">
 		<label for="filter_loxstat_all"><TMPL_VAR SETTINGS.LABEL_ALL></label>
@@ -748,7 +760,7 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 
 	<!-- Filter S4L Stat enabled -->
 	<div style="padding:5px;">
-	<fieldset data-role="controlgroup" data-type="horizontal" data-mini="true">
+	<fieldset data-role="controlgroup" data-type="horizontal" data-mini="true" class="s4l-filtergroup">
 		<legend><TMPL_VAR SETTINGS.LABEL_S4L_STATISTIC></legend>
 		<input type="radio" name="filter_s4lstat" id="filter_s4lstat_all" value="all" checked="checked" class="filter_radio">
 		<label for="filter_s4lstat_all"><TMPL_VAR SETTINGS.LABEL_ALL></label>
@@ -761,7 +773,7 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 
 	<!-- Filter status of the statistic -->
 	<div style="padding:5px;">
-	<fieldset data-role="controlgroup" data-type="horizontal" data-mini="true">
+	<fieldset data-role="controlgroup" data-type="horizontal" data-mini="true" class="s4l-filtergroup">
 		<legend><TMPL_VAR SETTINGS.LABEL_FILTER_STATUS></legend>
 		<input type="radio" name="filter_status" id="filter_status_all" value="all" checked="checked" class="filter_radio">
 		<label for="filter_status_all"><TMPL_VAR SETTINGS.LABEL_ALL></label>
