@@ -794,19 +794,17 @@ if( $q->{action} eq "influx_overview" ) {
 		};
 	}
 
-	# Switched on, but nothing in the database yet.
+	# Deliberately nothing about statistics that have no measurement.
 	#
-	# Only active statistics are worth reporting. One that is switched off has
-	# no data by definition - that is not a finding, and listing it only raises
-	# the question what it is supposed to mean. An active one without data is
-	# either brand new (the first value arrives within one interval) or
-	# something is wrong.
-	my %have = map { $_ => 1 } @$names;
-	my @nodata = grep { !$have{$_} and $stats->{$_}->{active} } sort keys %$stats;
-
+	# That looks like a useful counterpart to the table, and it is not: right
+	# after a statistic is switched on it is normal for a while, so the notice
+	# would cry wolf for a whole interval. And the case that does mean something
+	# belongs on the Loxone page, where the grabber already records a status per
+	# statistic - not on a page about the contents of the database. It would not
+	# even catch the interesting failure: if Telegraf stops, every measurement
+	# stays in place with its old data and nothing here would notice.
 	$response = JSON::encode_json( {
 		measurements => \@out,
-		nodata       => \@nodata,
 		database     => $Globals::influx->{influxdatabase} // 'stats4lox',
 	} );
 }

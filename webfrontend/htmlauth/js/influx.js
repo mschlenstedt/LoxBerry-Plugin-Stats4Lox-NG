@@ -89,7 +89,6 @@ function load() {
 		$.each( measurements, function( i, m ) { byName[m.name] = m; } );
 
 		fillSourceFilter();
-		showNodata( data.nodata || [] );
 		updateTable();
 		loadTimestamps();
 	} );
@@ -106,14 +105,6 @@ function fillSourceFilter() {
 		sel.append( '<option value="' + escAttr(s) + '">' + escHtml(s) + '</option>' );
 	} );
 	if( sel.selectmenu ) { try { sel.selectmenu("refresh"); } catch(e) {} }
-}
-
-// Configured in stats.json but never written - the counterpart of an orphan.
-function showNodata( list ) {
-	if( !list.length ) { $('#influx_nodata').html(""); return; }
-	$('#influx_nodata').html( '<div class="hintbox small">'
-		+ escHtml( $('#lang_hint_nodata').text().replace( '__LIST__', list.join(", ") ) )
-		+ '</div>' );
 }
 
 // --- stage 2: first and last timestamp -------------------------------------
