@@ -31,12 +31,18 @@ $(function() {
 
 	// Marked yellow while a search is active, the same way the Loxone page does
 	// it - otherwise a filter left in place explains a half empty table badly.
-	$("#filter_search").on( "input", function(event){
-		filters.search = $(event.target).val().toLowerCase();
+	//
+	// Bound to input AND change: the clear button jQuery Mobile puts inside the
+	// field does not fire input, only change. With input alone the field went
+	// empty while the filter and the yellow background stayed - the Loxone page
+	// has a second handler for exactly this.
+	function searchChanged() {
+		filters.search = $("#filter_search").val().toLowerCase();
 		if( filters.search != "" ) $('#filter_search').addClass('filter-highlight');
 		else                       $('#filter_search').removeClass('filter-highlight');
 		updateTable();
-	});
+	}
+	$("#filter_search").on( "input change", searchChanged );
 
 	jQuery(document).on('click', '.influxtable th.s4l-sortable', function(){
 		var key = $(this).data("sortkey");
