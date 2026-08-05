@@ -27,6 +27,13 @@ systemctl stop influxdb
 systemctl stop telegraf
 systemctl stop grafana-server
 
+# Disabled before the packages go, not after: purging removes the unit files,
+# and systemctl disable would then only complain about units it cannot find.
+echo "<INFO> Disabling influxdb, grafana and telegraf services."
+systemctl disable influxdb
+systemctl disable telegraf
+systemctl disable grafana-server
+
 echo "<INFO> Deactivating my own InfluxDB configuration."
 if [ -L /etc/influxdb ]; then
 	rm /etc/influxdb
@@ -47,10 +54,35 @@ if [ -L /etc/grafana ]; then
 	mv /etc/grafana.orig /etc/grafana
 fi
 
-echo "<INFO> Backing up Stats4Lox databases - just in case you forgot to make a backup..."
-rm -r $PDATA\.backup
-mv $PDATA $PDATA\.backup
-mv $PCONFIG/cred.json $PDATA\.backup
+# Removing the three services along with the plugin (issue #133).
+#
+# Keeping them makes no sense: their configuration directories are our symlinks,
+# their systemd units carry our drop-ins, and nothing else on a LoxBerry uses
+# them - no other plugin lists these packages. Measured on a test system, they
+# occupy 1.5 GB of program files (grafana alone 1069 MB, telegraf 293 MB,
+# influxdb 127 MB) plus 177 MB in /var/lib/grafana, which the purge takes with
+# it. That is what filled up the SD card in the forum report linked from the
+# issue.
+#
+# This runs AFTER the configuration directories above have been put back:
+# otherwise dpkg would delete through our symlinks into the plugin's own
+# configuration. It runs BEFORE the apt sources are removed further down - the
+# removal does not need them, but this way the order does not matter.
+#
+# Deliberately not removed: sqlite3 and libtoml-parser-perl, which the plugin
+# also pulls in. Together they are 575 kB, nothing else depends on them, and
+# sqlite3 is a general purpose tool somebody may well use outside this plugin.
+#
+# Deliberately no autoremove: simulated on the test system, it would remove
+# nothing at all - there are no orphaned dependencies. It would be pure risk for
+# no gain.
+#
+# A failure must not abort the uninstall. Whatever apt does or does not manage,
+# the plugin still has to disappear.
+echo "<INFO> Removing influxdb, telegraf and grafana packages."
+APT_LISTCHANGES_FRONTEND=none DEBIAN_FRONTEND=noninteractive \
+	apt-get -q -y purge influxdb telegraf grafana || \
+	echo "<WARNING> Could not remove all packages. Remove them by hand with: apt-get purge influxdb telegraf grafana"
 
 echo "<INFO> Removing sysctl config."
 rm -f /etc/sysctl.d/96-stats4lox.conf
@@ -84,11 +116,6 @@ rm -f /etc/apt/trusted.gpg.d/influxdata-archive_compat.gpg
 rm -f /etc/apt/trusted.gpg.d/grafanadata-archive_compat.gpg
 APT_LISTCHANGES_FRONTEND=none DEBIAN_FRONTEND=noninteractive apt-get -q -y update || true
 
-echo "<INFO> Disabling influxdb, grafana and telegraf services."
-systemctl disable influxdb
-systemctl disable telegraf
-systemctl disable grafana-server
-
 echo "<INFO> Stopping internal services."
 pkill -f mqttlive.php >/dev/null 2>&1
 pkill -f import_scheduler.pl > /dev/null 2>&1
@@ -99,9 +126,30 @@ echo "<INFO> Cleaning old temporary files"
 S4LTMP=`jq -r '.stats4lox.s4ltmp' $PCONFIG/stats4lox.json`
 rm -fr $S4LTMP
 
+# The data goes with it, and that is deliberate.
+#
+# This used to rename the data directory to <data>.backup instead of deleting
+# it - "just in case you forgot to make a backup". That left the whole time
+# series database on disk after the uninstall, on the test system 750 MB, which
+# is the opposite of what this uninstall is for. And the plugin now has a proper
+# backup under System -> Backup, so a silent leftover copy is no longer the only
+# safety net.
+#
+# Said plainly in the log, because an uninstall cannot ask: from here on the
+# measurements are gone.
 echo "<INFO> Removing all plugin files as user root"
+echo "<INFO> This includes the time series database and the Grafana dashboards."
+echo "<INFO> They are NOT kept - a backup would have had to be made under System -> Backup."
 rm -rf $PDATA
 rm -rf $PCONFIG
 rm -rf $PLOG
+
+# The drop-in directories are left empty by the deletions above, and an empty
+# directory below /etc/systemd/system keeps a unit "modified" in systemctl's
+# view even after its package is gone.
+rmdir /etc/systemd/system/influxdb.service.d 2>/dev/null
+rmdir /etc/systemd/system/telegraf.service.d 2>/dev/null
+rmdir /etc/systemd/system/grafana-server.service.d 2>/dev/null
+systemctl daemon-reload
 
 exit 0
