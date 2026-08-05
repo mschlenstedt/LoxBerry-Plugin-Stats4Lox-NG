@@ -659,21 +659,27 @@ function escAttr( s ) {
 // The buttons that belong to a status: remove a block that is gone, reset the
 // counter of one that only ran out of time. Icon only - the column is narrow
 // and the tooltip says what they do.
+// The buttons use the plugin's own square style, not jQuery Mobile's. Its
+// icon-only buttons put the glyph on a round grey disc, which looks like a
+// round button in a table of square cells.
 function actionButtons( statmatch ) {
 	var st = statusOf( statmatch );
 	if( !st ) return "";
 	if( st.error === "404" ) {
-		return `<a href="#" class="ui-btn ui-icon-delete ui-btn-icon-notext ui-corner-all ui-mini ui-btn-inline s4l-btn-danger btnDeleteStat"`
+		return `<a href="#" class="s4l-tbtn s4l-tbtn-danger s4l-tbtn-cross btnDeleteStat"`
 		     + ` title="${escAttr($('#lang_button_remove_from_s4l').text())}">${escHtml($('#lang_button_remove_from_s4l').text())}</a>`;
 	}
-	return `<a href="#" class="ui-btn ui-icon-refresh ui-btn-icon-notext ui-corner-all ui-mini ui-btn-inline btnResetStatus"`
+	return `<a href="#" class="s4l-tbtn s4l-tbtn-reset btnResetStatus"`
 	     + ` title="${escAttr($('#lang_hover_reset_status').text())}">${escHtml($('#lang_button_reset_status').text())}</a>`;
 }
 
-// Settings button - grey, gear, no text.
+// Settings button - grey, gear, no text. The hole in the gear is an element of
+// its own: it has to be painted in the button colour, and the two pseudo
+// elements are already taken by the two squares that form the teeth.
 function settingsButton() {
-	return `<a href="#" class="ui-btn ui-icon-gear ui-btn-icon-notext ui-corner-all ui-mini ui-btn-inline btnLoxoneDetails"`
-	     + ` title="${escAttr($('#lang_hover_button_settings').text())}">${escHtml($('#lang_button_settings').text())}</a>`;
+	return `<a href="#" class="s4l-tbtn s4l-tbtn-gear btnLoxoneDetails"`
+	     + ` title="${escAttr($('#lang_hover_button_settings').text())}"><span class="hole"></span>`
+	     + `${escHtml($('#lang_button_settings').text())}</a>`;
 }
 
 // The "Statistics" cell. A block the Miniserver no longer knows shows since
@@ -836,12 +842,10 @@ function createTableBody() {
 		// Status
 		controlstable += statusCell( statmatch );
 
-		// Import section
-		controlstable += `
-		<td class="importInfo" style="min-width:100px">
-
-
-		</td>`;
+		// Import section. iconcell so what updateReportTables() writes in here
+		// later gets the same layout as the statistics column - icon, then a
+		// short line underneath.
+		controlstable += `<td class="importInfo iconcell"></td>`;
 
 		// Button section
 		controlstable += `<td class="actionbuttons">`

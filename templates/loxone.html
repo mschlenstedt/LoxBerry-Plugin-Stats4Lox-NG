@@ -51,15 +51,121 @@
 .controlstable th.col-import  { width: 16%; }
 .controlstable th.col-buttons { width: 12%; }
 
-/* Long block names must not push the column open. */
-.controlstable td { overflow-wrap: break-word; word-break: break-word; }
+/* Long block names must not push the column open. Everything lines up at the
+   top - the cells have different heights and a centred icon next to a
+   two-line name looks misplaced. */
+.controlstable td { overflow-wrap: break-word; word-break: break-word; vertical-align: top; }
 
-/* A cell of the form "icon, then a short line underneath". */
+/* A cell of the form "icon, then a short line underneath". The line is not
+   scoped to .iconcell: the very same markup is also written into the import
+   status of the details popup, and it should break there too. */
 .iconcell { text-align:center; line-height:1.2em; }
-.iconcell .iconline { display:block; font-size:smaller; margin-top:2px; }
+.iconline { display:block; font-size:smaller; margin-top:2px; }
+.statuscell { text-align:center; }
+
+/* The status filter shows the same icons as the column. Inside a jQuery Mobile
+   controlgroup label they need a line of their own to sit straight. */
+.filter_icon { display:inline-block; line-height:18px; vertical-align:middle; }
 
 .controlstable .actionbuttons { white-space:nowrap; text-align:right; }
-.controlstable .actionbuttons .ui-btn { margin:0 0 0 3px; }
+
+/* Own square buttons instead of jQuery Mobile's.
+   Its icon-only buttons put the glyph on a round grey disc, which looks like a
+   round button in a table of square cells. Rather than fight that with
+   overrides, these two are built here - shape, colour and glyph. */
+.s4l-tbtn
+{
+	display		:inline-block;
+	width		:26px;
+	height		:26px;
+	border-radius	:3px;
+	border		:1px solid #7e7e7e;
+	background	:#e6e6e6;
+	position	:relative;
+	vertical-align	:middle;
+	margin		:0 0 0 4px;
+	box-sizing	:border-box;
+	text-indent	:-9999px;
+	overflow	:hidden;
+	white-space	:nowrap;
+	cursor		:pointer;
+}
+.s4l-tbtn:hover { background:#d5d5d5; }
+.s4l-tbtn-danger
+{
+	background	:#c0392b;
+	border-color	:#a93226;
+}
+.s4l-tbtn-danger:hover { background:#a93226; }
+
+/* Gear: two overlapping rounded squares give the eight teeth, the hole in the
+   middle is punched in the button colour. */
+.s4l-tbtn-gear::before,
+.s4l-tbtn-gear::after
+{
+	content		:"";
+	position	:absolute;
+	left		:5px;
+	top		:5px;
+	width		:14px;
+	height		:14px;
+	border-radius	:3px;
+	background	:#3a3a3a;
+}
+.s4l-tbtn-gear::after { transform:rotate(45deg); }
+.s4l-tbtn-gear > .hole
+{
+	position	:absolute;
+	left		:9px;
+	top		:9px;
+	width		:6px;
+	height		:6px;
+	border-radius	:50%;
+	background	:#e6e6e6;
+	z-index		:1;
+}
+.s4l-tbtn-gear:hover > .hole { background:#d5d5d5; }
+
+/* Cross */
+.s4l-tbtn-cross::before,
+.s4l-tbtn-cross::after
+{
+	content		:"";
+	position	:absolute;
+	left		:11px;
+	top		:5px;
+	width		:2px;
+	height		:14px;
+	background	:#ffffff;
+}
+.s4l-tbtn-cross::before { transform:rotate(45deg); }
+.s4l-tbtn-cross::after  { transform:rotate(-45deg); }
+
+/* Reset arrow */
+.s4l-tbtn-reset::before
+{
+	content		:"";
+	position	:absolute;
+	left		:6px;
+	top		:6px;
+	width		:12px;
+	height		:12px;
+	border		:2px solid #3a3a3a;
+	border-radius	:50%;
+	border-top-color:transparent;
+}
+.s4l-tbtn-reset::after
+{
+	content		:"";
+	position	:absolute;
+	left		:15px;
+	top		:4px;
+	width		:0;
+	height		:0;
+	border-left	:4px solid transparent;
+	border-right	:4px solid transparent;
+	border-bottom	:5px solid #3a3a3a;
+}
 
 /* Sortable header */
 .controlstable th.s4l-sortable { cursor:pointer; user-select:none; }
@@ -266,7 +372,6 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 
 	/* The status column carries the icon only - the wording is in the tooltip.
 	   That keeps the column exactly as wide as one icon, whatever is filtered. */
-	.statuscell { text-align:center; }
 
 	/* Statistics whose block is gone from the LoxPLAN. They have no row of
 	   their own in Loxone Config, so the row is marked to make clear it is not
@@ -644,11 +749,11 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 		<input type="radio" name="filter_status" id="filter_status_all" value="all" checked="checked" class="filter_radio">
 		<label for="filter_status_all"><TMPL_VAR SETTINGS.LABEL_ALL></label>
 		<input type="radio" name="filter_status" id="filter_status_green" value="green" class="filter_radio">
-		<label for="filter_status_green"><span class="statusdot statusdot-green"></span></label>
+		<label for="filter_status_green" title="<TMPL_VAR SETTINGS.STATUS_OK>"><span class="filter_icon"><span class="s4l-icon s4l-icon-ok"></span></span></label>
 		<input type="radio" name="filter_status" id="filter_status_yellow" value="yellow" class="filter_radio">
-		<label for="filter_status_yellow"><span class="statusdot statusdot-yellow"></span></label>
+		<label for="filter_status_yellow" title="<TMPL_VAR SETTINGS.STATUS_LIMIT>"><span class="filter_icon"><span class="s4l-icon s4l-icon-warn"></span></span></label>
 		<input type="radio" name="filter_status" id="filter_status_red" value="red" class="filter_radio">
-		<label for="filter_status_red"><span class="statusdot statusdot-red"></span></label>
+		<label for="filter_status_red" title="<TMPL_VAR SETTINGS.STATUS_404>"><span class="filter_icon"><span class="s4l-icon s4l-icon-err"></span></span></label>
 	</fieldset>
 	</div>
 
