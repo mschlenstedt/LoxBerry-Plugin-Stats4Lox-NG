@@ -234,13 +234,39 @@ $(function() {
 	});
 	jQuery(document).on('click', '#LoxoneDetails_deletebutton', function(event, ui){
 		event.preventDefault();
-		$("#popupLoxoneDetails").popup("close");
-		// jQuery Mobile refuses to open a second popup while the first is
-		// still closing, so wait for it to finish.
+		var uid = $("#LoxoneDetails_deletebutton").data("uid");
+		var msno = $("#LoxoneDetails_deletebutton").data("msno");
+
+		// jQuery Mobile refuses to open a second popup while the first is still
+		// closing, so the details popup goes first and the confirmation waits
+		// for popupafterclose.
+		//
+		// The order matters and is what broke this on the first attempt: the
+		// handler used to be bound AFTER popup("close"). Without a transition
+		// the close finishes immediately, the event has fired by then, and the
+		// confirmation never appeared - it worked from the table, where no
+		// popup has to close, and only there. Bound first, closed second.
 		$("#popupLoxoneDetails").one( "popupafterclose", function() {
-			askDeleteStat( $("#LoxoneDetails_deletebutton").data("uid"),
-			               $("#LoxoneDetails_deletebutton").data("msno") );
+			askDeleteStat( uid, msno );
 		});
+		$("#popupLoxoneDetails").popup("close");
+
+		// And a fallback, should the event not arrive at all.
+		window.setTimeout( function() {
+			if( $("#popupDeleteStat").parent().hasClass("ui-popup-active") ) return;
+			$("#popupLoxoneDetails").off( "popupafterclose" );
+			askDeleteStat( uid, msno );
+		}, 600 );
+	});
+
+	// Sort by column
+	jQuery(document).on('click', '.controlstable th.s4l-sortable', function(event){
+		var key = $(this).data("sortkey");
+		if( !key ) return;
+		if( tableSort.key == key ) { tableSort.dir = -tableSort.dir; }
+		else                       { tableSort.key = key; tableSort.dir = 1; }
+		updateTable();
+		updateReportTables();
 	});
 
 	// Bind Reset status button
@@ -524,22 +550,40 @@ function updateTable() {
 	
 function createTableHead() {
 	
+	// The sorting is done on the data, not on the DOM.
+	//
+	// LoxBerry brings its own (system/scripts/lb-table-sort.js) and it does not
+	// fit here twice over: it initialises once on DOMContentLoaded while this
+	// table is only built afterwards by JavaScript, and it reorders the rows in
+	// place - which the next filter change would undo, because the table is
+	// rebuilt from scratch every time. Sorting the list before rendering
+	// survives both.
+	function th( key, cls, label ) {
+		var arrow = ( tableSort.key == key ) ? ( tableSort.dir > 0 ? "&#8593;" : "&#8595;" ) : "&#8597;";
+		var active = ( tableSort.key == key ) ? " sortactive" : "";
+		return `<th class="${cls} s4l-sortable${active}" data-sortkey="${key}">${label}<span class="sortarrow">${arrow}</span></th>`;
+	}
+
 	controlstable += `
 	<table class="controlstable">
+	<thead>
 	<tr>
-		<th>${$('#lang_th_ms').text()}</th>
-		<th>${$('#lang_th_name_type').text()}</th>
-		<th>${$('#lang_th_location').text()}</th>
-		<th>${$('#lang_th_statistics').text()}</th>
-		<th>${$('#lang_th_status').text()}</th>
-		<th>${$('#lang_th_import').text()}</th>
+		${th( "ms",     "col-ms",     $('#lang_th_ms').text() )}
+		${th( "name",   "col-name",   $('#lang_th_name_type').text() )}
+		${th( "loc",    "col-loc",    $('#lang_th_location').text() )}
+		${th( "stat",   "col-stat",   $('#lang_th_statistics').text() )}
+		${th( "status", "col-status", $('#lang_th_status').text() )}
+		${th( "import", "col-import", $('#lang_th_import').text() )}
+		<th class="col-buttons"></th>
 	</tr>
+	</thead>
+	<tbody>
 	`;
-	
+
 }
 
 function createTableEnd() {
-	controlstable += `</table>`;
+	controlstable += `</tbody></table>`;
 }
 
 // Status of a statistic, as the grabber recorded it in stats.json.
@@ -565,37 +609,44 @@ function statusColour( st ) {
 	return "yellow";
 }
 
+// The icons are drawn with CSS (see the stylesheet in loxone.html) instead of
+// the PNGs this plugin used to ship. The shape carries the meaning, not only
+// the colour - a tick, a warning triangle and a cross stay distinguishable in
+// print, on a poor screen, or for someone who cannot tell red from green.
+function icon( kind, title ) {
+	var t = title ? ` title="${escAttr(title)}"` : "";
+	return `<span class="s4l-icon s4l-icon-${kind}"${t}></span>`;
+}
+
 function formatTimestamp( epoch ) {
 	if( !epoch ) return "?";
 	var d = new Date( epoch * 1000 );
 	return d.toLocaleString();
 }
 
-// The dot plus its tooltip. Statistics that are not switched on at all get
+// Icon only, the wording in the tooltip. That keeps the column exactly one icon
+// wide whatever is filtered. Statistics that are not switched on at all get
 // nothing - there is no status to report about them.
 function statusCell( statmatch ) {
 	if( typeof statmatch === "undefined" || statmatch === null ) {
 		return `<td class="statuscell">&nbsp;</td>`;
 	}
 	var st = statusOf( statmatch );
-	var colour = statusColour( st );
-	var title;
-	var label;
+	var title, kind;
 	if( !st ) {
-		title = $('#lang_hover_status_ok').text();
-		label = $('#lang_status_ok').text();
+		title = $('#lang_status_ok').text() + " - " + $('#lang_hover_status_ok').text();
+		kind = "ok";
 	}
 	else {
 		var key = ( st.error === "404" ) ? 'lang_hover_status_404' : 'lang_hover_status_limit';
-		title = $('#'+key).text()
+		var label = ( st.error === "404" ) ? $('#lang_status_404').text() : $('#lang_status_limit').text();
+		title = label + " - " + $('#'+key).text()
 			.replace( '__COUNT__', st.count )
 			.replace( '__SINCE__', formatTimestamp( st.since ) );
 		if( st.count >= 10 ) title += $('#lang_hover_status_givenup').text();
-		label = ( st.error === "404" ) ? $('#lang_status_404').text() : $('#lang_status_limit').text();
+		kind = ( st.error === "404" ) ? "err" : "warn";
 	}
-	return `<td class="statuscell" title="${escAttr(title)}">`
-	     + `<span class="statusdot statusdot-${colour}"></span>`
-	     + `<span class="statustext">${escHtml(label)}</span></td>`;
+	return `<td class="statuscell">` + icon( kind, title ) + `</td>`;
 }
 
 function escHtml( s ) {
@@ -606,30 +657,38 @@ function escAttr( s ) {
 }
 
 // The buttons that belong to a status: remove a block that is gone, reset the
-// counter of one that only ran out of time.
+// counter of one that only ran out of time. Icon only - the column is narrow
+// and the tooltip says what they do.
 function actionButtons( statmatch ) {
 	var st = statusOf( statmatch );
 	if( !st ) return "";
 	if( st.error === "404" ) {
-		return `<a href="#" class="ui-btn ui-icon-delete ui-btn-icon-left ui-corner-all ui-mini ui-btn-inline s4l-btn-danger btnDeleteStat">${escHtml($('#lang_button_delete_stat').text())}</a> `;
+		return `<a href="#" class="ui-btn ui-icon-delete ui-btn-icon-notext ui-corner-all ui-mini ui-btn-inline s4l-btn-danger btnDeleteStat"`
+		     + ` title="${escAttr($('#lang_button_remove_from_s4l').text())}">${escHtml($('#lang_button_remove_from_s4l').text())}</a>`;
 	}
-	return `<a href="#" class="ui-btn ui-icon-refresh ui-btn-icon-left ui-corner-all ui-mini ui-btn-inline btnResetStatus" title="${escAttr($('#lang_hover_reset_status').text())}">${escHtml($('#lang_button_reset_status').text())}</a> `;
+	return `<a href="#" class="ui-btn ui-icon-refresh ui-btn-icon-notext ui-corner-all ui-mini ui-btn-inline btnResetStatus"`
+	     + ` title="${escAttr($('#lang_hover_reset_status').text())}">${escHtml($('#lang_button_reset_status').text())}</a>`;
+}
+
+// Settings button - grey, gear, no text.
+function settingsButton() {
+	return `<a href="#" class="ui-btn ui-icon-gear ui-btn-icon-notext ui-corner-all ui-mini ui-btn-inline btnLoxoneDetails"`
+	     + ` title="${escAttr($('#lang_hover_button_settings').text())}">${escHtml($('#lang_button_settings').text())}</a>`;
 }
 
 // The "Statistics" cell. A block the Miniserver no longer knows shows since
 // when instead of the interval - the interval would be a promise that is not
 // being kept.
 function statisticsCell( statmatch, statmatchkey ) {
-	var out = `<td class="center" style="min-width:150px">`;
 	var st = statusOf( statmatch );
 	if( st && st.error === "404" ) {
-		out += `<div class="statdata"><span style="color:#c0392b">`
-		     + escHtml( $('#lang_not_reachable_since').text().replace( '__SINCE__', formatTimestamp( st.since ) ) )
-		     + `</span></div></td>`;
-		return out;
+		var since = $('#lang_not_reachable_since').text().replace( '__SINCE__', formatTimestamp( st.since ) );
+		return `<td class="iconcell"><div class="statdata">`
+		     + icon( "err", since )
+		     + `<span class="iconline" style="color:#c0392b">${escHtml(since)}</span>`
+		     + `</div></td>`;
 	}
 
-	var checkedImg = `<img src="images/checkbox_checked_20.png">`;
 	var statDisplay, s4l_interval;
 	if( statmatch?.active === "true" ) {
 		statDisplay = "";
@@ -639,10 +698,42 @@ function statisticsCell( statmatch, statmatchkey ) {
 		statDisplay = "display:none;";
 		s4l_interval = "";
 	}
-	out += `<div class="statdata" id="statskey-${statmatchkey}" style="${statDisplay}">`;
-	out += checkedImg;
-	out += `&nbsp;<span name="s4l_interval">${s4l_interval}</span> ${$('#lang_label_minutes').text()}`;
-	out += `</div></td>`;
+	return `<td class="iconcell">`
+	     + `<div class="statdata" id="statskey-${statmatchkey}" style="${statDisplay}">`
+	     + icon( "ok" )
+	     + `<span class="iconline"><span name="s4l_interval">${s4l_interval}</span> ${$('#lang_minutes_short').text()}</span>`
+	     + `</div></td>`;
+}
+
+// Statistics whose block is not in the LoxPLAN, as pseudo blocks.
+//
+// The table walks the LoxPLAN, so these would be invisible - which is exactly
+// how they went unnoticed for two years on the author's system: 21 entries, all
+// active, all being fetched every interval, none of them shown anywhere. Turned
+// into block-shaped objects here so they go through the same rendering and the
+// same sorting as everything else instead of being appended at the end.
+//
+// Note what is NOT done here: nothing is declared "deleted" because it is
+// missing from the LoxPLAN. The blacklist keeps 276 control types out of that
+// list entirely, so a perfectly working statistic of such a type is missing
+// here too. What state it is in comes from the status the grabber recorded -
+// only the Miniserver can say whether a block answers.
+function orphanControls() {
+	if( typeof statsconfigLoxone === "undefined" ) return [];
+	var out = [];
+	for( var key in statsconfigLoxone ) {
+		var stat = statsconfigLoxone[key];
+		if( !stat || !stat.uuid ) continue;
+		if( controls.find( obj => { return obj.UID === stat.uuid && obj.msno == stat.msno } ) ) continue;
+		out.push( {
+			UID: stat.uuid, msno: stat.msno,
+			Title: stat.name || stat.measurementname || stat.uuid,
+			Desc: ( stat.description && stat.description != stat.name ) ? stat.description : "",
+			Place: stat.room || "", Category: stat.category || "",
+			Type: stat.type || "", Page: "", Visu: "false", StatsType: 0,
+			_orphan: true
+		} );
+	}
 	return out;
 }
 
@@ -650,9 +741,13 @@ function createTableBody() {
 
 	var filterSearchStr_lc = filterSearchString.toLowerCase();
 
-	for( elementno in controls ) {
-		element = controls[elementno];
-		
+	// One list for both kinds, so a statistic without a block appears where its
+	// name belongs instead of being appended at the end.
+	var rows = sortRows( controls.concat( orphanControls() ) );
+
+	for( elementno in rows ) {
+		element = rows[elementno];
+
 		// 
 		// Filter section
 		// 
@@ -715,7 +810,7 @@ function createTableBody() {
 		// Create row section
 		//
 		
-		controlstable += `<tr class="controlstable_tr" data-uid="${element.UID}" data-msno="${element.msno}">`;
+		controlstable += `<tr class="controlstable_tr${element._orphan ? ' orphanrow' : ''}" data-uid="${element.UID}" data-msno="${element.msno}">`;
 		
 		// Miniserver
 		controlstable += `<td>${element.msno}</td>`;
@@ -749,89 +844,68 @@ function createTableBody() {
 		</td>`;
 
 		// Button section
-		controlstable += `
-			<td style="white-space:nowrap">
-			${actionButtons( statmatch )}<a href="#" class="ui-btn ui-icon-eye ui-corner-all ui-mini ui-btn-inline btnLoxoneDetails">${$('#lang_button_settings').text()}</a>
-			</td>`;
-
-
+		controlstable += `<td class="actionbuttons">`
+		               + actionButtons( statmatch )
+		               + settingsButton()
+		               + `</td>`;
 
 		// End of row
 
 		controlstable += `</tr>`;
 
 	}
-
-	appendOrphanRows( filterSearchStr_lc );
 }
 
-// Statistics whose block is not in the LoxPLAN.
-//
-// The loop above walks the LoxPLAN, so these would be invisible - which is
-// exactly how they went unnoticed for two years on the author's system: 21
-// entries, all active, all being fetched every interval, none of them shown
-// anywhere. They get a row of their own, appended after the regular ones.
-//
-// Note what is NOT done here: the row is not declared "deleted" because the
-// block is missing. The blacklist keeps 276 control types out of the LoxPLAN
-// list entirely, so a perfectly working statistic of such a type is missing
-// here too. What its state is comes from the status the grabber recorded - the
-// Miniserver is the only one that can say whether a block answers.
-function appendOrphanRows( filterSearchStr_lc ) {
+// Which column the table is sorted by. "name" is what it always was.
+var tableSort = { key: "name", dir: 1 };
 
-	if( typeof statsconfigLoxone === "undefined" ) return;
+// Sort keys per column. Not the displayed text but what the text means: the
+// status sorts by severity, so one click brings everything that needs
+// attention to the top - sorting the words alphabetically would put "Nicht
+// erreichbar" between "OK" and "Zeitlimit" and say nothing.
+function sortValue( element, key ) {
+	var stat = statsconfigLoxone ? statsconfigLoxone.find( obj => {
+		return obj.uuid === element.UID && obj.msno == element.msno } ) : undefined;
 
-	for( var key in statsconfigLoxone ) {
-		var stat = statsconfigLoxone[key];
-		if( !stat || !stat.uuid ) continue;
-
-		// Still in the LoxPLAN? Then it already has its row.
-		var inPlan = controls.find( obj => { return obj.UID === stat.uuid && obj.msno == stat.msno } );
-		if( inPlan ) continue;
-
-		// Filters that can still be applied without a block
-		if( typeof filters["filter_miniserver"] !== "undefined" && filters["filter_miniserver"] != "all"
-		    && filters["filter_miniserver"] != stat.msno ) continue;
-		if( typeof filters["filter_room"] !== "undefined" && filters["filter_room"] != "all"
-		    && filters["filter_room"] != stat.room ) continue;
-		if( typeof filters["filter_category"] !== "undefined" && filters["filter_category"] != "all"
-		    && filters["filter_category"] != stat.category ) continue;
-		if( typeof filters["filter_element"] !== "undefined" && filters["filter_element"] != "all"
-		    && filters["filter_element"] != stat.type?.toUpperCase() ) continue;
-		if( typeof filters["filter_s4lstat"] !== "undefined" && filters["filter_s4lstat"] != "all" ) {
-			if( filters["filter_s4lstat"] == "on" && stat.active !== "true" ) continue;
-			if( filters["filter_s4lstat"] == "off" && stat.active === "true" ) continue;
-		}
-		if( typeof filters["filter_status"] !== "undefined" && filters["filter_status"] != "all" ) {
-			if( statusColour( statusOf(stat) ) != filters["filter_status"] ) continue;
-		}
-		if( filterSearchStr_lc != "" ) {
-			if( stat.name?.toLowerCase().indexOf(filterSearchStr_lc) == -1 &&
-			    stat.description?.toLowerCase().indexOf(filterSearchStr_lc) == -1 &&
-			    stat.uuid?.toLowerCase().indexOf(filterSearchStr_lc) == -1 ) continue;
-		}
-
-		controlstable += `<tr class="controlstable_tr orphanrow" data-uid="${escAttr(stat.uuid)}" data-msno="${escAttr(stat.msno)}">`;
-		controlstable += `<td>${escHtml(stat.msno)}</td>`;
-
-		controlstable += `<td>${escHtml(stat.name)}`;
-		if( stat.description && stat.description != stat.name )
-			controlstable += `<br>${escHtml(stat.description)}`;
-		var TypeLocal = loxone_elements[stat.type?.toUpperCase()]?.localname;
-		if( typeof TypeLocal == "undefined" ) TypeLocal = stat.type ? stat.type.toUpperCase() : "";
-		controlstable += `<br><span class="small">${escHtml(TypeLocal)}</span></td>`;
-
-		controlstable += `<td>${escHtml(stat.room)}<br>${escHtml(stat.category)}</td>`;
-
-		controlstable += statisticsCell( stat, key );
-		controlstable += statusCell( stat );
-		controlstable += `<td class="importInfo" style="min-width:100px"></td>`;
-		controlstable += `<td style="white-space:nowrap">`
-		               + actionButtons( stat )
-		               + `<a href="#" class="ui-btn ui-icon-eye ui-corner-all ui-mini ui-btn-inline btnLoxoneDetails">${$('#lang_button_settings').text()}</a>`
-		               + `</td>`;
-		controlstable += `</tr>`;
+	if( key == "ms" )   return Number( element.msno ) || 0;
+	if( key == "name" ) return ( element.Title || "" ).toLowerCase();
+	if( key == "loc" )  return ( ( element.Place || "" ) + " " + ( element.Category || "" ) ).toLowerCase();
+	if( key == "stat" ) {
+		if( !stat || stat.active !== "true" ) return -1;
+		return Number( stat.interval ) || 0;
 	}
+	if( key == "status" ) {
+		if( !stat ) return -1;                       // no statistic at all
+		var st = statusOf( stat );
+		if( !st ) return 0;                          // fine
+		return ( st.error === "404" ) ? 2 : 1;       // time limit, then gone
+	}
+	if( key == "import" ) {
+		var imp = imports.find( obj => {
+			return obj.data?.msno == element.msno && obj.data?.uuid == element.UID } );
+		return Number( imp?.data?.status?.endtime ) || 0;
+	}
+	return "";
+}
+
+function sortRows( rows ) {
+	var key = tableSort.key;
+	var dir = tableSort.dir;
+	rows.sort( function( a, b ) {
+		var va = sortValue( a, key );
+		var vb = sortValue( b, key );
+		var r;
+		if( typeof va === "number" && typeof vb === "number" ) r = va - vb;
+		else r = String(va).localeCompare( String(vb), undefined, { numeric: true, sensitivity: "base" } );
+		// Rows that compare equal fall back to the name, so the order stays
+		// predictable instead of depending on what the sort happens to do.
+		if( r === 0 && key != "name" ) {
+			return String( a.Title || "" ).toLowerCase()
+			       .localeCompare( String( b.Title || "" ).toLowerCase(), undefined, { numeric: true, sensitivity: "base" } );
+		}
+		return r * dir;
+	} );
+	return rows;
 }
 
 // --- Deleting and resetting a statistic ------------------------------------
@@ -960,8 +1034,8 @@ function popupLoxoneDetails( uid, msno ) {
 	
 	// Icons
 	var isLoxVisu = control.Visu === "true" ? true : false;
-	var checkedImg = `<img src="images/checkbox_checked_20.png">`;
-	var uncheckedImg = `<img src="images/checkbox_unchecked_20.png">`;
+	var checkedImg = icon( "ok" );
+	var uncheckedImg = icon( "off" );
 	
 	$("#LoxoneDetails_visu").html(isLoxVisu ? checkedImg : uncheckedImg);
 	$("#LoxoneDetails_loxstat").html(control.StatsType > 0 ? checkedImg : uncheckedImg);
@@ -1071,7 +1145,7 @@ function popupLoxoneDetails( uid, msno ) {
 				// Find mapping for outputKey
 				var mapKey = typeMappings.findIndex( element => element.lxlabel == outputName );
 				data.response[key].mapString = mapKey != -1 ? (parseInt(typeMappings[mapKey].statpos)+1) : "";
-				data.response[key].mapImg = data.response[key].mapString != "" ? `<img src="images/import_icon.png" style="vertical-align:text-top;">` : "";
+				data.response[key].mapImg = data.response[key].mapString != "" ? icon( "import", data.response[key].mapString ) : "";
 				
 				// Special string for Default output
 				if( outputKey == "Default" ) {
@@ -1332,16 +1406,20 @@ function updateReportTables(data) {
 				html+= progress_html;
 				break;
 			case "finished":
-				html+= `<img src="images/checkbox_checked_20.png"> <span class="small grayed">${$('#lang_status_finished').text()} ${endtime}</span>`;
+				// Icon and the time underneath. The word "finished" is what the
+				// green tick already says, and it made the column twice as wide
+				// as it needs to be.
+				html+= icon( "ok", $('#lang_status_finished').text() + " " + endtime )
+				     + `<span class="iconline grayed">${endtime}</span>`;
 				break;
-				
+
 			case "error":
 			case "dead":
-				html+= `
-					<img src="images/checkbox_alert_20.png"> <span class="small grayed">${$('#lang_status_finished_error').text()} ${endtime}</span>`;
+				html+= icon( "warn", $('#lang_status_finished_error').text() + " " + endtime )
+				     + `<span class="iconline grayed">${endtime}</span>`;
 				break;
 			case "scheduled":
-				html+= `<img src="images/checkbox_scheduled_20.png"> <span class="small grayed">${$('#lang_status_queued').text()}</span>`;
+				html+= icon( "queued", $('#lang_status_queued').text() );
 				break;
 		}
 		

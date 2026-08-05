@@ -35,7 +35,37 @@
 .controlstable {
 	border-bottom: 1px solid gray;
 	width:100%;
+	/* Fixed layout, otherwise the browser measures the content and every
+	   filter change moves the columns around. With it the widths below hold
+	   whatever is in the table. */
+	table-layout: fixed;
 }
+
+/* Column widths. The three narrow ones are as wide as their content needs and
+   no wider - an icon, a short line, two small buttons. */
+.controlstable th.col-ms      { width: 4%;  }
+.controlstable th.col-name    { width: 30%; }
+.controlstable th.col-loc     { width: 22%; }
+.controlstable th.col-stat    { width: 10%; }
+.controlstable th.col-status  { width: 6%;  }
+.controlstable th.col-import  { width: 16%; }
+.controlstable th.col-buttons { width: 12%; }
+
+/* Long block names must not push the column open. */
+.controlstable td { overflow-wrap: break-word; word-break: break-word; }
+
+/* A cell of the form "icon, then a short line underneath". */
+.iconcell { text-align:center; line-height:1.2em; }
+.iconcell .iconline { display:block; font-size:smaller; margin-top:2px; }
+
+.controlstable .actionbuttons { white-space:nowrap; text-align:right; }
+.controlstable .actionbuttons .ui-btn { margin:0 0 0 3px; }
+
+/* Sortable header */
+.controlstable th.s4l-sortable { cursor:pointer; user-select:none; }
+.controlstable th.s4l-sortable:hover { text-decoration:underline; }
+.controlstable th .sortarrow { opacity:0.35; padding-left:3px; }
+.controlstable th.sortactive .sortarrow { opacity:1; }
 
 .controlstable tr {
 	padding: 2px 5px 2px 5px;
@@ -81,12 +111,30 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 }
 
 
-.ui-icon-import:after {
-	background-image: url("images/import_icon.png");
-}
+/* The import button icon, drawn instead of the PNG the plugin shipped: an arrow
+   pointing down onto a line. jQuery Mobile puts the icon in the :after of the
+   button, so the arrow is built from the two borders of that one element and
+   the line comes from a box-shadow. */
+.ui-icon-import:after,
 .ui-nosvg .ui-icon-import:after {
-	background-image: url("images/import_icon.png");
+	background-image: none;
+	background-color: rgba(0,0,0,.3);
 }
+.ui-btn.ui-icon-import:before {
+	content: "";
+	position: absolute;
+	z-index: 1;
+	width: 6px;
+	height: 6px;
+	border: solid #fff;
+	border-width: 0 2px 2px 0;
+	transform: rotate(45deg);
+	box-shadow: 0 4px 0 -2px #fff;
+}
+.ui-btn-icon-left.ui-icon-import:before  { left: 0.9em;  top: 50%; margin-top: -6px; }
+.ui-btn-icon-right.ui-icon-import:before { right: 1.3em; top: 50%; margin-top: -6px; }
+.ui-btn-icon-top.ui-icon-import:before   { left: 50%; margin-left: -4px; top: 0.9em; }
+.ui-btn-icon-notext.ui-icon-import:before { left: 50%; margin-left: -4px; top: 50%; margin-top: -6px; }
 
 .progress-border {
 	border:1px solid #ccc;
@@ -100,23 +148,125 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 }
 
 
-	/* Status of a statistic: green fine, yellow the grabber ran out of time,
-	   red the Miniserver does not know the block any more. A dot rather than
-	   text so the column stays narrow; the wording is in the tooltip. */
-	.statusdot
+	/* Icon set, drawn with CSS instead of the PNGs the plugin used to ship.
+	   Shape carries the meaning, not just the colour - a tick, a warning
+	   triangle and a cross are still distinguishable when printed, on a bad
+	   screen, or by someone who cannot tell red from green. */
+	.s4l-icon
 	{
 		display		:inline-block;
-		width		:14px;
-		height		:14px;
-		border-radius	:50%;
+		width		:18px;
+		height		:18px;
+		border-radius	:3px;
+		position	:relative;
 		vertical-align	:middle;
-		border		:1px solid rgba(0,0,0,0.35);
+		box-sizing	:border-box;
+		flex-shrink	:0;
 	}
-	.statusdot-green  { background-color:#3c9a3c; }
-	.statusdot-yellow { background-color:#e0a800; }
-	.statusdot-red    { background-color:#c0392b; }
-	.statuscell       { text-align:center; white-space:nowrap; }
-	.statuscell .statustext { font-size:smaller; display:block; margin-top:2px; }
+	/* green, tick */
+	.s4l-icon-ok { background-color:#3c9a3c; }
+	.s4l-icon-ok::after
+	{
+		content		:"";
+		position	:absolute;
+		left		:6px;
+		top		:3px;
+		width		:5px;
+		height		:9px;
+		border		:solid #ffffff;
+		border-width	:0 2px 2px 0;
+		transform	:rotate(45deg);
+	}
+	/* red, cross */
+	.s4l-icon-err { background-color:#c0392b; }
+	.s4l-icon-err::before,
+	.s4l-icon-err::after
+	{
+		content		:"";
+		position	:absolute;
+		left		:8px;
+		top		:3px;
+		width		:2px;
+		height		:12px;
+		background-color:#ffffff;
+	}
+	.s4l-icon-err::before { transform:rotate(45deg); }
+	.s4l-icon-err::after  { transform:rotate(-45deg); }
+	/* yellow, warning triangle. Built from borders, so the box itself has no
+	   size - the exclamation mark is placed relative to it. */
+	.s4l-icon-warn
+	{
+		width		:0;
+		height		:0;
+		border-radius	:0;
+		border-left	:9px solid transparent;
+		border-right	:9px solid transparent;
+		border-bottom	:16px solid #e0a800;
+	}
+	.s4l-icon-warn::after
+	{
+		content		:"";
+		position	:absolute;
+		left		:-1px;
+		top		:6px;
+		width		:2px;
+		height		:5px;
+		background-color:#4a3b00;
+		box-shadow	:0 7px 0 0 #4a3b00;
+	}
+	/* grey, empty - a statistic that is switched off */
+	.s4l-icon-off
+	{
+		background-color:transparent;
+		border		:2px solid #9a9a9a;
+	}
+	/* green, arrow pointing down into a tray - this output is imported */
+	.s4l-icon-import
+	{
+		background-color:#6dac20;
+		width		:16px;
+		height		:16px;
+	}
+	.s4l-icon-import::before
+	{
+		content		:"";
+		position	:absolute;
+		left		:7px;
+		top		:3px;
+		width		:2px;
+		height		:6px;
+		background-color:#ffffff;
+	}
+	.s4l-icon-import::after
+	{
+		content		:"";
+		position	:absolute;
+		left		:5px;
+		top		:6px;
+		width		:6px;
+		height		:6px;
+		border		:solid #ffffff;
+		border-width	:0 2px 2px 0;
+		transform	:rotate(45deg);
+	}
+	/* blue, three dots - waiting in the queue */
+	.s4l-icon-queued { background-color:#31708f; }
+	.s4l-icon-queued::after
+	{
+		content		:"";
+		position	:absolute;
+		left		:4px;
+		top		:8px;
+		width		:2px;
+		height		:2px;
+		border-radius	:50%;
+		background-color:#ffffff;
+		box-shadow	:4px 0 0 0 #ffffff, 8px 0 0 0 #ffffff;
+	}
+
+	/* The status column carries the icon only - the wording is in the tooltip.
+	   That keeps the column exactly as wide as one icon, whatever is filtered. */
+	.statuscell { text-align:center; }
 
 	/* Statistics whose block is gone from the LoxPLAN. They have no row of
 	   their own in Loxone Config, so the row is marked to make clear it is not
@@ -165,6 +315,9 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 <div class="datahidden" id="lang_hover_status_givenup"><TMPL_VAR SETTINGS.HOVER_STATUS_GIVENUP></div>
 <div class="datahidden" id="lang_not_reachable_since"><TMPL_VAR SETTINGS.LABEL_NOT_REACHABLE_SINCE></div>
 <div class="datahidden" id="lang_button_delete_stat"><TMPL_VAR SETTINGS.BUTTON_DELETE_STAT></div>
+<div class="datahidden" id="lang_button_remove_from_s4l"><TMPL_VAR SETTINGS.BUTTON_REMOVE_FROM_S4L></div>
+<div class="datahidden" id="lang_minutes_short"><TMPL_VAR SETTINGS.LABEL_MINUTES_SHORT></div>
+<div class="datahidden" id="lang_hover_button_settings"><TMPL_VAR SETTINGS.HOVER_BUTTON_SETTINGS></div>
 <div class="datahidden" id="lang_button_reset_status"><TMPL_VAR SETTINGS.BUTTON_RESET_STATUS></div>
 <div class="datahidden" id="lang_hover_reset_status"><TMPL_VAR SETTINGS.HOVER_RESET_STATUS></div>
 <div class="datahidden" id="lang_confirm_delete_stat"><TMPL_VAR SETTINGS.CONFIRM_DELETE_STAT></div>
@@ -356,7 +509,7 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 				<TMPL_VAR SETTINGS.HINT_BLOCK_GONE>
 			</div>
 			<div style="text-align:center;margin-top:10px;">
-				<a href="#" id="LoxoneDetails_deletebutton" class="ui-btn ui-btn-inline ui-mini ui-corner-all s4l-btn-danger"><TMPL_VAR SETTINGS.BUTTON_DELETE_STAT></a>
+				<a href="#" id="LoxoneDetails_deletebutton" class="ui-btn ui-btn-inline ui-mini ui-corner-all s4l-btn-danger"><TMPL_VAR SETTINGS.BUTTON_REMOVE_FROM_S4L></a>
 			</div>
 		</div>
 
