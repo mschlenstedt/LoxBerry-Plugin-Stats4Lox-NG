@@ -29,8 +29,12 @@ $(function() {
 		updateTable();
 	});
 
+	// Marked yellow while a search is active, the same way the Loxone page does
+	// it - otherwise a filter left in place explains a half empty table badly.
 	$("#filter_search").on( "input", function(event){
 		filters.search = $(event.target).val().toLowerCase();
+		if( filters.search != "" ) $('#filter_search').addClass('filter-highlight');
+		else                       $('#filter_search').removeClass('filter-highlight');
 		updateTable();
 	});
 
@@ -348,7 +352,8 @@ function updateTable() {
 	   + th( "first",  "col-first",  $('#lang_th_first').text() )
 	   + th( "last",   "col-last",   $('#lang_th_last').text() )
 	   + th( "count",  "col-count",  $('#lang_th_count').text() )
-	   + '<th class="col-btn"></th></tr></thead><tbody>';
+	   + '<th class="col-btn">' + escHtml($('#lang_th_actions').text()) + '</th>'
+	   + '</tr></thead><tbody>';
 
 	$.each( rows, function( i, m ) {
 		var fields = m.fields || [];
@@ -359,7 +364,7 @@ function updateTable() {
 		     +  '</td>'
 		     +  '<td class="small center">' + escHtml( ( m.sources || [] ).join(", ") ) + '</td>'
 		     +  statusCell( m )
-		     +  '<td class="small" title="' + escAttr( fields.join(", ") ) + '">'
+		     +  '<td class="small center" title="' + escAttr( fields.join(", ") ) + '">'
 		     +  escHtml( fields.join(", ") ) + '</td>'
 		     +  '<td class="small center">' + fmtTime( m.first ) + '</td>'
 		     +  '<td class="small center">' + fmtTime( m.last ) + '</td>'

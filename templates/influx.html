@@ -135,6 +135,11 @@ tr:nth-child(odd).influxtable_tr  { background:#FFF }
 .s4l-filtergroup label.ui-btn { line-height:21px; min-height:21px; }
 .filter_icon { display:inline-block; height:21px; line-height:21px; vertical-align:top; }
 .filter-highlight { background-color:#ffff99 !important; }
+/* The origin names are long enough that the dropdown must not shrink to the
+   width of "Alle". Scoped to this one group - jQuery Mobile wraps every select
+   in .ui-select, so an unscoped rule would widen anything that comes later. */
+#sourcefilter .ui-select,
+#sourcefilter .ui-select .ui-btn { min-width:200px; }
 
 .s4l-btn-danger.ui-btn, html body .s4l-btn-danger.ui-btn,
 html body .s4l-btn-danger.ui-btn:visited {
@@ -156,6 +161,7 @@ html body .s4l-btn-danger.ui-btn:focus {
 <div class="datahidden" id="lang_th_first"><TMPL_VAR INFLUXPAGE.TH_FIRST></div>
 <div class="datahidden" id="lang_th_last"><TMPL_VAR INFLUXPAGE.TH_LAST></div>
 <div class="datahidden" id="lang_th_count"><TMPL_VAR INFLUXPAGE.TH_COUNT></div>
+<div class="datahidden" id="lang_th_actions"><TMPL_VAR INFLUXPAGE.TH_ACTIONS></div>
 <div class="datahidden" id="lang_status_ok"><TMPL_VAR INFLUXPAGE.STATUS_OK></div>
 <div class="datahidden" id="lang_status_404"><TMPL_VAR INFLUXPAGE.STATUS_404></div>
 <div class="datahidden" id="lang_status_limit"><TMPL_VAR INFLUXPAGE.STATUS_LIMIT></div>
@@ -208,7 +214,7 @@ html body .s4l-btn-danger.ui-btn:focus {
 	</fieldset>
 	</div>
 
-	<div style="padding:5px;">
+	<div style="padding:5px;" id="sourcefilter">
 	<fieldset data-role="controlgroup" data-type="horizontal" data-mini="true">
 		<legend><TMPL_VAR INFLUXPAGE.LABEL_FILTER_SOURCE></legend>
 		<select name="filter_source" id="filter_source" class="filter_select" data-mini="true">
@@ -218,15 +224,15 @@ html body .s4l-btn-danger.ui-btn:focus {
 	</div>
 
 	<div style="padding:5px;">
-		<label for="filter_search"><TMPL_VAR INFLUXPAGE.LABEL_SEARCH></label>
-		<input type="search" name="filter_search" id="filter_search" data-mini="true" value="">
-	</div>
-
-	<div style="padding:5px;">
 		<a href="javascript:countAll();" id="btncountall" class="ui-btn ui-btn-inline ui-mini ui-corner-all"
 		   title="<TMPL_VAR INFLUXPAGE.HOVER_COUNT_ALL>"><TMPL_VAR INFLUXPAGE.BUTTON_COUNT_ALL></a>
 	</div>
 
+</div>
+
+<!-- Search line, like on the Loxone page: its own row, full width, no label -->
+<div>
+	<input type="search" name="filter_search" id="filter_search" value="" data-mini="true" data-clear-btn="true">
 </div>
 
 <div id="influx_summary" class="small grayed" style="padding:5px;">&nbsp;</div>

@@ -572,7 +572,7 @@ function createTableHead() {
 		${th( "stat",   "col-stat",   $('#lang_th_statistics').text() )}
 		${th( "status", "col-status", $('#lang_th_status').text() )}
 		${th( "import", "col-import", $('#lang_th_import').text() )}
-		<th class="col-buttons"></th>
+		<th class="col-buttons">${$('#lang_th_actions').text()}</th>
 	</tr>
 	</thead>
 	<tbody>
