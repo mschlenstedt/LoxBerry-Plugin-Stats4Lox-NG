@@ -1,0 +1,471 @@
+#!/usr/bin/perl
+
+#############################################################################
+# LoxBerry plugin healthcheck for Stats4Lox
+#############################################################################
+# Found by the core on its own: sbin/healthcheck.pl walks the installed plugins
+# and picks up every executable named "healthcheck" in <plugin>/bin. No
+# registration anywhere. Called as "healthcheck check" or "healthcheck title",
+# and answers with JSON on stdout:
+#
+#   { "desc": "...", "status": 5, "result": "..." }
+#
+# status: 3 ERROR, 4 WARNING, 5 OK, 6 INFO - and the WORST, meaning the lowest,
+# is the one that counts. That is why setstatus() below keeps the minimum.
+#
+# Runs from cron.daily with up to six hours of random offset, and 60 seconds
+# after every reboot; the web interface can ask for a live run. So it has to be
+# quick and it has to be cheap on a Raspberry with an SD card. Everything in here
+# reads state that the services and the grabber leave behind anyway. Two things
+# are deliberately NOT done:
+#
+#   - counting values with count(*), measured at 23.5 s for 134 measurements
+#   - anything that writes
+#
+# Modelled on check_mqtt in sbin/healthcheck.pl, including its most useful habit:
+# a service the user switched off is INFO, not an error. Only something that
+# should be running and is not deserves ERROR.
+#############################################################################
+
+use warnings;
+use strict;
+use JSON;
+use FindBin qw($Bin);
+use lib "$Bin/libs";
+use LoxBerry::System;
+use Globals;
+
+my $action = $ARGV[0] // '';
+
+my %response = (
+	desc => 'Checks services, database, grabber and backup of Stats4Lox',
+);
+
+# The core asks for the description alone to build its list
+if( $action eq 'title' ) {
+	print encode_json( \%response );
+	exit 0;
+}
+if( $action ne 'check' ) {
+	print encode_json( \%response );
+	exit 0;
+}
+
+my @text;
+
+# The worst status wins, exactly as in the core
+sub setstatus
+{
+	my ($new) = @_;
+	$response{status} = $new if( !defined $response{status} or $new < $response{status} );
+	return $new;
+}
+
+sub sec2human
+{
+	my ($s) = @_;
+	return "unknown" if( !defined $s );
+	return sprintf( "%d min", int($s/60) )      if( $s <  7200 );
+	return sprintf( "%.1f h", $s/3600 )         if( $s < 172800 );
+	return sprintf( "%.0f days", $s/86400 );
+}
+
+#############################################################################
+# Services
+#############################################################################
+# pgrep on the binary, the same way the plugin's own service display does it -
+# systemctl would be one fork per service and says less: influxd can be active
+# according to systemd while the process is stuck.
+
+{
+	my @down;
+	my @up;
+	my %procs = (
+		'InfluxDB' => '/usr/bin/influxd',
+		'Telegraf' => '/usr/bin/telegraf',
+		'Grafana'  => '/usr/share/grafana/bin/grafana',
+	);
+	foreach my $name ( sort keys %procs ) {
+		my $pid = `pgrep -f $procs{$name} 2>/dev/null`;
+		chomp $pid;
+		$pid =~ s/\s+.*//s;
+		if( $pid ) { push @up, "$name ($pid)" } else { push @down, $name }
+	}
+
+	# mqttlive is the plugin's own and can be switched off on purpose
+	if( is_disabled( $Globals::stats4lox->{mqttlive_active} ) ) {
+		push @text, "MQTT Live is switched off.";
+		setstatus(6);
+	}
+	else {
+		my $pid = `pgrep -f mqttlive.php 2>/dev/null`;
+		chomp $pid;
+		$pid =~ s/\s+.*//s;
+		if( $pid ) { push @up, "MQTT Live ($pid)" } else { push @down, 'MQTT Live' }
+	}
+
+	if( @down ) {
+		setstatus(3);
+		push @text, "NOT RUNNING: " . join( ", ", @down ) . ".";
+	}
+	if( @up ) {
+		setstatus(5);
+		push @text, "Running: " . join( ", ", @up ) . ".";
+	}
+}
+
+#############################################################################
+# Database
+#############################################################################
+
+my $influx_ok = 0;
+{
+	my $url = $Globals::influx->{influxurl} // 'https://localhost:8086';
+
+	# /ping needs the credentials here. It is open on a stock InfluxDB, but with
+	# auth-enabled and this configuration it answers 401 without them - measured.
+	my ($user, $pass) = ('', '');
+	eval {
+		require LoxBerry::JSON;
+		my $cobj = LoxBerry::JSON->new();
+		my $cred = $cobj->open( filename => $Globals::stats4loxcredentials, readonly => 1 );
+		$user = $cred->{influx}->{influxdbuser} // '';
+		$pass = $cred->{influx}->{influxdbpass} // '';
+	};
+	my $auth = ( $user ne '' ) ? "-u '$user:$pass'" : '';
+
+	# -k because the certificate is self-signed, and a short timeout because a
+	# hanging database must not hang the healthcheck.
+	my $code = `curl -s -k -o /dev/null -m 5 $auth -w '%{http_code}' '$url/ping' 2>/dev/null`;
+	chomp $code;
+
+	if( $code !~ /^20/ ) {
+		setstatus(3);
+		push @text, "InfluxDB does not answer on $url/ping (HTTP $code).";
+	}
+	else {
+		$influx_ok = 1;
+		setstatus(5);
+
+		# One cheap query that proves the credentials AND reports the retention
+		# policies in passing.
+		my $res = eval { require InfluxInfo; InfluxInfo::query( "SHOW RETENTION POLICIES" ) };
+		if( !$res or ref($res) ne 'ARRAY' or !@$res or $res->[0]->{error} ) {
+			setstatus(3);
+			my $msg = ( ref($res) eq 'ARRAY' and @$res and $res->[0]->{error} )
+			        ? $res->[0]->{error} : 'no answer';
+			push @text, "InfluxDB reachable, but the query failed ($msg) - check the stored password under System.";
+		}
+		else {
+			my @pol;
+			foreach my $s ( @{ $res->[0]->{series} || [] } ) {
+				my @cols = @{ $s->{columns} || [] };
+				my ($ni) = grep { $cols[$_] eq 'name' }     0..$#cols;
+				my ($di) = grep { $cols[$_] eq 'duration' } 0..$#cols;
+				foreach my $v ( @{ $s->{values} || [] } ) {
+					next if( !defined $ni );
+					my $dur = ( defined $di and defined $v->[$di] ) ? $v->[$di] : '?';
+					push @pol, $v->[$ni] . " ($dur)";
+				}
+			}
+			push @text, "Retention policies: " . ( @pol ? join( ", ", @pol ) : "none" ) . ".";
+		}
+	}
+
+	# How large the database is, and how much room is left where it lives.
+	#
+	# The size comes from InfluxDB itself, not from du: the data directory belongs to
+	# the influxdb user, and du run as loxberry stops at "Permission denied" on wal/
+	# and reports 48 KB for a 758 MB database. SHOW STATS has the exact figure per
+	# shard and needs no permissions at all.
+	my $datadir = "$LoxBerry::System::lbpdatadir/influxdb";
+	if( -d $datadir ) {
+		my $df = `df -Pk '$datadir' 2>/dev/null | tail -1`;
+		my @f = split( /\s+/, ( $df // '' ) );
+		if( @f >= 5 ) {
+			my $freemb = int( $f[3] / 1024 );
+			my $usepct = $f[4];
+			$usepct =~ s/%//;
+
+			my ($bytes, $shards) = (0, 0);
+			eval {
+				require InfluxInfo;
+				my $st = InfluxInfo::query( "SHOW STATS" );
+				foreach my $r ( @$st ) {
+					foreach my $s ( @{ $r->{series} || [] } ) {
+						next if( ($s->{name} // '') ne 'tsm1_filestore' );
+						my @cols = @{ $s->{columns} || [] };
+						my ($di) = grep { $cols[$_] eq 'diskBytes' } 0..$#cols;
+						next if( !defined $di );
+						foreach my $v ( @{ $s->{values} || [] } ) {
+							$bytes += ( $v->[$di] // 0 );
+							$shards++;
+						}
+					}
+				}
+			};
+			my $sizetxt = $shards
+				? sprintf( "%.0f MB in %d shards", $bytes/1048576, $shards )
+				: "size not determined";
+
+			push @text, "Database $sizetxt, " . sprintf( "%d MB", $freemb ) . " free on its partition ($usepct% used).";
+			if( $usepct >= 95 or $freemb < 200 ) {
+				setstatus(3);
+				push @text, "Almost no space left - the database will stop writing.";
+			}
+			elsif( $usepct >= 90 or $freemb < 500 ) {
+				setstatus(4);
+				push @text, "Space is getting tight.";
+			}
+			else { setstatus(5) }
+		}
+	}
+}
+
+#############################################################################
+# Grabber and data flow
+#############################################################################
+# The grabber records its failures in stats.json, so the state is already there
+# and nothing has to be asked of the Miniserver. 404 means the block is gone from
+# the Loxone configuration, a timeout means it did not answer; after ten failures
+# the grabber stops asking, and from then on no data arrives at all without
+# anybody noticing - that is what deserves an ERROR.
+
+my $statsjson;
+{
+	# Read by hand rather than through LoxBerry::JSON, for two reasons.
+	#
+	# The measurement names are compared against what InfluxDB returns further
+	# down, and that comes out of decode_json as CHARACTERS. LoxBerry::JSON hands
+	# back byte strings, so "Wärme" would never match "Wärme" - issue #128 all over
+	# again.
+	#
+	# And a shared lock is still wanted: LoxBerry::JSON::write() writes in place
+	# with seek and truncate, so an unlocked reader can catch a half-written file.
+	# Non-blocking with a few short retries - this check must never be the reason a
+	# web request has to wait.
+	require Fcntl;
+	if( open( my $fh, '<:raw', $Globals::statsconfig ) ) {
+		my $got = 0;
+		foreach ( 1 .. 6 ) {
+			last if( $got = flock( $fh, Fcntl::LOCK_SH() | Fcntl::LOCK_NB() ) );
+			select( undef, undef, undef, 0.5 );
+		}
+		if( $got ) {
+			local $/;
+			my $raw = <$fh>;
+			flock( $fh, Fcntl::LOCK_UN() );
+			$statsjson = eval { decode_json( $raw ) };
+		}
+		close $fh;
+	}
+
+	if( !$statsjson or ref($statsjson->{loxone}) ne 'ARRAY' ) {
+		setstatus(4);
+		push @text, "stats.json could not be read (locked or broken) - the statistics could not be checked.";
+	}
+	else {
+		my @entries = @{ $statsjson->{loxone} };
+		my $active  = grep { is_enabled( $_->{active} ) } @entries;
+
+		my (@gone, @timeout, @givenup);
+		foreach my $e ( @entries ) {
+			my $st = $e->{status} or next;
+			next if( !$st->{error} );
+			my $name = $e->{name} // '?';
+			if( ( $st->{count} // 0 ) >= 10 ) { push @givenup, $name; next }
+			if( $st->{error} eq '404' )       { push @gone, $name }
+			else                              { push @timeout, $name }
+		}
+
+		push @text, sprintf( "%d statistics configured, %d active.", scalar @entries, $active );
+
+		if( @givenup ) {
+			setstatus(3);
+			push @text, sprintf( "GIVEN UP on %d statistics after ten failed attempts - no data arrives for them any more: %s. Remove them under 'Loxone and Import' or restore the block in Loxone Config.",
+				scalar @givenup, join( ", ", @givenup ) );
+		}
+		if( @gone ) {
+			setstatus(4);
+			push @text, sprintf( "%d statistics whose block the Miniserver does not know (error 404): %s.",
+				scalar @gone, join( ", ", @gone ) );
+		}
+		if( @timeout ) {
+			setstatus(4);
+			push @text, sprintf( "%d statistics not answering: %s.",
+				scalar @timeout, join( ", ", @timeout ) );
+		}
+		setstatus(5) if( !@givenup and !@gone and !@timeout );
+	}
+}
+
+# Is the grabber running at all? Telegraf polls its CGI every 60 seconds.
+#
+# The age is taken from the memory file the grabber keeps in the ramdisk, not from
+# its log. The log is not dependable for this: it lives in log/plugins, which the
+# core tidies up with log_maint.pl, and it was observed to be missing for a moment
+# between two runs - which had this check announce that the grabber had never run
+# while it was running fine. The memory file is written on every single cycle and
+# nothing else touches it. Its path is the one the grabber hardcodes; if that
+# changes, this has to follow.
+{
+	my $marker = "/dev/shm/stats4lox_mem_loxonegrabber.json";
+	my $log    = "$LoxBerry::System::lbplogdir/grabber_loxone.log";
+	my $mtime;
+	foreach my $f ( $marker, $log ) {
+		next if( ! -f $f );
+		my $m = ( stat($f) )[9];
+		$mtime = $m if( !defined $mtime or $m > $mtime );
+	}
+
+	if( !defined $mtime ) {
+		setstatus(4);
+		# Deliberately not "never ran": the marker is in a ramdisk and gone after a
+		# reboot, so right after one this is the normal state for up to a minute.
+		push @text, "No sign of a run of the Loxone grabber - is Telegraf calling it?";
+	}
+	else {
+		my $age = time() - $mtime;
+		if( $age > 900 ) {
+			setstatus(3);
+			push @text, "The Loxone grabber last ran " . sec2human($age) . " ago - Telegraf calls it every 60 seconds, so it is not being called.";
+			# The web interface offers this as a link, and it is the one log worth
+			# opening for this. Only set when there is a reason to look.
+			$response{logfile} = $log if( -f $log );
+		}
+		elsif( $age > 300 ) {
+			setstatus(4);
+			push @text, "The Loxone grabber last ran " . sec2human($age) . " ago.";
+			$response{logfile} = $log if( -f $log );
+		}
+		else {
+			setstatus(5);
+			push @text, "The Loxone grabber ran " . sec2human($age) . " ago.";
+		}
+	}
+}
+
+# Measurements in the database that belong to nothing any more. They keep taking
+# space and nobody goes looking for them.
+#
+# The definition is taken from the InfluxDB page, statusOf() in influx.js, so the
+# two cannot disagree: no entry in stats.json, not one of our own system
+# measurements, not from the MQTT collector, written by the grabber, has a uuid tag,
+# and none of its uuids is in the Loxone configuration we read in.
+#
+# Only SHOW queries, measured at about 0.2 s each - no count(*).
+if( $influx_ok and $statsjson and ref($statsjson->{loxone}) eq 'ARRAY' ) {
+	my $orphans = eval {
+		require InfluxInfo;
+		my $measurements = InfluxInfo::measurements();
+		my $srcs         = InfluxInfo::sources();
+		my $tags         = InfluxInfo::uuids();
+		my $system       = InfluxInfo::system_measurements();
+		my $plan         = InfluxInfo::loxplan_uuids();
+		my %planlc = map { lc($_) => 1 } keys %$plan;
+
+		my %configured = map { $_->{measurementname} => 1 }
+		                 grep { defined $_->{measurementname} and $_->{measurementname} ne '' }
+		                 @{ $statsjson->{loxone} };
+
+		my @o;
+		foreach my $m ( @$measurements ) {
+			next if( $configured{$m} );
+			next if( $system->{$m} );
+			my @s = @{ $srcs->{$m} // [] };
+			next if( grep { $_ eq 'mqtt' } @s );
+			next if( !grep { $_ eq 'grabber' } @s );
+			my @u = grep { defined } @{ $tags->{$m} // [] };
+			next if( !@u );
+			next if( grep { $planlc{ lc $_ } } @u );
+			push @o, $m;
+		}
+		\@o;
+	};
+	if( $@ or ref($orphans) ne 'ARRAY' ) {
+		push @text, "Orphaned measurements could not be determined.";
+	}
+	elsif( @$orphans ) {
+		setstatus(4);
+		my @show = @$orphans;
+		@show = ( @show[0..9], '...' ) if( @show > 10 );
+		push @text, sprintf( "%d measurements belong to no statistic and to no block in Loxone Config: %s. They can be removed on the InfluxDB page.",
+			scalar @$orphans, join( ", ", @show ) );
+	}
+	else {
+		setstatus(5);
+		push @text, "No orphaned measurements.";
+	}
+}
+
+#############################################################################
+# Diagnostic logging of the services
+#############################################################################
+# Off by default: it makes InfluxDB, Telegraf and Grafana write into
+# log/plugins/stats4lox/, which is a ramdisk on LoxBerry, and that is what issue
+# #134 was about. It is meant for hunting a problem and to be switched off again.
+# Switching it off automatically is expressly not wanted - so this only points at
+# it.
+
+if( is_enabled( $Globals::stats4lox->{servicelogging} ) ) {
+	setstatus(4);
+	my $bytes = 0;
+	foreach my $f ( glob( "$LoxBerry::System::lbplogdir/*" ) ) {
+		$bytes += ( -s $f ) // 0 if( -f $f );
+	}
+	push @text, sprintf( "Diagnostic logging of the services is switched ON (%.1f MB in the log directory). It is meant for finding a problem - switch it off again under Settings when you are done, it writes to a ramdisk.",
+		$bytes/1048576 );
+}
+else {
+	setstatus(6);
+	push @text, "Diagnostic logging of the services is off.";
+}
+
+#############################################################################
+# Backup
+#############################################################################
+
+{
+	my $b = $Globals::backup;
+	my $path = $b->{storagepath} // '';
+
+	if( !$path ) {
+		setstatus(6);
+		push @text, "No backup configured.";
+	}
+	elsif( ! -d $path ) {
+		setstatus(3);
+		push @text, "The configured backup directory $path does not exist.";
+	}
+	else {
+		my @archives = sort { ( stat($b) )[9] <=> ( stat($a) )[9] }
+		               glob( "$path/stats4lox_*" );
+		my $scheduled = is_enabled( $b->{schedule}->{active} );
+
+		if( !@archives ) {
+			setstatus( $scheduled ? 4 : 6 );
+			push @text, $scheduled
+				? "A scheduled backup is switched on, but there is no backup in $path."
+				: "No backup present in $path.";
+		}
+		else {
+			my $age = time() - ( stat( $archives[0] ) )[9];
+			push @text, sprintf( "%d backups in %s, the newest %s old.",
+				scalar @archives, $path, sec2human($age) );
+			# Only judged when it is supposed to happen by itself. A backup taken by
+			# hand may be as old as the user wants it to be.
+			if( $scheduled and $age > 14*86400 ) {
+				setstatus(4);
+				push @text, "The scheduled backup is switched on but the newest one is older than two weeks.";
+			}
+			else { setstatus(5) }
+		}
+	}
+}
+
+#############################################################################
+
+setstatus(6) if( !defined $response{status} );
+$response{result} = join( ' ', @text );
+print encode_json( \%response );
+exit 0;
