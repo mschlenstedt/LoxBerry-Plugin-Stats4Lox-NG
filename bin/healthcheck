@@ -16,8 +16,9 @@
 # THE ANSWER STAYS SHORT. One clause per area with its verdict, nothing more -
 # this text is shown in the widget AND goes into the mail through errorstrings, and
 # the longest check in the core (MQTT) fits in three lines. Everything with names,
-# lists and numbers goes into a logfile, linked at the end - see the note at the
-# bottom for how, because a plugin cannot use the core's own logfile field.
+# lists and numbers goes into a LoxBerry log named "Healthcheck", which the answer
+# links to at the end - see the note down there for why the link has to be an
+# anchor in the text and not the core's own logfile field.
 #
 # Runs from cron.daily with up to six hours of random offset, and 60 seconds
 # after every reboot; the web interface can ask for a live run. So it has to be
@@ -40,6 +41,7 @@ use URI::Escape;
 use FindBin qw($Bin);
 use lib "$Bin/libs";
 use LoxBerry::System;
+use LoxBerry::Log;
 use Globals;
 
 my $action = $ARGV[0] // '';
@@ -54,9 +56,18 @@ if( $action ne 'check' ) {
 	exit 0;
 }
 
-my $logfile = "$LoxBerry::System::lbplogdir/healthcheck.log";
+# The detail goes into a proper LoxBerry log, not a file written by hand: it gets
+# the usual header, timestamps and levels, the viewer colours it by level, and it is
+# registered in the log database - which is what lets the link below find it by name
+# instead of by path.
+my $log = LoxBerry::Log->new(
+	name     => 'Healthcheck',
+	addtime  => 1,
+	loglevel => 7,
+);
+LOGSTART "Healthcheck";
+
 my @summary;   # short, one entry per area - this is what the user reads
-my @detail;    # everything, for the logfile
 
 # The worst status wins, exactly as in the core
 sub setstatus
@@ -72,15 +83,35 @@ sub statusword
 	return $s == 3 ? 'ERROR' : $s == 4 ? 'WARNING' : $s == 5 ? 'OK' : 'INFO';
 }
 
-# One area, one verdict, one short clause
+# LoxBerry::Log opens its file without an encoding layer and therefore writes bytes.
+# The block and measurement names arrive here as CHARACTERS - they come out of
+# decode_json - and handing those over unchanged turned "Mähzeit" into "M?hzeit" in
+# the log. Encoded only when the string actually carries characters: a byte string
+# from a backtick call would be mangled the other way by encoding it again.
+sub logsafe
+{
+	my ($s) = @_;
+	return $s if( !defined $s );
+	require Encode;
+	return Encode::is_utf8($s) ? Encode::encode( 'UTF-8', $s ) : $s;
+}
+
+# One area, one verdict, one short clause - and the same verdict into the log at the
+# matching level, so it is colour-coded there.
 sub area
 {
 	my ($label, $status, $short) = @_;
 	setstatus( $status );
-	push @summary, "$label: " . statusword($status) . ( ( defined $short and $short ne '' ) ? " ($short)" : "" );
+	my $line = "$label: " . statusword($status) . ( ( defined $short and $short ne '' ) ? " ($short)" : "" );
+	push @summary, $line;
+	my $l = logsafe( $line );
+	$status == 3 ? $log->ERR( $l )
+	  : $status == 4 ? $log->WARN( $l )
+	  : $status == 5 ? $log->OK( $l )
+	  :                $log->INF( $l );
 }
 
-sub detail { push @detail, join( '', @_ ) }
+sub detail { $log->INF( logsafe( join( '', @_ ) ) ) }
 
 sub sec2human
 {
@@ -525,47 +556,45 @@ if( $influx_ok and $statsjson and ref($statsjson->{loxone}) eq 'ARRAY' ) {
 
 setstatus(6) if( !defined $response{status} );
 
-if( open( my $fh, '>:encoding(UTF-8)', $logfile ) ) {
-	print {$fh} "Stats4Lox healthcheck\n";
-	print {$fh} scalar(localtime) . "\n";
-	print {$fh} "Overall: " . statusword( $response{status} ) . "\n";
-	print {$fh} "\n";
-	print {$fh} join( " ", map { "$_." } @summary ) . "\n";
-	print {$fh} "\n" . ( "-" x 70 ) . "\n";
-	print {$fh} "$_\n" foreach @detail;
-	close $fh;
-}
+$log->INF( "" );
+$log->INF( "Overall: " . statusword( $response{status} ) );
+LOGEND;
 
 # The link to the logfile, as an anchor inside the result.
 #
 # The core's own "logfile" and "url" fields are not available to a plugin:
 # exec_plugincheck copies exactly desc, status and result out of our answer and
-# drops everything else. So the link has to travel inside the text - and it can,
-# because healthcheck.html inserts the result with .html(), not .text():
+# drops everything else (LoxBerry issue #1546). So the link has to travel inside
+# the text - and it can, because healthcheck.html inserts the result with .html(),
+# not .text():
 #
 #   $("#"+rowname+"result").html(element.result);
 #
 # which is why a bare URL came out as unclickable text and an anchor does not.
+#
+# Addressed by package and name, not by path: LoxBerry::Log registered this run in
+# the log database, and logfile.cgi looks the newest entry up from there. So the
+# link keeps working although every run writes a new file, and there is no path to
+# get wrong.
+#
+# only=once because this log is not being written while it is read. Without it the
+# viewer polls the file every 300 ms and scrolls along, which is what you want for a
+# running service and pointless for a report that is already finished.
 #
 # Absolute, because the same text goes into the notification: healthcheck.pl puts
 # the result of every failing check into errorstrings, and there a relative path is
 # worthless. Host and port come from the library, the way GrafanaS4L builds the
 # dashboard link; lbhostname can be empty, then the IP has to do, and port 80 is
 # left off because it only makes the link longer.
-#
-# The logfile parameter is relative to the log directory. logfile.cgi strips
-# $lbhomedir/log from the front anyway and then looks the name up underneath, so the
-# short form does the same job as an escaped absolute path and keeps the link
-# readable where it appears as raw text. Both were tried: HTTP 200 with the content
-# either way.
 my $host = LoxBerry::System::lbhostname();
 $host = LoxBerry::System::get_localip() if( !$host );
 my $port = LoxBerry::System::lbwebserverport();
-my $rel  = $logfile;
-$rel =~ s{^\Q$LoxBerry::System::lbhomedir\E/log/}{};
+my $pkg  = $LoxBerry::System::lbpplugindir || 'stats4lox';
 my $logurl = "http://$host" . ( ( $port and $port != 80 ) ? ":$port" : "" )
-           . "/admin/system/tools/logfile.cgi?logfile=" . uri_escape($rel)
-           . "&amp;header=html&amp;format=template";
+           . "/admin/system/tools/logfile.cgi"
+           . "?package=" . uri_escape($pkg)
+           . "&amp;name=Healthcheck"
+           . "&amp;header=html&amp;format=template&amp;only=once";
 
 $response{result} = join( " ", map { "$_." } @summary )
                   . qq{ <a href="$logurl" target="_blank">Logfile</a>};
