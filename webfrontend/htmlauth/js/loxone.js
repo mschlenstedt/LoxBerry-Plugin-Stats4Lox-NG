@@ -5,6 +5,8 @@ let rooms_used = [];
 let categories;
 let categories_used = [];
 let controls = [];
+let pages;
+let pages_used = [];
 let statsconfig;
 let statsconfigLoxone;
 let controlstable = "";
@@ -411,6 +413,23 @@ function getLoxplan() {
 
 function consolidateLoxPlan( data ) {
 
+	// Start from scratch on every run.
+	//
+	// This runs a second time after a manual upload, and everything below only
+	// ever adds: controls are concat'ed, so every block appeared twice in the
+	// table, and the filter dropdowns got a second set of entries. miniservers_used
+	// was worse - the first run turns it into an array with Object.values(), and
+	// $.extend() then merged the next Miniserver hash into it by index.
+	controls = [];
+	rooms = {};
+	categories = {};
+	pages = {};
+	miniservers_used = {};
+	rooms_used = [];
+	categories_used = [];
+	elementTypes_used = [];
+	pages_used = [];
+
 	for (const [key, msobj] of Object.entries(data)) {
 	  
 	  if( data[key]?.error ) {
@@ -426,6 +445,7 @@ function consolidateLoxPlan( data ) {
 
 	  rooms = $.extend( rooms, data[key].rooms );
 	  categories = $.extend( categories, data[key].categories );
+	  pages = $.extend( pages, data[key].pages );
 	  miniservers_used = $.extend ( miniservers_used, data[key].miniservers );
 
 	  // rooms_used and categories_used are ARRAYS. $.extend merges objects by
@@ -482,15 +502,35 @@ function consolidateLoxPlan( data ) {
 		}
 	}
 	categories = cat_tmp.sort();
-	
+
+	// Every page of the project is offered (issue #20), including those whose
+	// blocks are all filtered out by the blacklist - a page holding nothing but
+	// logic blocks then simply gives an empty table.
+	//
+	// Blocks reference their page by title, not by UUID, so the titles from the
+	// pages list are what the filter compares against. The blocks are used as a
+	// second source for the rare case of an ms<n>.json still written without a
+	// pages list - the filter is then incomplete rather than empty.
+	// localeCompare because these are names a user reads, and a plain sort() would
+	// put umlauts behind Z.
+	pages_used = [ ...new Set(
+		Object.values( pages || {} ).concat( controls.map( c => c.Page ) ).filter( p => p )
+	) ];
+	pages_used.sort( ( a, b ) => a.localeCompare( b ) );
+
 	generateFilter();
 	
 }
 
 function generateFilter() {
 
+	// Drop what a previous run added, keeping the entries that come from the
+	// template ("All rooms", "Without a page", ...). Same reason as the reset in
+	// consolidateLoxPlan: this runs again after a manual upload.
+	$('.filter_select option').not('.staticopt').remove();
+
 	// Add Miniservers to options
-	
+
 	for( const [key, msobj] of Object.entries(miniservers_used) ) {
 		$('#filter_miniserver').append(
 		`<option value="${msobj.msno}">(${msobj.msno}) ${msobj.Title}</option>`); 
@@ -512,6 +552,13 @@ function generateFilter() {
 		`<option value="${obj[0]}">${obj[0]}</option>`); 
 	}
 	
+	// Add used pages to options
+
+	for( obj of pages_used ) {
+		$('#filter_page').append(
+		`<option value="${escAttr(obj)}">${escHtml(obj)}</option>`);
+	}
+
 	// Add used elements to options in native language
 	var elementsArr = [];
 	for( var key in elementTypes_used ) {
@@ -911,6 +958,17 @@ function createTableBody() {
 		if( typeof filters["filter_category"] !== "undefined" && filters["filter_category"] != "all" && filters["filter_category"] != element.Category )
 			continue;
 		
+		// Page filter (issue #20)
+		// __nopage__ catches everything that sits on no page: the inputs and
+		// outputs from the peripheral tree, and the orphaned statistics that only
+		// exist in stats.json and therefore have no page either.
+		if( typeof filters["filter_page"] !== "undefined" && filters["filter_page"] != "all" ) {
+			if( filters["filter_page"] == "__nopage__" ) {
+				if( element.Page ) continue;
+			}
+			else if( filters["filter_page"] != element.Page ) continue;
+		}
+
 		// Element filter
 		if( typeof filters["filter_element"] !== "undefined" && filters["filter_element"] != "all" && filters["filter_element"] != element.Type.toUpperCase() )
 			continue;

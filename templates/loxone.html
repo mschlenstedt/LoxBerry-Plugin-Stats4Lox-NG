@@ -874,19 +874,29 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 		<legend><TMPL_VAR SETTINGS.LABEL_FILTER></legend>
 		<label for="filter_miniserver">Miniserver</label>
 		<select name="filter_miniserver" id="filter_miniserver" class="filter_select">
-			<option value="all"><TMPL_VAR SETTINGS.LABEL_ALL_MINISERVERS></option>
+			<option value="all" class="staticopt"><TMPL_VAR SETTINGS.LABEL_ALL_MINISERVERS></option>
 		</select>
 		<label for="filter_room">Room</label>
 		<select name="filter_room" id="filter_room" class="filter_select">
-			<option value="all"><TMPL_VAR SETTINGS.LABEL_ALL_ROOMS></option>
+			<option value="all" class="staticopt"><TMPL_VAR SETTINGS.LABEL_ALL_ROOMS></option>
 		</select>
 		<label for="filter_category">Category</label>
 		<select name="filter_category" id="filter_category" class="filter_select">
-			<option value="all"><TMPL_VAR SETTINGS.LABEL_ALL_CATEGORIES></option>
+			<option value="all" class="staticopt"><TMPL_VAR SETTINGS.LABEL_ALL_CATEGORIES></option>
+		</select>
+		<!-- Filter by Loxone Config page (issue #20).
+		     Unlike room and category, most blocks have no page at all: the inputs
+		     and outputs live in the peripheral tree, not on a program page. On a
+		     real installation that is 877 of 1258 blocks, so without the second
+		     entry the filter could not reach the majority of the rows. -->
+		<label for="filter_page">Page</label>
+		<select name="filter_page" id="filter_page" class="filter_select">
+			<option value="all" class="staticopt"><TMPL_VAR SETTINGS.LABEL_ALL_PAGES></option>
+			<option value="__nopage__" class="staticopt"><TMPL_VAR SETTINGS.LABEL_NO_PAGE></option>
 		</select>
 		<label for="filter_element">Element</label>
 		<select name="filter_element" id="filter_element" class="filter_select">
-			<option value="all"><TMPL_VAR SETTINGS.LABEL_ALL_ELEMENTS></option>
+			<option value="all" class="staticopt"><TMPL_VAR SETTINGS.LABEL_ALL_ELEMENTS></option>
 		</select>
 	</fieldset>
 	</div>

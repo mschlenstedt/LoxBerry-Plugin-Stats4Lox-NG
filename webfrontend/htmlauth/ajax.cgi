@@ -115,7 +115,8 @@ if( $q->{action} eq "getloxplan" ) {
 				# Parsed again only when the upload is newer than the result -
 				# the parse takes seconds and the file only changes on upload.
 				my $needparse = ( ! -e $loxplanjson )
-				              || ( ( stat($upload) )[9] > ( stat($loxplanjson) )[9] );
+				              || ( ( stat($upload) )[9] > ( stat($loxplanjson) )[9] )
+				              || loxplanjson_incomplete( $loxplanjson );
 				if( !$needparse ) {
 					LOGINF "The parsed result is newer than the upload - using it";
 				}
@@ -168,7 +169,7 @@ if( $q->{action} eq "getloxplan" ) {
 
 		# Note: "ne" on an undefined value warns. checkLoxplanUpdate returns
 		# undef when the local copy is up-to-date.
-		if( $checkfailed or defined $remoteTimestamp ) {
+		if( $checkfailed or defined $remoteTimestamp or loxplanjson_incomplete( $loxplanjson ) ) {
 			LOGINF "Loxplan file not up-to-date. Fetching from Miniserver";
 
 			# Every failure has to reach the user. Previously the return
@@ -250,6 +251,25 @@ sub manual_loxplan_file
 #
 # The setting is one for the whole plugin while the uploads are per Miniserver,
 # so a single file is enough to make manual mode work for that Miniserver.
+# Does the stored ms<n>.json still lack something a newer version writes?
+#
+# The page list is new (issue #20). An installation whose LoxPLAN has not changed
+# since the upgrade would never parse again, so the page filter would stay
+# incomplete until somebody happens to touch Loxone Config. Forcing one rebuild
+# when the key is missing settles it. A file that cannot be decoded counts as
+# incomplete as well - re-parsing is the right answer for that too.
+sub loxplanjson_incomplete
+{
+	my ($file) = @_;
+	return 0 if( ! -e $file );
+	my $complete = 0;
+	eval {
+		my $j = decode_json( LoxBerry::System::read_file($file) );
+		$complete = ( ref($j->{pages}) eq 'HASH' ) ? 1 : 0;
+	};
+	return $complete ? 0 : 1;
+}
+
 sub have_manual_loxplan
 {
 	my %ms = LoxBerry::System::get_miniservers();

@@ -61,6 +61,7 @@ sub readloxplan
 	my %lox_category_used;
 	my %lox_room;
 	my %lox_room_used;
+	my %lox_page;
 	my %lox_elementType;
 	my $start_run = time();
 	my %lox_statsobject; 
@@ -245,6 +246,17 @@ sub readloxplan
 		$lox_room{$room->{U}} = $room->{Title};
 	}
 
+	# Read Loxone Config pages (issue #20)
+	#
+	# Collected as their own list even though every block already carries the
+	# title of its page: the filter has to offer every page of the project, and
+	# pages holding nothing but logic blocks have no block left after the
+	# blacklist. Deriving the list from the blocks would silently drop those.
+	foreach my $page ($lox_xml->findnodes('//C[@Type="Page"]')) {
+		# Key is the Uid
+		$lox_page{$page->{U}} = $page->{Title};
+	}
+
 	# Get all objects
 	
 	foreach my $object ($lox_xml->findnodes('//C[@Type]')) {
@@ -394,6 +406,7 @@ sub readloxplan
 	$combined_data{miniservers} = \%lox_miniserver;
 	$combined_data{rooms} = \%lox_room;
 	$combined_data{categories} = \%lox_category;
+	$combined_data{pages} = \%lox_page;
 	$combined_data{controls} = \%lox_statsobject;
 	$combined_data{elementTypes} = \@lox_elementTypes;
 	$combined_data{rooms_used} = \@lox_roomsUsed;
