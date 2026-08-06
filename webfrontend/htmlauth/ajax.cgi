@@ -734,6 +734,79 @@ if( $q->{action} eq "savepluginconfig" ) {
 }
 
 ##
+## InfluxDB credentials (issue #45)
+##
+## The password is handed out and changed only against a valid SecurePIN. The
+## page hides the form until the PIN has been entered, but that is presentation
+## - anyone can call this CGI directly, so the check is repeated here. The PIN
+## travels with each request; the page keeps it in sessionStorage, the same way
+## the LoxBerry MQTT widget does.
+sub s4l_secpin_ok
+{
+	my $pin = shift;
+	return 0 if( !defined $pin or $pin eq '' );
+	my $res = LoxBerry::System::check_securepin( $pin );
+	return ( !defined $res or $res == 0 ) ? 1 : 0;
+}
+
+## influx_getcred - user name and password, for the System page
+if( $q->{action} eq "influx_getcred" ) {
+	if( !s4l_secpin_ok( $q->{secpin} ) ) {
+		LOGWARN "influx_getcred without a valid SecurePIN - refused";
+		$error = "SecurePIN required";
+	}
+	else {
+		require LoxBerry::JSON;
+		my $obj = LoxBerry::JSON->new();
+		my $c = $obj->open( filename => $stats4loxcredentials, readonly => 1 );
+		$response = JSON::encode_json( {
+			user     => ( $c ? $c->{influx}->{influxdbuser} : '' ) // '',
+			password => ( $c ? $c->{influx}->{influxdbpass} : '' ) // '',
+		} );
+	}
+}
+
+## influx_setpassword - sets a new password, or repairs a lost one
+if( $q->{action} eq "influx_setpassword" ) {
+	if( !s4l_secpin_ok( $q->{secpin} ) ) {
+		LOGWARN "influx_setpassword without a valid SecurePIN - refused";
+		$error = "SecurePIN required";
+	}
+	else {
+		my $pw = $q->{password} // '';
+		# Checked here as well as in the script: quotes and backslashes cannot
+		# survive InfluxQL and the shell in between, and a mangled password
+		# would lock the plugin out of its own database.
+		if( $pw ne '' and $pw =~ /['"\\\s]/ ) {
+			$error = "The password must not contain quotes, backslashes or spaces";
+		}
+		elsif( $pw ne '' and length($pw) < 8 ) {
+			$error = "The password must be at least 8 characters long";
+		}
+		else {
+			# Runs for a while - stopping and starting InfluxDB is part of the
+			# fallback route - so it goes into the background and the page polls
+			# the log. The status file is the same mechanism the backup uses.
+			my $arg = ( $pw eq '' ) ? "--generate" : "--password " . quotemeta($pw);
+			my $pid = fork();
+			if( !defined $pid ) {
+				$error = "Could not start the password change";
+			}
+			elsif( $pid == 0 ) {
+				open STDIN,  "< /dev/null";
+				open STDOUT, "> /dev/null";
+				open STDERR, "> /dev/null";
+				system( "sudo $lbpbindir/s4l_influxpass.pl set $arg" );
+				exit 0;
+			}
+			else {
+				$response = '{ "started": 1 }';
+			}
+		}
+	}
+}
+
+##
 ## Influx page
 ##
 ## Split into three requests on purpose. Measured on 134 measurements: the

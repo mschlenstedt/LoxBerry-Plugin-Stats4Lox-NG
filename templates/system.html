@@ -85,12 +85,71 @@
 		margin-right	:0;
 		box-sizing	:border-box;
 	}
+
+	/* SecurePIN gate, laid out like the LoxBerry MQTT widget so the dialog looks
+	   the same wherever it appears. */
+	#securepin_block .path
+	{
+		background	:#e6e6e6;
+		border		:1px solid #7e7e7e;
+		border-radius	:4px;
+		padding		:10px;
+	}
+	#securepin_block .hint { font-size:smaller; }
+	#securepin_block .warnbox
+	{
+		background	:#FF8080;
+		color		:#000000;
+		text-shadow	:none;
+		border		:1px solid #000000;
+		border-radius	:4px;
+		padding		:5px;
+		width		:300px;
+	}
+	/* The password and the two buttons next to each other */
+	.passwordrow
+	{
+		display		:flex;
+		flex-wrap	:wrap;
+		align-items	:center;
+		gap		:8px;
+	}
+	.passwordrow .ui-input-text { flex:1; min-width:180px; margin:0; }
 </style>
 
 <div class="datahidden" id="lang_sub_system_settings"><TMPL_VAR NAVBAR.SUB_SYSTEM_SETTINGS></div>
 <div class="datahidden" id="lang_sub_system_backup"><TMPL_VAR NAVBAR.SUB_SYSTEM_BACKUP></div>
 
 <!-- Language strings for JavaScript -->
+<div class="datahidden" id="lang_show_password"><TMPL_VAR INPUTSOUTPUTS.BUTTON_SHOW_PASSWORD></div>
+<div class="datahidden" id="lang_hide_password"><TMPL_VAR INPUTSOUTPUTS.BUTTON_HIDE_PASSWORD></div>
+<div class="datahidden" id="lang_password_changing"><TMPL_VAR INPUTSOUTPUTS.HINT_PASSWORD_CHANGING></div>
+<div class="datahidden" id="lang_password_changed"><TMPL_VAR INPUTSOUTPUTS.HINT_PASSWORD_CHANGED></div>
+<div class="datahidden" id="lang_password_fail"><TMPL_VAR INPUTSOUTPUTS.HINT_PASSWORD_FAIL></div>
+
+<!-- SecurePIN. The page shows nothing until the PIN has been confirmed, and the
+     endpoints that hand out or change the password check it again themselves -
+     hiding a form is presentation, not protection. -->
+<div id="securepin_block" style="display:none">
+	<center>
+	<div class="path" style="width:300px">
+		<p><center><TMPL_VAR SECUREPIN.ENTER_SECUREPIN></center></p>
+		<div style="margin:10px;display:flex;gap:8px;align-items:center">
+			<input name="securepin" id="securepin" type="password" placeholder="SecurePIN" onkeypress="return AddKeyPress(event, $('#check_securepin'));" style="flex:1;min-width:0">
+			<button class="ui-btn ui-btn-inline ui-mini ui-corner-all" id="check_securepin" data-role="none"><TMPL_VAR COMMON.BUTTON_OK></button>
+		</div>
+		<div class="hint" id="check_hint" style="padding:5px;">&nbsp;</div>
+	</div>
+	<br>
+	<div class="warnbox">
+		<p style="font-weight:bold;"><TMPL_VAR SECUREPIN.WARNING_TITLE></p>
+		<hr>
+		<p><TMPL_VAR SECUREPIN.PREVENT_SPY></p>
+	</div>
+	</center>
+</div>
+
+<div id="main_content" style="visibility:hidden">
 
 <form>
 <div class="ui-body ui-body-a ui-corner-all">
@@ -120,6 +179,44 @@
 
 	<div class="lb_flex-container">
 		<div class="buttonrow" id="hint_influx">&nbsp;</div>
+	</div>
+
+	<h2><TMPL_VAR INPUTSOUTPUTS.TITLE_INFLUX_CREDENTIALS></h2>
+
+	<div class="lb_flex-container s4lrow">
+		<div	class="lb_flex-item-label"><TMPL_VAR INPUTSOUTPUTS.LABEL_INFLUX_USER></div>
+		<div	class="lb_flex-item">
+			<span id="influxuser">&nbsp;</span>
+		</div>
+	</div>
+
+	<div class="lb_flex-container s4lrow credentials">
+		<div	class="lb_flex-item-label"><TMPL_VAR INPUTSOUTPUTS.LABEL_INFLUX_PASSWORD></div>
+		<div	class="lb_flex-item">
+			<div class="passwordrow">
+				<input type="password" name="influxpass" id="influxpass" data-mini="true" value="" autocomplete="off">
+				<a href="javascript:togglePassword();" id="btntogglepassword" class="ui-btn ui-btn-inline ui-mini ui-corner-all"><TMPL_VAR INPUTSOUTPUTS.BUTTON_SHOW_PASSWORD></a>
+			</div>
+			<div class="hint small"><TMPL_VAR INPUTSOUTPUTS.HINT_PASSWORD_RULES></div>
+		</div>
+		<div	class="lb_flex-item-help hint">
+		<TMPL_VAR INPUTSOUTPUTS.HINT_INFLUX_PASSWORD>
+		</div>
+	</div>
+
+	<div style="padding: 0px 0px 20px 0px;"></div>
+
+	<div class="lb_flex-container credentials">
+		<div	class="buttonrow">
+			<a href="javascript:changePassword(false);" id="btnchangepassword" class="ui-btn ui-corner-all ui-shadow ui-btn-b ui-btn-icon-left ui-icon-check ui-btn-inline"
+				data-inline="true"><TMPL_VAR INPUTSOUTPUTS.BUTTON_CHANGE_PASSWORD></a>
+			<a href="javascript:changePassword(true);" id="btngeneratepassword" class="ui-btn ui-corner-all ui-shadow ui-btn-icon-left ui-icon-refresh ui-btn-inline"
+				data-inline="true"><TMPL_VAR INPUTSOUTPUTS.BUTTON_GENERATE_PASSWORD></a>
+		</div>
+	</div>
+
+	<div class="lb_flex-container">
+		<div class="buttonrow" id="hint_credentials">&nbsp;</div>
 	</div>
 
 	<h2><TMPL_VAR INPUTSOUTPUTS.TITLE_SERVICELOG></h2>
@@ -159,6 +256,8 @@
 	<div class="chstatus" id="ch_status">&nbsp;</div>
 </div>
 
+</div><!-- main_content -->
+
 <script>
 // globals
 var chstatusorig;
@@ -168,7 +267,155 @@ var interval;
 // Validation
 validate_enable('#GrafanaPort');
 
-getconfig();
+// getconfig() is NOT called here any more - nothing is fetched before the
+// SecurePIN has been confirmed, see checkSecurePIN().
+
+// --- SecurePIN ------------------------------------------------------------
+//
+// Same flow as the LoxBerry MQTT widget: the PIN is kept in sessionStorage, so
+// moving between the tabs of this plugin does not ask again, while a new browser
+// session does. The endpoints that hand out or change the password verify the
+// PIN themselves - what happens here only decides what is shown.
+$(function() {
+	$("#check_securepin").click(function() {
+		checkSecurePIN();
+		return false;
+	});
+	$('#securepin').val( sessionStorage.getItem("securePIN") );
+	if( $('#securepin').val() ) {
+		$('#check_securepin').trigger("click");
+	} else {
+		$("#securepin_block").fadeIn();
+	}
+});
+
+function checkSecurePIN() {
+	$("#check_securepin").attr("disabled", true);
+	$("#check_hint").attr("style", "color:blue;").html("<TMPL_VAR SECUREPIN.CHECK_WAIT>");
+	$.ajax({
+		type: 'POST',
+		data: { action: 'checksecpin', secpin: $('#securepin').val() }
+	})
+	.fail(function(data) {
+		$("#securepin_block").fadeIn();
+		$("#check_hint").attr("style", "color:red").html("<TMPL_VAR SECUREPIN.ERROR_GENERIC>: " + data.statusText);
+	})
+	.done(function(data) {
+		if( data.error && data.error != 0 ) {
+			var msg = "<TMPL_VAR SECUREPIN.ERROR_WRONG>";
+			if( data.error == 2 ) msg = "<TMPL_VAR SECUREPIN.ERROR_OPEN>";
+			if( data.error == 3 ) msg = "<TMPL_VAR SECUREPIN.ERROR_LOCKED>";
+			$("#securepin_block").fadeIn();
+			$("#check_hint").attr("style", "color:red").html(msg);
+			return;
+		}
+		sessionStorage.setItem("securePIN", $('#securepin').val());
+		$("#securepin_block").fadeOut();
+		$("#main_content").css('visibility', 'visible');
+		// Only now is anything loaded.
+		getconfig();
+		getCredentials();
+	})
+	.always(function() {
+		$("#check_securepin").attr("disabled", false);
+	});
+}
+
+function AddKeyPress(event, submitobj) {
+	event = event || window.event;
+	if( event.keyCode == 13 ) {
+		submitobj.click();
+		return false;
+	}
+	return true;
+}
+
+// --- InfluxDB credentials (issue #45) -------------------------------------
+
+var currentPassword = "";
+
+function getCredentials() {
+	$.post( "ajax.cgi", { action: 'influx_getcred', secpin: sessionStorage.getItem("securePIN") } )
+	.fail( function( data ) { console.log( "influx_getcred failed", data ); } )
+	.done( function( data ) {
+		if( !data || data.error ) { console.log( "influx_getcred", data ); return; }
+		$('#influxuser').text( data.user );
+		currentPassword = data.password;
+		$('#influxpass').val( data.password );
+		try { $('#influxpass').textinput("refresh"); } catch(e) {}
+	} );
+}
+
+function togglePassword() {
+	var f = $('#influxpass');
+	if( f.attr("type") == "password" ) {
+		f.attr("type", "text");
+		$('#btntogglepassword').text( $('#lang_hide_password').text() );
+	} else {
+		f.attr("type", "password");
+		$('#btntogglepassword').text( $('#lang_show_password').text() );
+	}
+}
+
+// The change runs in the background - the fallback route stops and starts
+// InfluxDB, which takes a while. Rather than inventing a status channel, the
+// page polls the credentials until the stored password differs from the one it
+// started with: that is the proof the change went through, not just that some
+// script reported success.
+function changePassword( generate ) {
+	var pw = generate ? "" : $('#influxpass').val();
+	if( !generate ) {
+		if( pw.length < 8 || /['"\\\s]/.test(pw) ) {
+			$("#hint_credentials").attr("style","color:red").html( $('#lang_password_fail').text() );
+			return;
+		}
+		if( pw == currentPassword ) return;
+	}
+
+	$(".credentials").addClass('ui-disabled');
+	$("#hint_credentials").attr("style","color:blue").html( $('#lang_password_changing').text() );
+
+	$.post( "ajax.cgi", {
+		action: 'influx_setpassword',
+		secpin: sessionStorage.getItem("securePIN"),
+		password: pw
+	} )
+	.fail( function( data ) {
+		console.log( "influx_setpassword failed", data );
+		$("#hint_credentials").attr("style","color:red").html( $('#lang_password_fail').text() );
+		$(".credentials").removeClass('ui-disabled');
+	} )
+	.done( function( data ) {
+		if( !data || data.error ) {
+			$("#hint_credentials").attr("style","color:red").html( data && data.error ? data.error : $('#lang_password_fail').text() );
+			$(".credentials").removeClass('ui-disabled');
+			return;
+		}
+		var before = currentPassword;
+		var tries = 0;
+		var poll = window.setInterval( function() {
+			tries++;
+			$.post( "ajax.cgi", { action: 'influx_getcred', secpin: sessionStorage.getItem("securePIN") } )
+			.done( function( d ) {
+				if( d && d.password && d.password != before ) {
+					window.clearInterval( poll );
+					currentPassword = d.password;
+					$('#influxpass').val( d.password );
+					try { $('#influxpass').textinput("refresh"); } catch(e) {}
+					$("#hint_credentials").attr("style","color:green").html( $('#lang_password_changed').text() );
+					$(".credentials").removeClass('ui-disabled');
+				}
+			} );
+			// 90 seconds: the fallback route restarts InfluxDB twice, which on a
+			// Raspberry is not quick.
+			if( tries > 45 ) {
+				window.clearInterval( poll );
+				$("#hint_credentials").attr("style","color:red").html( $('#lang_password_fail').text() );
+				$(".credentials").removeClass('ui-disabled');
+			}
+		}, 2000 );
+	} );
+}
 
 
 // Save Settings: Output Influx

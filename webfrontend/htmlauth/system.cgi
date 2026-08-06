@@ -5,9 +5,30 @@ use LoxBerry::System;
 use LoxBerry::Web;
 use LoxBerry::Storage;
 use LoxBerry::JSON;
+use CGI;
+use JSON;
 use FindBin qw($Bin);
 use lib "$Bin/../../../../bin/plugins/stats4lox/libs/";
 use Globals;
+
+# SecurePIN check, answered before anything else is printed.
+#
+# Built the same way as the LoxBerry MQTT widget (webfrontend/htmlauth/system/
+# mqtt.cgi): the page arrives with its content hidden, asks for the PIN, and
+# only fetches the actual data once check_securepin() has confirmed it. The
+# return values come straight from the core function - 1 wrong, 3 locked after
+# too many attempts, undef correct.
+#
+# This page needs the protection because it shows the InfluxDB password. Note
+# that hiding the form would not be enough on its own: the endpoints in ajax.cgi
+# that hand out and change the password check the PIN again themselves.
+my $cgi = CGI->new;
+if( $cgi->param("action") and $cgi->param("action") eq "checksecpin" ) {
+	my $checkres = LoxBerry::System::check_securepin( $cgi->param("secpin") );
+	print $cgi->header('application/json');
+	print JSON::to_json( { error => int( $checkres // 0 ) } );
+	exit;
+}
 
 our $htmlhead="";
 $htmlhead .= '<script type="application/javascript" src="js/system_sub_navbar.js"></script>';
