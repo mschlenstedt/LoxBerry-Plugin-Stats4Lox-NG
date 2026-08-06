@@ -135,6 +135,26 @@ if( $q->{action} eq "getloxplan" ) {
 						$error = "Miniserver $msno: Could not parse the uploaded Loxone configuration.";
 					}
 				}
+
+				# Does the upload belong to this Miniserver at all?
+				#
+				# Nothing forces a user to pick the right file. If the LoxPLAN of
+				# a different Miniserver is uploaded, the serial/host matching
+				# finds nothing, every block ends up without an msno, and the
+				# overview is simply empty - with no hint as to why. In automatic
+				# mode this cannot happen, the file comes from that Miniserver.
+				if( !$error and -e $loxplanjson ) {
+					my $match = 0;
+					eval {
+						my $j = decode_json( LoxBerry::System::read_file($loxplanjson) );
+						$match = grep { defined $_->{msno} and $_->{msno} eq $msno }
+						         values %{ $j->{miniservers} // {} };
+					};
+					if( !$match ) {
+						$error = "Miniserver $msno: The uploaded Loxone configuration belongs to a different Miniserver.";
+						LOGCRIT $error;
+					}
+				}
 			}
 
 		}
@@ -195,6 +215,14 @@ if( $q->{action} eq "getloxplan" ) {
 			}
 		}
 
+		} # end of automatic mode
+
+		# Both modes answer with the parsed configuration.
+		#
+		# This used to sit inside the automatic branch. The manual mode parsed
+		# the uploaded file correctly but left $response unset, so this CGI fell
+		# through to the "action unknown" case and answered HTTP 501 - the web
+		# interface reported a failure although everything had worked.
 		if( !$error ) {
 			if( -e $loxplanjson ) {
 				$response = LoxBerry::System::read_file($loxplanjson);
@@ -202,8 +230,6 @@ if( $q->{action} eq "getloxplan" ) {
 				$error = "Miniserver $msno: Could not fetch the Loxone configuration.";
 			}
 		}
-
-		} # end of automatic mode
 
 	}
 
