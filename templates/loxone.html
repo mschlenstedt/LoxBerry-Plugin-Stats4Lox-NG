@@ -711,14 +711,6 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 							<TMPL_VAR SETTINGS.HINT_IMPORT_BUTTON>
 						</p>
 
-						<!-- Only for status blocks (issue #20). The Miniserver sends
-						     the text of the active state, never the value of the Val
-						     output, so the state is worked out by comparing that text
-						     against the configured ones - which only works if they
-						     differ from each other. -->
-						<div class="warnbox small" id="LoxoneDetails_statehint" style="display:none;">
-							<TMPL_VAR SETTINGS.HINT_STATE_UNIQUE_TEXTS>
-						</div>
 						
 						<a href="#" class="ui-btn ui-btn-inline ui-mini ui-disabled" id="LoxoneDetails_s4lstatimportbutton"><TMPL_VAR SETTINGS.BUTTON_IMPORT_NOW></a>
 						
@@ -792,6 +784,15 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 					<td>&nbsp;</td>
 				</tr>
 			</table>
+
+			<!-- Only for status blocks (issue #20), directly under the values it is
+			     about. The Miniserver sends the text of the active state and nothing
+			     else, so the state - and with it Val - is worked out by comparing
+			     that text against the configured ones. That only works when they
+			     differ from each other. -->
+			<div class="warnbox small" id="LoxoneDetails_statehint" style="display:none;">
+				<TMPL_VAR SETTINGS.HINT_STATE_UNIQUE_TEXTS>
+			</div>
 		</div>
 	</div>
 </div>

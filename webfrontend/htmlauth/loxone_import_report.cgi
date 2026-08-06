@@ -9,8 +9,8 @@ use lib "$Bin/../../../../bin/plugins/stats4lox/libs/";
 use Globals;
 
 our $htmlhead="";
-$htmlhead .= '<script type="application/javascript" src="js/loxone_sub_navbar.js"></script>';
-$htmlhead .= '<script type="application/javascript" src="js/loxone_import_report.js"></script>';
+$htmlhead .= js_tag( $Bin, 'loxone_sub_navbar.js' );
+$htmlhead .= js_tag( $Bin, 'loxone_import_report.js' );
 
 $main::navbar{10}{active} = 1;
 

@@ -31,7 +31,7 @@ if( $cgi->param("action") and $cgi->param("action") eq "checksecpin" ) {
 }
 
 our $htmlhead="";
-$htmlhead .= '<script type="application/javascript" src="js/system_sub_navbar.js"></script>';
+$htmlhead .= js_tag( $Bin, 'system_sub_navbar.js' );
 
 init_navbar_i18n();
 LoxBerry::Web::lbheader("Stats4Lox", undef, undef);

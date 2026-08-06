@@ -68,7 +68,26 @@ our @EXPORT = qw (
 	whoami
 	merge_config
 	init_navbar_i18n
+	js_tag
 );
+
+#####################################################
+# Script tag for one of the plugin's own js files
+#####################################################
+# With a plain <script src="js/loxone.js"> the browser keeps the copy it already
+# has. Nothing in the plugin tells it otherwise, so after an update the page runs
+# old JavaScript against a new backend - and the only symptom is that a change
+# "does not work". The file's mtime as a query string is enough: it changes
+# exactly when the file does, and never otherwise, so the cache still does its
+# job.
+#####################################################
+
+sub js_tag
+{
+	my ($dir, $file) = @_;
+	my $v = ( stat("$dir/js/$file") )[9] || 0;
+	return '<script type="application/javascript" src="js/' . $file . '?v=' . $v . '"></script>';
+}
 
 # Internal variable, if merge_config was already called
 my $config_is_parsed;

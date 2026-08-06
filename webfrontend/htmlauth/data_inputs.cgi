@@ -10,8 +10,8 @@ use Globals;
 
 our $htmlhead="";
 $htmlhead = '<script type="application/javascript" src="js/vue.global.js"></script>';
-$htmlhead .= '<script type="application/javascript" src="js/datasources_sub_navbar.js"></script>';
-$htmlhead .= '<script type="application/javascript" src="js/data_inputs.js"></script>';
+$htmlhead .= js_tag( $Bin, 'datasources_sub_navbar.js' );
+$htmlhead .= js_tag( $Bin, 'data_inputs.js' );
 $main::navbar{20}{active} = 1;
 
 init_navbar_i18n();

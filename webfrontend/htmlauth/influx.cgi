@@ -8,6 +8,11 @@ use FindBin qw($Bin);
 use lib "$Bin/../../../../bin/plugins/stats4lox/libs/";
 use Globals;
 
+# Moved out of influx.html: a template cannot ask for the file's mtime, and
+# without that the browser keeps running the JavaScript it already has.
+our $htmlhead = "";
+$htmlhead .= js_tag( $Bin, 'influx.js' );
+
 init_navbar_i18n();
 LoxBerry::Web::lbheader("Stats4Lox", undef, undef);
 
