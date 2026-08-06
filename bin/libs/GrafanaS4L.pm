@@ -18,7 +18,32 @@ package GrafanaS4L;
 sub provisionDashboard {
 	require Grafana;
 	my $element = shift;
-	
+
+	# Outputs without the key/label mapping cannot become panels, and this has to
+	# be caught BEFORE anything is deleted.
+	#
+	# The panel titles come from outputlabels, looked up by outputkeys. Without
+	# them the loop below built nothing, but deletePanelFromDashboard had already
+	# removed the existing panels - and then line "@outputkeys_labels{...}" died on
+	# the undefined array reference, so stats.json was never written back either.
+	# Result: the panels were gone from the dashboard, the configuration still
+	# claimed they existed, and the caller answered with a webserver error page.
+	# Reachable from ajax.cgi/updatestat, which only sets outputkeys and
+	# outputlabels when its parameters are not empty.
+	#
+	# An element with no outputs at all is a different matter: there the panels
+	# SHOULD go and none be created, so that case passes through.
+	if( ref($element->{outputs}) eq 'ARRAY' and @{$element->{outputs}} ) {
+		if(    ref($element->{outputkeys})   ne 'ARRAY'
+		    or ref($element->{outputlabels}) ne 'ARRAY'
+		    or !@{$element->{outputkeys}}
+		    or scalar @{$element->{outputkeys}} != scalar @{$element->{outputlabels}} ) {
+			print STDERR "provisionDashboard: " . ( $element->{name} // '?' )
+			           . " has outputs but no usable outputkeys/outputlabels - dashboard left untouched\n";
+			return undef;
+		}
+	}
+
 	### Update the dashboard
 	my $dashboard = DashboardFromTemplate Grafana( 
 		"$Globals::grafana->{s4l_provisioning_dir}/dashboards/defaultDashboard.json",
@@ -54,8 +79,10 @@ sub provisionDashboard {
 	# Now, we recreate the panels from selected outputs and known lables, with known panel id's
 	
 	my %outputkeys_labels;
-	
-	@outputkeys_labels{ @{$element->{outputkeys}} } = @{$element->{outputlabels}};
+
+	if( ref($element->{outputkeys}) eq 'ARRAY' and ref($element->{outputlabels}) eq 'ARRAY' ) {
+		@outputkeys_labels{ @{$element->{outputkeys}} } = @{$element->{outputlabels}};
+	}
 	
 	# my $panel_id = $panelcount;
 	

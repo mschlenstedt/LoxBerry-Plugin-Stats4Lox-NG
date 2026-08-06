@@ -41,17 +41,20 @@ if ( ! is_enabled($pcfg->{loxone}->{active}) ) {
 # Stats Configuration
 #
 # locktimeout matters here. 'readonly' only changes the open mode, the file is
-# locked shared either way - and without a timeout that lock is taken
-# blocking. update_dashboards.pl holds stats.json exclusively for the whole of
-# its run while it rebuilds a panel for every statistic, and Telegraf drops
-# this cycle after 45 seconds. Measured with a lock held for 20 seconds, the
-# cycle grew from 13.7 to 33.7 seconds.
+# locked shared either way - and without a timeout that lock is taken blocking,
+# while Telegraf drops this cycle after 45 seconds. Measured with a lock held for
+# 20 seconds, the cycle grew from 13.7 to 33.7 seconds.
 #
-# With a timeout the module asks non-blocking and gives up, returning undef.
-# Two seconds are enough: they cover the brief writes of the web interface,
-# while a dashboard rebuild takes far longer than any wait worth making - and
-# the copy below is just as good. The retry inside the module is a busy loop,
-# which is another reason not to wait long.
+# This used to name update_dashboards.pl as the writer to fear, which was wrong:
+# nothing starts that script - no service, no cron, no caller - and its lock file
+# has never even been created. The writers that do exist are the handlers of the
+# web interface, and the longest of them was measured at 0.06 s.
+#
+# The timeout stays anyway. It costs nothing, and the alternative is a grabber
+# cycle that can be stretched without limit by whoever holds the file. With it the
+# module asks non-blocking and gives up, returning undef; two seconds cover the
+# brief writes of the web interface, and the copy below is just as good. The retry
+# inside the module is a busy loop, which is another reason not to wait long.
 my $jsonobjcfg = LoxBerry::JSON->new();
 my $cfgfile = $lbpconfigdir . "/stats.json";
 my $cachefile = "/dev/shm/stats4lox_cfgcache_loxonegrabber.json";

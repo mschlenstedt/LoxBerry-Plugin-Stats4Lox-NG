@@ -405,8 +405,15 @@ if( $q->{action} eq "getstatsconfig" ) {
 if( $q->{action} eq "updatestat" ) {
 	require LoxBerry::JSON;
 	my $jsonobjcfg = LoxBerry::JSON->new();
-	my $cfg = $jsonobjcfg->open(filename => $statsconfig, lockexclusive => 1);
-	my @searchresult = $jsonobjcfg->find( $cfg->{loxone}, "\$_->{uuid} eq \"".$q->{uuid}."\"" );
+	# locktimeout, because without one the lock is taken blocking and this is a
+	# CGI: a request would wait for as long as anything else holds the file, with
+	# nothing to show the user. Ten seconds is far more than any writer here needs -
+	# the slow part of this handler, provisioning the dashboard, was measured at
+	# 0.06 s for a block with three outputs.
+	my $cfg = $jsonobjcfg->open(filename => $statsconfig, lockexclusive => 1, locktimeout => 10);
+	my @searchresult = ( $cfg and ref($cfg->{loxone}) eq 'ARRAY' )
+		? $jsonobjcfg->find( $cfg->{loxone}, "\$_->{uuid} eq \"".$q->{uuid}."\"" )
+		: ();
 	my $elemKey = $searchresult[0];
 	my $element = $cfg->{loxone}[$elemKey] if( defined $elemKey );
 	
@@ -465,6 +472,12 @@ if( $q->{action} eq "updatestat" ) {
 	
 	# Validation
 	my @errors;
+	push @errors, "stats.json could not be opened or locked" if( !$cfg or ref($cfg->{loxone}) ne 'ARRAY' );
+	# Outputs are useless without the labels to title their panels by, and
+	# provisionDashboard would have deleted the existing panels before finding that
+	# out. Rejected here so the caller gets an answer instead of an error page.
+	push @errors, "outputs given without matching outputkeys and outputlabels"
+		if( @outputs and ( !@outputkeys or scalar @outputkeys != scalar @outputlabels ) );
 	push @errors, "name must be defined" if( ! $updatedelement{name} );
 	push @errors, "uuid must be defined" if( ! $updatedelement{uuid} );
 	push @errors, "msno must be defined" if( ! $updatedelement{msno} );
@@ -477,14 +490,18 @@ if( $q->{action} eq "updatestat" ) {
 	}
 	
 	
-	# Insert/Update element in stats array
-	if( defined $elemKey ) {
-		# This is an update of an existing element
-		$cfg->{loxone}[$elemKey] = \%updatedelement;
-	} 
-	else {
-		# Add a new entry to stats.json
-		push @{$cfg->{loxone}}, \%updatedelement;
+	# Insert/Update element in stats array. Only touched when the file is actually
+	# there - a failed lock left $cfg undef, and writing into that would have died
+	# in the middle of the response.
+	if( ! @errors ) {
+		if( defined $elemKey ) {
+			# This is an update of an existing element
+			$cfg->{loxone}[$elemKey] = \%updatedelement;
+		}
+		else {
+			# Add a new entry to stats.json
+			push @{$cfg->{loxone}}, \%updatedelement;
+		}
 	}
 	
 	if( ! @errors ) {
@@ -1506,11 +1523,17 @@ if( $q->{action} eq "update_mqttsubscriptions" ) {
 	# LOGDEB Dumper(\$subscriptions);
 	require LoxBerry::JSON;
 	my $jsonobjcfg = LoxBerry::JSON->new();
-	my $cfg = $jsonobjcfg->open(filename => $statsconfig, lockexclusive => 1);
-	$cfg->{mqtt}->{subscriptions} = $subscriptions;
-	$jsonobjcfg->write();
-	
-	$response = '{ }';
+	# Same reason as in updatestat: without a locktimeout the lock is taken
+	# blocking, and a CGI that waits without end shows the user nothing at all.
+	my $cfg = $jsonobjcfg->open(filename => $statsconfig, lockexclusive => 1, locktimeout => 10);
+	if( !$cfg ) {
+		$error = "Could not open stats.json";
+	}
+	else {
+		$cfg->{mqtt}->{subscriptions} = $subscriptions;
+		$jsonobjcfg->write();
+		$response = '{ }';
+	}
 
 
 }
