@@ -104,7 +104,8 @@
 		border		:1px solid #000000;
 		border-radius	:4px;
 		padding		:5px;
-		width		:300px;
+		width		:420px;
+		max-width	:90%;
 	}
 	/* The password field and the reveal button next to each other */
 	.passwordrow
@@ -196,11 +197,15 @@
      hiding a form is presentation, not protection. -->
 <div id="securepin_block" style="display:none">
 	<center>
-	<div class="path" style="width:300px">
+	<!-- Input and button on separate lines. Side by side in a flex row the
+	     button was squeezed by the input until only "O..." of "OK" was left. -->
+	<div class="path" style="width:420px;max-width:90%">
 		<p><center><TMPL_VAR SECUREPIN.ENTER_SECUREPIN></center></p>
-		<div style="margin:10px;display:flex;gap:8px;align-items:center">
-			<input name="securepin" id="securepin" type="password" placeholder="SecurePIN" onkeypress="return AddKeyPress(event, $('#check_securepin'));" style="flex:1;min-width:0">
-			<button class="ui-btn ui-btn-inline ui-mini ui-corner-all" id="check_securepin" data-role="none"><TMPL_VAR COMMON.BUTTON_OK></button>
+		<div style="margin:10px 0;">
+			<input name="securepin" id="securepin" type="password" placeholder="SecurePIN" onkeypress="return AddKeyPress(event, $('#check_securepin'));" style="width:100%;box-sizing:border-box">
+		</div>
+		<div style="margin:10px 0;text-align:center;">
+			<button class="ui-btn ui-btn-b ui-btn-inline ui-corner-all" id="check_securepin" data-role="none" style="min-width:120px"><TMPL_VAR COMMON.BUTTON_OK></button>
 		</div>
 		<div class="hint" id="check_hint" style="padding:5px;">&nbsp;</div>
 	</div>
