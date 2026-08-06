@@ -14,11 +14,10 @@
 # is the one that counts. That is why setstatus() below keeps the minimum.
 #
 # THE ANSWER STAYS SHORT. One clause per area with its verdict, nothing more -
-# this text is shown in the widget AND sent by mail, and the longest check in the
-# core (MQTT) fits in three lines. Everything with names, lists and numbers goes
-# into the logfile, and the answer ends with an absolute link to it. Absolute
-# because of the mail: a relative path is useless there, so host and port come
-# from the LoxBerry library, the same way GrafanaS4L builds the dashboard link.
+# this text is shown in the widget AND goes into the mail through errorstrings, and
+# the longest check in the core (MQTT) fits in three lines. Everything with names,
+# lists and numbers goes into a logfile, linked at the end - see the note at the
+# bottom for how, because a plugin cannot use the core's own logfile field.
 #
 # Runs from cron.daily with up to six hours of random offset, and 60 seconds
 # after every reboot; the web interface can ask for a live run. So it has to be
@@ -526,24 +525,6 @@ if( $influx_ok and $statsjson and ref($statsjson->{loxone}) eq 'ARRAY' ) {
 
 setstatus(6) if( !defined $response{status} );
 
-# Absolute URL, because this text also goes out by mail where a relative path is
-# worthless. Host and port from the library, same as the dashboard link in
-# GrafanaS4L. lbhostname can be empty, then the IP has to do, and port 80 is left
-# off because it only makes the link longer.
-#
-# The logfile parameter is given relative to the log directory: logfile.cgi strips
-# $lbhomedir/log from the front anyway and then looks it up under that directory, so
-# the short form does the same job as the escaped absolute path - and keeps the link
-# readable in a mail. Both were checked and answer HTTP 200 with the content.
-my $host = LoxBerry::System::lbhostname();
-$host = LoxBerry::System::get_localip() if( !$host );
-my $port = LoxBerry::System::lbwebserverport();
-my $rel  = $logfile;
-$rel =~ s{^\Q$LoxBerry::System::lbhomedir\E/log/}{};
-my $logurl = "http://$host" . ( ( $port and $port != 80 ) ? ":$port" : "" )
-           . "/admin/system/tools/logfile.cgi?logfile=" . uri_escape($rel)
-           . "&header=html&format=template";
-
 if( open( my $fh, '>:encoding(UTF-8)', $logfile ) ) {
 	print {$fh} "Stats4Lox healthcheck\n";
 	print {$fh} scalar(localtime) . "\n";
@@ -555,6 +536,39 @@ if( open( my $fh, '>:encoding(UTF-8)', $logfile ) ) {
 	close $fh;
 }
 
-$response{result} = join( " ", map { "$_." } @summary ) . " Details: $logurl";
+# The link to the logfile, as an anchor inside the result.
+#
+# The core's own "logfile" and "url" fields are not available to a plugin:
+# exec_plugincheck copies exactly desc, status and result out of our answer and
+# drops everything else. So the link has to travel inside the text - and it can,
+# because healthcheck.html inserts the result with .html(), not .text():
+#
+#   $("#"+rowname+"result").html(element.result);
+#
+# which is why a bare URL came out as unclickable text and an anchor does not.
+#
+# Absolute, because the same text goes into the notification: healthcheck.pl puts
+# the result of every failing check into errorstrings, and there a relative path is
+# worthless. Host and port come from the library, the way GrafanaS4L builds the
+# dashboard link; lbhostname can be empty, then the IP has to do, and port 80 is
+# left off because it only makes the link longer.
+#
+# The logfile parameter is relative to the log directory. logfile.cgi strips
+# $lbhomedir/log from the front anyway and then looks the name up underneath, so the
+# short form does the same job as an escaped absolute path and keeps the link
+# readable where it appears as raw text. Both were tried: HTTP 200 with the content
+# either way.
+my $host = LoxBerry::System::lbhostname();
+$host = LoxBerry::System::get_localip() if( !$host );
+my $port = LoxBerry::System::lbwebserverport();
+my $rel  = $logfile;
+$rel =~ s{^\Q$LoxBerry::System::lbhomedir\E/log/}{};
+my $logurl = "http://$host" . ( ( $port and $port != 80 ) ? ":$port" : "" )
+           . "/admin/system/tools/logfile.cgi?logfile=" . uri_escape($rel)
+           . "&amp;header=html&amp;format=template";
+
+$response{result} = join( " ", map { "$_." } @summary )
+                  . qq{ <a href="$logurl" target="_blank">Logfile</a>};
+
 print encode_json( \%response );
 exit 0;
