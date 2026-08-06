@@ -63,6 +63,28 @@ LOGSTART "InfluxDB password: $command";
 my $CONF = "$LoxBerry::System::lbpconfigdir/influxdb/influxdb.conf";
 my $ENVFILE = "$LoxBerry::System::lbpconfigdir/telegraf/telegraf.env";
 
+# Progress for the web interface, written the same way the backup does it: the
+# page cannot watch a background process, so it reads this file. It lives in the
+# ramdisk, so writing it every step costs nothing.
+my $STATUSFILE = ( $Globals::stats4lox->{s4ltmp} // '/dev/shm/s4ltmp' ) . "/influxpass-status.json";
+
+sub status
+{
+	my (%p) = @_;
+	eval {
+		require File::Path;
+		require JSON;
+		my $dir = $STATUSFILE;
+		$dir =~ s{/[^/]+$}{};
+		File::Path::make_path($dir) if( ! -d $dir );
+		open( my $fh, '>', $STATUSFILE ) or die;
+		print {$fh} JSON::encode_json( { %p, time => time() } );
+		close $fh;
+		chown( scalar getpwnam('loxberry'), scalar getgrnam('loxberry'), $STATUSFILE );
+	};
+	return;
+}
+
 # Set as soon as authentication has been turned off, cleared once it is back.
 # The END block uses it, so a crash cannot leave the database open.
 our $AUTH_IS_OFF = 0;
@@ -208,6 +230,7 @@ sub update_telegraf_env
 
 sub refresh_consumers
 {
+	status( running => 1, message => "Restarting Telegraf, Grafana and MQTT Live" );
 	LOGINF "Handing the new password to the other services";
 
 	# Grafana: the password sits in the provisioned datasource. The script
@@ -234,6 +257,7 @@ sub refresh_consumers
 sub set_with_auth
 {
 	my ($user, $new) = @_;
+	status( running => 1, message => "Setting the new password" );
 	LOGINF "Trying to change the password with the stored credentials";
 	my ($rc, $out) = influx_auth( "SET PASSWORD FOR \"$user\" = '$new'" );
 	if( $rc != 0 or $out =~ /error/i ) {
@@ -248,6 +272,7 @@ sub set_without_auth
 {
 	my ($user, $new) = @_;
 
+	status( running => 1, message => "Stored password does not work - restarting the database without authentication" );
 	LOGWARN "Falling back to the route without authentication - the stored password does not work.";
 	LOGWARN "InfluxDB is briefly reachable on localhost without a password.";
 
@@ -285,6 +310,7 @@ sub set_without_auth
 
 sub cmd_set
 {
+	status( running => 1, message => "Preparing" );
 	my ($obj, $c) = cred();
 	if( !$c ) { LOGERR "Cannot read cred.json"; return 1 }
 	my $user = $c->{influx}->{influxdbuser} // 'stats4lox';
@@ -315,15 +341,18 @@ sub cmd_set
 	$ok = set_without_auth( $user, $new ) if( !$ok );
 
 	if( !$ok ) {
+		status( running => 0, errors => 1, message => "The password was not changed" );
 		LOGERR "The password was not changed";
 		return 1;
 	}
 
+	status( running => 1, message => "Storing the new password" );
 	update_credfile( $user, $new );
 
 	# Proof rather than assumption: the new password has to work now.
 	if( password_works() ) { LOGOK "The new password works" }
 	else {
+		status( running => 0, errors => 1, message => "The new password does not work" );
 		LOGERR "The new password does not work - something is wrong";
 		return 1;
 	}
@@ -331,6 +360,7 @@ sub cmd_set
 	update_telegraf_env( $user, $new );
 	refresh_consumers();
 
+	status( running => 0, errors => 0, message => "Password changed" );
 	LOGOK "Password change finished";
 	return 0;
 }

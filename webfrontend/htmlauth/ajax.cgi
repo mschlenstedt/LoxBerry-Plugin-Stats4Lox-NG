@@ -766,6 +766,13 @@ if( $q->{action} eq "influx_getcred" ) {
 	}
 }
 
+## influx_passstatus - progress of a running password change
+if( $q->{action} eq "influx_passstatus" ) {
+	my $statfile = $Globals::stats4lox->{s4ltmp} . "/influxpass-status.json";
+	$response = ( -e $statfile ) ? LoxBerry::System::read_file($statfile) : undef;
+	$response = '{ }' if( !$response );
+}
+
 ## influx_setpassword - sets a new password, or repairs a lost one
 if( $q->{action} eq "influx_setpassword" ) {
 	if( !s4l_secpin_ok( $q->{secpin} ) ) {
@@ -786,7 +793,17 @@ if( $q->{action} eq "influx_setpassword" ) {
 		else {
 			# Runs for a while - stopping and starting InfluxDB is part of the
 			# fallback route - so it goes into the background and the page polls
-			# the log. The status file is the same mechanism the backup uses.
+			# the status file, the same mechanism the backup uses.
+			#
+			# Marked as running before forking: between the click and the first
+			# line the script writes there is a gap, and in it the file would
+			# still say "finished" from the previous run.
+			my $statfile = $Globals::stats4lox->{s4ltmp} . "/influxpass-status.json";
+			if( open( my $sfh, '>', $statfile ) ) {
+				print {$sfh} '{"running":1,"message":"","time":' . time() . '}';
+				close $sfh;
+			}
+
 			my $arg = ( $pw eq '' ) ? "--generate" : "--password " . quotemeta($pw);
 			my $pid = fork();
 			if( !defined $pid ) {

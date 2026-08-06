@@ -180,6 +180,34 @@
 		transform	:rotate(-35deg);
 		z-index		:1;
 	}
+
+	/* Dice for "suggest a random password": a square with the five pips of a
+	   die, all five drawn with box-shadow from one element. */
+	.s4l-tbtn-dice::before
+	{
+		content		:"";
+		position	:absolute;
+		left		:4px;
+		top		:4px;
+		width		:16px;
+		height		:16px;
+		border		:2px solid #3a3a3a;
+		border-radius	:3px;
+		box-sizing	:border-box;
+	}
+	.s4l-tbtn-dice::after
+	{
+		content		:"";
+		position	:absolute;
+		left		:11px;
+		top		:11px;
+		width		:2px;
+		height		:2px;
+		border-radius	:50%;
+		background	:#3a3a3a;
+		box-shadow	:-4px -4px 0 0 #3a3a3a, 4px -4px 0 0 #3a3a3a,
+				 -4px  4px 0 0 #3a3a3a, 4px  4px 0 0 #3a3a3a;
+	}
 </style>
 
 <div class="datahidden" id="lang_sub_system_settings"><TMPL_VAR NAVBAR.SUB_SYSTEM_SETTINGS></div>
@@ -266,6 +294,11 @@
 				<input type="password" name="influxpass" id="influxpass" data-mini="true" value="" autocomplete="off">
 				<a href="javascript:togglePassword();" id="btntogglepassword" class="s4l-tbtn s4l-tbtn-eye"
 					title="<TMPL_VAR INPUTSOUTPUTS.BUTTON_SHOW_PASSWORD>" aria-label="<TMPL_VAR INPUTSOUTPUTS.BUTTON_SHOW_PASSWORD>"></a>
+				<!-- Generating moved from a button of its own into the field: it
+				     only fills in a suggestion, applying it is the one save
+				     button below. -->
+				<a href="javascript:generatePassword();" id="btngeneratepassword" class="s4l-tbtn s4l-tbtn-dice"
+					title="<TMPL_VAR INPUTSOUTPUTS.HOVER_GENERATE_PASSWORD>" aria-label="<TMPL_VAR INPUTSOUTPUTS.HOVER_GENERATE_PASSWORD>"></a>
 			</div>
 			<div class="hint small"><TMPL_VAR INPUTSOUTPUTS.HINT_PASSWORD_RULES></div>
 		</div>
@@ -278,10 +311,8 @@
 
 	<div class="lb_flex-container credentials">
 		<div	class="buttonrow">
-			<a href="javascript:changePassword(false);" id="btnchangepassword" class="ui-btn ui-corner-all ui-shadow ui-btn-b ui-btn-icon-left ui-icon-check ui-btn-inline"
-				data-inline="true"><TMPL_VAR INPUTSOUTPUTS.BUTTON_CHANGE_PASSWORD></a>
-			<a href="javascript:changePassword(true);" id="btngeneratepassword" class="ui-btn ui-corner-all ui-shadow ui-btn-b ui-btn-icon-left ui-icon-refresh ui-btn-inline"
-				data-inline="true"><TMPL_VAR INPUTSOUTPUTS.BUTTON_GENERATE_PASSWORD></a>
+			<a href="javascript:changePassword();" id="btnchangepassword" class="ui-btn ui-corner-all ui-shadow ui-btn-b ui-btn-icon-left ui-icon-check ui-btn-inline"
+				data-inline="true"><TMPL_VAR COMMON.BUTTON_SAVE_APPLY></a>
 		</div>
 	</div>
 
@@ -434,23 +465,40 @@ function togglePassword() {
 	}
 }
 
+// Suggests a password into the field. Applying it is the save button - this
+// only fills in a proposal, so the user sees what will be set.
+function generatePassword() {
+	var chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+	var out = "";
+	// crypto and not Math.random: this ends up being a database password.
+	var buf = new Uint32Array(20);
+	window.crypto.getRandomValues(buf);
+	for( var i = 0; i < 20; i++ ) out += chars.charAt( buf[i] % chars.length );
+	$('#influxpass').val( out );
+	try { $('#influxpass').textinput("refresh"); } catch(e) {}
+	// Shown right away, otherwise the user cannot tell what was generated.
+	if( $('#influxpass').attr("type") == "password" ) togglePassword();
+}
+
 // The change runs in the background - the fallback route stops and starts
-// InfluxDB, which takes a while. Rather than inventing a status channel, the
-// page polls the credentials until the stored password differs from the one it
-// started with: that is the proof the change went through, not just that some
-// script reported success.
-function changePassword( generate ) {
-	var pw = generate ? "" : $('#influxpass').val();
-	if( !generate ) {
-		if( pw.length < 8 || /['"\\\s]/.test(pw) ) {
-			$("#hint_credentials").attr("style","color:red").html( $('#lang_password_fail').text() );
-			return;
-		}
-		if( pw == currentPassword ) return;
+// InfluxDB, which takes a while. The popup is the same one the other settings on
+// this page use, and it is fed from the status file the script writes.
+var passinterval;
+var passstatusorig;
+var passstatus;
+
+function changePassword() {
+	var pw = $('#influxpass').val();
+	if( pw.length < 8 || /['"\\\s]/.test(pw) ) {
+		$("#hint_credentials").attr("style","color:red").html( $('#lang_password_rules_fail').text() );
+		return;
 	}
+	if( pw == currentPassword ) return;
 
 	$(".credentials").addClass('ui-disabled');
-	$("#hint_credentials").attr("style","color:blue").html( $('#lang_password_changing').text() );
+	$("#hint_credentials").html("");
+	passstatusorig = "";
+	passstatus = "";
 
 	$.post( "ajax.cgi", {
 		action: 'influx_setpassword',
@@ -468,29 +516,47 @@ function changePassword( generate ) {
 			$(".credentials").removeClass('ui-disabled');
 			return;
 		}
-		var before = currentPassword;
-		var tries = 0;
-		var poll = window.setInterval( function() {
-			tries++;
-			$.post( "ajax.cgi", { action: 'influx_getcred', secpin: sessionStorage.getItem("securePIN") } )
-			.done( function( d ) {
-				if( d && d.password && d.password != before ) {
-					window.clearInterval( poll );
-					currentPassword = d.password;
-					$('#influxpass').val( d.password );
-					try { $('#influxpass').textinput("refresh"); } catch(e) {}
-					$("#hint_credentials").attr("style","color:green").html( $('#lang_password_changed').text() );
-					$(".credentials").removeClass('ui-disabled');
-				}
-			} );
-			// 90 seconds: the fallback route restarts InfluxDB twice, which on a
-			// Raspberry is not quick.
-			if( tries > 45 ) {
-				window.clearInterval( poll );
-				$("#hint_credentials").attr("style","color:red").html( $('#lang_password_fail').text() );
-				$(".credentials").removeClass('ui-disabled');
+		$("#ch_hint").html( $('#lang_password_changing').text() );
+		$("#ch_status").attr("style", "color:blue").html("");
+		$("#popupSave").popup("open");
+		passinterval = window.setInterval( checkpasswordstatus, 2000 );
+	} );
+}
+
+// Reads the status file the script writes. Same presentation as
+// checkconfighandlerstatus(): a new message replaces the old one, an unchanged
+// one grows a block so it is visible that something is still happening.
+function checkpasswordstatus() {
+	$.post( "ajax.cgi", { action: 'influx_passstatus' } )
+	.fail( function( data ) {
+		console.log( "influx_passstatus failed", data );
+	} )
+	.done( function( data ) {
+		if( !data || data.running === undefined ) return;
+
+		if( data.message ) {
+			if( data.message != passstatusorig ) {
+				passstatus = data.message + "<br><br>";
+				passstatusorig = data.message;
+			} else {
+				passstatus = passstatus + "&#9609;";
 			}
-		}, 2000 );
+			$("#ch_status").attr("style", "color:blue").html( passstatus );
+		}
+
+		if( data.running ) return;
+
+		window.clearInterval( passinterval );
+		$(".credentials").removeClass('ui-disabled');
+		$("#popupSave").popup("close");
+
+		if( data.errors ) {
+			$("#hint_credentials").attr("style","color:red").html( $('#lang_password_fail').text() );
+			return;
+		}
+		$("#hint_credentials").attr("style","color:green").html( $('#lang_password_changed').text() );
+		// Read back rather than assumed - what is in cred.json is what counts.
+		getCredentials();
 	} );
 }
 
