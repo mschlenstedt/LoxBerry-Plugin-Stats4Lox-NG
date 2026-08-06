@@ -296,16 +296,15 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 	align-items	:flex-end;
 	flex-wrap	:wrap;
 }
-/* The explanation belongs beside the fields, not below them.
-   Below them it made the upload column taller than the radio group, and with
-   align-items:flex-end the two rows of controls no longer shared a baseline.
-   flex-basis 280px is the width the sentence needs to be worth reading - below
-   that the hint wraps onto its own line, where it starts at the left edge of the
-   row and therefore sits flush under the radio buttons. */
+/* The explanation always gets its own line, flush left under the radio buttons.
+   It must not sit inside the upload column: there it made that column taller
+   than the radio group, and with align-items:flex-end the two rows of controls
+   no longer shared a baseline. As a full-width flex item it wraps below both of
+   them and starts at the left edge of the row. */
 .loxplanrow > .loxplanhint
 {
 	padding		:5px;
-	flex		:1 1 280px;
+	flex		:0 0 100%;
 	min-width	:0;
 }
 .uploadrow
