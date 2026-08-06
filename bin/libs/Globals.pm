@@ -235,7 +235,7 @@ $ImportMapping->{Default} = [
 
 # BLACKLIST of controls not to add to controls section in json
 #
-# VIRTUALINTEXT ("Virtueller Texteingang") is on this list for a reason that
+# VIRTUALTEXTIN ("Virtueller Texteingang") is on this list for a reason that
 # goes beyond tidiness: a virtual text input is writable, and the Loxone API
 # WRITES on every read attempt. /jdev/sps/io/<uuid>/all sets the value to the
 # literal string "all", and the form without a suffix sets it to an empty
@@ -243,6 +243,16 @@ $ImportMapping->{Default} = [
 # overwrote the user's value on every interval (issue #143). There is no safe
 # read via this interface, so the block must not be selectable at all - use
 # the MQTT Collector for text values instead.
+#
+# The entry used to read VIRTUALINTEXT, and that never matched anything: the
+# type is called VirtualTextIn in the LoxPLAN. Same letters, different order, so
+# the protection above was ineffective from the day it was written - text inputs
+# stayed selectable and the grabber kept writing "all" into them. Measured on a
+# live Miniserver, a single read left LL.value at "all". Both spellings are
+# listed now; the wrong one costs nothing and guards against Loxone renaming it
+# back. A blacklist entry is only ever as good as its spelling, and nothing
+# checks it - the whole list is compared against type names that come from
+# Loxone.
 
 # Unsure
 # ACTOR="Aktor (Relais)"
@@ -659,6 +669,7 @@ VALVEDEVICE
 VIRTUALHTTPIN
 VIRTUALINCAPTION
 VIRTUALINTEXT
+VIRTUALTEXTIN
 VIRTUALOUTCAPTION
 VIRTUALUDPIN
 WALLMOUNTDEVICE
