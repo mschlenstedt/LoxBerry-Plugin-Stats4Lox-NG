@@ -50,7 +50,14 @@ GetOptions(
 	'generate'   => \$generate,
 );
 
-my $log = LoxBerry::Log->new( name => 'InfluxPass', stderr => 1, append => 1 );
+# loglevel 6 regardless of what the plugin is set to.
+#
+# Most installations run on level 3, which suppresses everything below ERROR -
+# and this script then leaves a log holding nothing but its own header. That is
+# too little for a rare, security relevant operation that stops the database and
+# turns authentication off and on again: if it goes wrong, the log is all there
+# is to go on. It runs by hand, so there is no flood to fear.
+my $log = LoxBerry::Log->new( name => 'InfluxPass', stderr => 1, append => 1, loglevel => 6 );
 LOGSTART "InfluxDB password: $command";
 
 my $CONF = "$LoxBerry::System::lbpconfigdir/influxdb/influxdb.conf";
