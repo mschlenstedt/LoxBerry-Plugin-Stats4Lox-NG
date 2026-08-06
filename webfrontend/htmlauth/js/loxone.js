@@ -34,7 +34,11 @@ $(function() {
 	
 	miniservers = JSON.parse( $("#miniservers_json").text() );
 	loxone_elements = JSON.parse( $("#loxone_elements_json").text() );
-	getLoxplan();
+
+	// Where the Loxone configuration comes from has to be known before the
+	// configuration is asked for - in manual mode nothing is fetched from the
+	// Miniserver, and the upload field decides whether there is anything to read.
+	initLoxplanSource();
 	
 	// Create filter radio and select bindings
 	$('.filter_radio, .filter_select').on( "change", function(event, ui){
@@ -649,6 +653,117 @@ function statusCell( statmatch ) {
 
 function escHtml( s ) {
 	return $('<div>').text( s === undefined || s === null ? '' : s ).html();
+}
+
+// --- Where the Loxone configuration comes from (issue #101) ----------------
+
+var loxplanFiles = {};
+
+function initLoxplanSource() {
+	// The Miniserver list for the upload comes from the same source as the
+	// filter, so both always offer the same set.
+	var sel = $('#upload_msno');
+	sel.empty();
+	for( var n in miniservers ) {
+		sel.append( '<option value="' + escAttr(n) + '">' + escHtml( miniservers[n].Name + ' (' + n + ')' ) + '</option>' );
+	}
+	try { sel.selectmenu("refresh"); } catch(e) {}
+
+	$('#upload_msno').on( "change", showLoxplanFileInfo );
+
+	$('input[name="loxplansource"]').on( "change", function() {
+		var v = $('input[name="loxplansource"]:checked').val();
+		applyLoxplanSource( v );
+		$.post( "ajax.cgi", { action: 'saveloxplansource', loxplansource: v } )
+		.fail( function( d ) { console.log( "saveloxplansource failed", d ); } );
+	} );
+
+	// The stored setting decides, not the markup - and only once it is known is
+	// the configuration requested.
+	$.post( "ajax.cgi", { action: 'loxplaninfo' } )
+	.fail( function( d ) {
+		console.log( "loxplaninfo failed", d );
+		applyLoxplanSource( "auto" );
+		getLoxplan();
+	} )
+	.done( function( data ) {
+		var v = ( data && data.loxplansource == "manual" ) ? "manual" : "auto";
+		loxplanFiles = ( data && data.files ) ? data.files : {};
+		$('input[name="loxplansource"][value="' + v + '"]').prop( "checked", true );
+		try { $('input[name="loxplansource"]').checkboxradio("refresh"); } catch(e) {}
+		applyLoxplanSource( v );
+		getLoxplan();
+	} );
+}
+
+function applyLoxplanSource( v ) {
+	if( v == "manual" ) {
+		$('#loxplanupload').removeClass('disabled');
+		showLoxplanFileInfo();
+	} else {
+		$('#loxplanupload').addClass('disabled');
+		$('#loxplanupload_hint').text( $('#lang_loxplansource_auto_hint').text() );
+	}
+}
+
+// What is on file for the selected Miniserver, so the user can tell whether an
+// upload is still missing.
+function showLoxplanFileInfo() {
+	var n = $('#upload_msno').val();
+	var f = loxplanFiles[n];
+	if( !f || !f.exists ) {
+		$('#loxplanupload_hint').text( $('#lang_loxplan_none').text() );
+		return;
+	}
+	var d = new Date( Number(f.mtime) * 1000 ).toLocaleString();
+	var kb = Math.round( Number(f.size) / 1024 ) + " KB";
+	$('#loxplanupload_hint').text(
+		$('#lang_loxplan_uploaded').text().replace( '__DATE__', d ).replace( '__SIZE__', kb ) );
+}
+
+function uploadLoxplan() {
+	var input = document.getElementById('loxplanfile');
+	if( !input || !input.files || !input.files.length ) {
+		$('#loxplanupload_hint').attr("style","color:red").text( $('#lang_loxplan_nofile').text() );
+		return;
+	}
+
+	var fd = new FormData();
+	fd.append( 'action', 'uploadloxplan' );
+	fd.append( 'msno', $('#upload_msno').val() );
+	fd.append( 'loxplanfile', input.files[0] );
+
+	$('#loxplanupload').addClass('disabled');
+	$('#loxplanupload_hint').attr("style","color:blue").text( $('#lang_loxplan_uploading').text() );
+
+	$.ajax({
+		url: 'ajax.cgi',
+		type: 'POST',
+		data: fd,
+		// Both off: jQuery must not touch a FormData object, the browser sets
+		// the multipart boundary itself.
+		processData: false,
+		contentType: false
+	})
+	.fail( function( d ) {
+		console.log( "uploadloxplan failed", d );
+		$('#loxplanupload').removeClass('disabled');
+		$('#loxplanupload_hint').attr("style","color:red").text( $('#lang_loxplan_upload_fail').text() );
+	} )
+	.done( function( data ) {
+		$('#loxplanupload').removeClass('disabled');
+		if( !data || !data.uploaded ) {
+			var msg = ( data && data.error ) ? data.error : $('#lang_loxplan_upload_fail').text();
+			$('#loxplanupload_hint').attr("style","color:red").text( msg );
+			return;
+		}
+		$('#loxplanupload_hint').attr("style","color:green").text( $('#lang_loxplan_upload_ok').text() );
+		input.value = "";
+		// Read in right away - that is the point of the upload.
+		getLoxplan();
+		$.post( "ajax.cgi", { action: 'loxplaninfo' } )
+		.done( function( d ) { if( d && d.files ) { loxplanFiles = d.files; } } );
+	} );
 }
 function escAttr( s ) {
 	return escHtml(s).replace( /"/g, '&quot;' );

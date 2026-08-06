@@ -278,6 +278,25 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 	background-color:#ffff99 !important;
 }
 
+/* Upload of a Loxone configuration (issue #101) */
+.uploadrow
+{
+	display		:flex;
+	flex-wrap	:wrap;
+	align-items	:center;
+	gap		:8px;
+}
+.uploadrow input[type="file"] { max-width:260px; }
+.uploadrow select { min-width:120px; }
+/* Greyed out while the configuration is fetched automatically. Not just faded:
+   pointer-events keeps the field from being usable at all, otherwise a file
+   could be picked that nothing would ever read. */
+#loxplanupload.disabled
+{
+	opacity		:0.4;
+	pointer-events	:none;
+}
+
 
 	/* Icon set, drawn with CSS instead of the PNGs the plugin used to ship.
 	   Shape carries the meaning, not just the colour - a tick, a warning
@@ -451,6 +470,14 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 <div class="datahidden" id="lang_th_statistics"><TMPL_VAR SETTINGS.TH_STATISTICS></div>
 <div class="datahidden" id="lang_th_status"><TMPL_VAR SETTINGS.TH_STATUS></div>
 <div class="datahidden" id="lang_th_actions"><TMPL_VAR SETTINGS.TH_ACTIONS></div>
+<div class="datahidden" id="lang_loxplansource_auto_hint"><TMPL_VAR SETTINGS.HINT_LOXPLANSOURCE_AUTO></div>
+<div class="datahidden" id="lang_loxplansource_manual_hint"><TMPL_VAR SETTINGS.HINT_LOXPLANSOURCE_MANUAL></div>
+<div class="datahidden" id="lang_loxplan_uploaded"><TMPL_VAR SETTINGS.HINT_LOXPLAN_UPLOADED></div>
+<div class="datahidden" id="lang_loxplan_none"><TMPL_VAR SETTINGS.HINT_LOXPLAN_NONE></div>
+<div class="datahidden" id="lang_loxplan_uploading"><TMPL_VAR SETTINGS.HINT_LOXPLAN_UPLOADING></div>
+<div class="datahidden" id="lang_loxplan_upload_ok"><TMPL_VAR SETTINGS.HINT_LOXPLAN_UPLOAD_OK></div>
+<div class="datahidden" id="lang_loxplan_upload_fail"><TMPL_VAR SETTINGS.HINT_LOXPLAN_UPLOAD_FAIL></div>
+<div class="datahidden" id="lang_loxplan_nofile"><TMPL_VAR SETTINGS.HINT_LOXPLAN_NOFILE></div>
 <div class="datahidden" id="lang_status_ok"><TMPL_VAR SETTINGS.STATUS_OK></div>
 <div class="datahidden" id="lang_status_limit"><TMPL_VAR SETTINGS.STATUS_LIMIT></div>
 <div class="datahidden" id="lang_status_404"><TMPL_VAR SETTINGS.STATUS_404></div>
@@ -724,31 +751,34 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 
 
 
+<!-- Where the Loxone configuration comes from (issue #101).
+     Loxone occasionally produces a LoxPLAN this plugin cannot unpack or parse.
+     A user can repair the XML by hand - manual mode is how the repaired file
+     gets in. -->
+<div style="display:flex;align-items:flex-end;flex-wrap:wrap;">
+	<div style="padding:5px;">
+	<fieldset data-role="controlgroup" data-type="horizontal" data-mini="true" class="s4l-filtergroup">
+		<legend><TMPL_VAR SETTINGS.LABEL_LOXPLANSOURCE></legend>
+		<input type="radio" name="loxplansource" id="loxplansource_auto" value="auto" checked="checked">
+		<label for="loxplansource_auto"><span class="filter_icon"><TMPL_VAR SETTINGS.LABEL_LOXPLANSOURCE_AUTO></span></label>
+		<input type="radio" name="loxplansource" id="loxplansource_manual" value="manual">
+		<label for="loxplansource_manual"><span class="filter_icon"><TMPL_VAR SETTINGS.LABEL_LOXPLANSOURCE_MANUAL></span></label>
+	</fieldset>
+	</div>
+
+	<!-- Greyed out while the configuration is fetched automatically -->
+	<div style="padding:5px;" id="loxplanupload">
+		<div class="uploadrow">
+			<select name="upload_msno" id="upload_msno" data-mini="true"></select>
+			<input type="file" name="loxplanfile" id="loxplanfile" accept=".Loxone,.xml,application/xml,text/xml">
+			<a href="javascript:uploadLoxplan();" id="btnuploadloxplan" class="ui-btn ui-btn-b ui-btn-inline ui-mini ui-corner-all"><TMPL_VAR SETTINGS.BUTTON_UPLOAD_LOXPLAN></a>
+		</div>
+		<div class="hint small" id="loxplanupload_hint">&nbsp;</div>
+	</div>
+</div>
+
 <!-- Filter -->
 
-<!-- Filter Miniserver / Room / Category / Type -->
-<fieldset data-role="controlgroup" data-type="horizontal" data-mini="true">
-    <legend><TMPL_VAR SETTINGS.LABEL_FILTER></legend>
-    <label for="filter_miniserver">Miniserver</label>
-    <select name="filter_miniserver" id="filter_miniserver" class="filter_select">
-        <option value="all"><TMPL_VAR SETTINGS.LABEL_ALL_MINISERVERS></option>
-    </select>
-    <label for="filter_room">Room</label>
-    <select name="filter_room" id="filter_room" class="filter_select">
-        <option value="all"><TMPL_VAR SETTINGS.LABEL_ALL_ROOMS></option>
-    </select>
-    <label for="filter_category">Category</label>
-    <select name="filter_category" id="filter_category" class="filter_select">
-        <option value="all"><TMPL_VAR SETTINGS.LABEL_ALL_CATEGORIES></option>
-    </select>
-    <label for="filter_element">Element</label>
-    <select name="filter_element" id="filter_element" class="filter_select">
-        <option value="all"><TMPL_VAR SETTINGS.LABEL_ALL_ELEMENTS></option>
-    </select>
-
-
-
-</fieldset>
 
 <!-- Filter Loxone Visu enabled -->
 
@@ -803,6 +833,29 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 		<label for="filter_status_yellow" title="<TMPL_VAR SETTINGS.STATUS_LIMIT>"><span class="filter_icon"><span class="s4l-icon s4l-icon-warn"></span></span></label>
 		<input type="radio" name="filter_status" id="filter_status_red" value="red" class="filter_radio">
 		<label for="filter_status_red" title="<TMPL_VAR SETTINGS.STATUS_404>"><span class="filter_icon"><span class="s4l-icon s4l-icon-err"></span></span></label>
+	</fieldset>
+	</div>
+
+	<!-- Block filters, to the right of the radio filters -->
+	<div style="padding:5px;">
+	<fieldset data-role="controlgroup" data-type="horizontal" data-mini="true">
+		<legend><TMPL_VAR SETTINGS.LABEL_FILTER></legend>
+		<label for="filter_miniserver">Miniserver</label>
+		<select name="filter_miniserver" id="filter_miniserver" class="filter_select">
+			<option value="all"><TMPL_VAR SETTINGS.LABEL_ALL_MINISERVERS></option>
+		</select>
+		<label for="filter_room">Room</label>
+		<select name="filter_room" id="filter_room" class="filter_select">
+			<option value="all"><TMPL_VAR SETTINGS.LABEL_ALL_ROOMS></option>
+		</select>
+		<label for="filter_category">Category</label>
+		<select name="filter_category" id="filter_category" class="filter_select">
+			<option value="all"><TMPL_VAR SETTINGS.LABEL_ALL_CATEGORIES></option>
+		</select>
+		<label for="filter_element">Element</label>
+		<select name="filter_element" id="filter_element" class="filter_select">
+			<option value="all"><TMPL_VAR SETTINGS.LABEL_ALL_ELEMENTS></option>
+		</select>
 	</fieldset>
 	</div>
 

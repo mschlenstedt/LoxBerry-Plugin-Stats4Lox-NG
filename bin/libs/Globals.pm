@@ -105,6 +105,9 @@ our $loxberry = {
 
 our $loxone = {
 	active => "True",
+	# Where the LoxPLAN comes from: "auto" fetches it from the Miniserver,
+	# "manual" uses a file the user uploaded (issue #101).
+	loxplansource => "auto",
 	mqttlive_basetopic => "s4l/mqttlive",
 };
 

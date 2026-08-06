@@ -90,8 +90,56 @@ if( $q->{action} eq "getloxplan" ) {
 			$log->WARN("MS$msno: Could not get serial, therefore matching of Miniserver may fail");
 		}
 		
-		my $Loxplanfile = "$Globals::stats4lox->{s4ltmp}/s4l_loxplan_ms$msno.Loxone";		
+		my $Loxplanfile = "$Globals::stats4lox->{s4ltmp}/s4l_loxplan_ms$msno.Loxone";
 		my $loxplanjson = "$Globals::stats4lox->{loxplanjsondir}/ms".$msno.".json";
+
+		# Manual mode (issue #101).
+		#
+		# Loxone occasionally produces a LoxPLAN this plugin cannot unpack or
+		# parse. A user can repair the XML by hand, but until now there was no
+		# way to get the repaired file in. In manual mode nothing is fetched from
+		# the Miniserver: the uploaded file is the source.
+		#
+		# The upload is kept in the data directory and not in s4ltmp - that one
+		# is a ramdisk and would lose the file on every reboot, and a manually
+		# repaired LoxPLAN is not something anyone wants to upload twice.
+		my $manual = ( ($Globals::loxone->{loxplansource} // 'auto') eq 'manual' ) ? 1 : 0;
+		if( $manual ) {
+			my $upload = manual_loxplan_file( $msno );
+			LOGINF "Manual mode: using the uploaded Loxone configuration";
+
+			if( ! -e $upload ) {
+				$error = "Miniserver $msno: No Loxone configuration uploaded yet.";
+			}
+			else {
+				# Parsed again only when the upload is newer than the result -
+				# the parse takes seconds and the file only changes on upload.
+				my $needparse = ( ! -e $loxplanjson )
+				              || ( ( stat($upload) )[9] > ( stat($loxplanjson) )[9] );
+				if( !$needparse ) {
+					LOGINF "The parsed result is newer than the upload - using it";
+				}
+				else {
+					LOGOK "Parsing the uploaded Loxone configuration";
+					my $loxplan = Loxone::ParseXML::loxplan2json(
+						filename => $upload,
+						msno => $msno,
+						output => $loxplanjson,
+						log => $log,
+						# No remote timestamp in manual mode - loxplan2json then
+						# records the file's own date.
+						remoteTimestamp => undef,
+						ms_serials => \%ms_serials
+					);
+					if( !$loxplan ) {
+						$error = "Miniserver $msno: Could not parse the uploaded Loxone configuration.";
+					}
+				}
+			}
+
+		}
+		else {
+
 		my $remoteTimestamp;
 		eval {
 			$remoteTimestamp = Loxone::GetLoxplan::checkLoxplanUpdate( $msno, $loxplanjson, $log );
@@ -155,8 +203,117 @@ if( $q->{action} eq "getloxplan" ) {
 			}
 		}
 
+		} # end of automatic mode
+
 	}
 
+}
+
+# Where a manually uploaded Loxone configuration is kept for a Miniserver.
+#
+# In the data directory, not in s4ltmp: that one is a ramdisk on LoxBerry and
+# would drop the file on every reboot - and a LoxPLAN somebody repaired by hand
+# is not something they want to upload again after a power cut.
+sub manual_loxplan_file
+{
+	my ($msno) = @_;
+	return "$lbpdatadir/loxplan_ms${msno}.Loxone";
+}
+
+## saveloxplansource - auto or manual (issue #101)
+##
+## Its own action and not a section of savepluginconfig: that one forks and
+## answers before the child has written anything, and the page switches the
+## upload field on right afterwards. Nothing has to be reconfigured here, so
+## there is no reason to go through the config handler either.
+if( $q->{action} eq "saveloxplansource" ) {
+	require LoxBerry::JSON;
+	my $v = ( defined $q->{loxplansource} and $q->{loxplansource} eq 'manual' ) ? 'manual' : 'auto';
+	my $obj = LoxBerry::JSON->new();
+	my $cfg = $obj->open( filename => $stats4loxconfig, lockexclusive => 1, locktimeout => 10 );
+	if( !$cfg ) {
+		$error = "Could not open stats4lox.json";
+	}
+	else {
+		$cfg->{loxone}->{loxplansource} = $v;
+		$obj->write();
+		LOGOK "Loxone configuration source set to $v";
+		$response = JSON::encode_json( { loxplansource => $v } );
+	}
+}
+
+## loxplaninfo - is a manual file there, and how old is it
+if( $q->{action} eq "loxplaninfo" ) {
+	my %out = ( loxplansource => $Globals::loxone->{loxplansource} // 'auto', files => {} );
+	my %ms = LoxBerry::System::get_miniservers();
+	foreach my $n ( sort { $a <=> $b } keys %ms ) {
+		my $f = manual_loxplan_file( $n );
+		$out{files}->{$n} = ( -e $f )
+			? { exists => 1, size => ( -s $f ), mtime => ( stat($f) )[9] }
+			: { exists => 0 };
+	}
+	$response = JSON::encode_json( \%out );
+}
+
+## uploadloxplan - takes a Loxone configuration from the user (issue #101)
+if( $q->{action} eq "uploadloxplan" ) {
+	my $msno = $q->{msno};
+	my $fh = $cgi->upload('loxplanfile');
+
+	if( !$msno ) {
+		$error = "No Miniserver given";
+	}
+	elsif( !$fh ) {
+		$error = "No file received";
+	}
+	else {
+		my $target = manual_loxplan_file( $msno );
+		my $tmp = "$target.upload";
+
+		my $bytes = 0;
+		if( open( my $out, '>', $tmp ) ) {
+			binmode $out;
+			my $buf;
+			while( my $n = read( $fh, $buf, 65536 ) ) { print {$out} $buf; $bytes += $n }
+			close $out;
+		}
+		else {
+			$error = "Could not write $tmp: $!";
+		}
+
+		if( !$error and $bytes == 0 ) {
+			$error = "The uploaded file is empty";
+			unlink $tmp;
+		}
+
+		# Only a look at the content decides, not the file name: users rename
+		# things, and a wrong file here would leave the plugin without a usable
+		# configuration. Accepted is what getLoxplan produces as well - the
+		# unpacked XML - because that is what a user can repair by hand.
+		if( !$error ) {
+			my $head = '';
+			if( open( my $in, '<', $tmp ) ) { read( $in, $head, 512 ); close $in }
+			if( $head !~ /<\?xml/ or $head !~ /<C\b|LoxCONFIG|<Project/i ) {
+				$error = "This is not an unpacked Loxone configuration (expected the XML, i.e. a .Loxone file)";
+				unlink $tmp;
+			}
+		}
+
+		if( !$error ) {
+			# Only replaces the previous file once the new one is complete and
+			# has passed the check.
+			if( rename( $tmp, $target ) ) {
+				LOGOK "Loxone configuration for MS$msno uploaded ($bytes bytes)";
+				# The parse decides by timestamp, so the old result has to be
+				# older than the new upload - which rename guarantees.
+				$response = JSON::encode_json( { uploaded => 1, bytes => $bytes } );
+			}
+			else {
+				$error = "Could not store the file: $!";
+				unlink $tmp;
+			}
+		}
+	}
 }
 
 ## getstatsconfig
