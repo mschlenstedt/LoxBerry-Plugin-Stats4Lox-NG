@@ -106,7 +106,7 @@
 		padding		:5px;
 		width		:300px;
 	}
-	/* The password and the two buttons next to each other */
+	/* The password field and the reveal button next to each other */
 	.passwordrow
 	{
 		display		:flex;
@@ -115,6 +115,70 @@
 		gap		:8px;
 	}
 	.passwordrow .ui-input-text { flex:1; min-width:180px; margin:0; }
+
+	/* A plain value in the field column. The label carries a padding-top to line
+	   up with the form controls next to it, so a bare span needs the same or it
+	   sits higher than its own label. */
+	.fieldvalue { display:inline-block; padding-top:8px; }
+	.mono { font-family:monospace; }
+
+	/* Square icon button, same style as the ones in the tables - jQuery Mobile
+	   would put the glyph on a round grey disc. */
+	.s4l-tbtn
+	{
+		display		:inline-block;
+		width		:26px;
+		height		:26px;
+		border-radius	:3px;
+		border		:1px solid #7e7e7e;
+		background	:#f6f6f6;
+		position	:relative;
+		vertical-align	:middle;
+		box-sizing	:border-box;
+		cursor		:pointer;
+		font-size	:0;
+		line-height	:0;
+		flex		:0 0 auto;
+	}
+	.s4l-tbtn:hover { background:#e6e6e6; }
+
+	/* Eye: an almond from two different corner radii, with a pupil. The slash
+	   appears while the password is visible, so the button shows what pressing
+	   it will do next. */
+	.s4l-tbtn-eye::before
+	{
+		content		:"";
+		position	:absolute;
+		left		:3px;
+		top		:7px;
+		width		:18px;
+		height		:11px;
+		border		:2px solid #3a3a3a;
+		border-radius	:50% 50% 50% 50% / 60% 60% 40% 40%;
+		box-sizing	:border-box;
+	}
+	.s4l-tbtn-eye::after
+	{
+		content		:"";
+		position	:absolute;
+		left		:10px;
+		top		:10px;
+		width		:5px;
+		height		:5px;
+		border-radius	:50%;
+		background	:#3a3a3a;
+	}
+	.s4l-tbtn-eye.revealed > .slash
+	{
+		position	:absolute;
+		left		:2px;
+		top		:11px;
+		width		:22px;
+		height		:2px;
+		background	:#c0392b;
+		transform	:rotate(-35deg);
+		z-index		:1;
+	}
 </style>
 
 <div class="datahidden" id="lang_sub_system_settings"><TMPL_VAR NAVBAR.SUB_SYSTEM_SETTINGS></div>
@@ -181,12 +245,12 @@
 		<div class="buttonrow" id="hint_influx">&nbsp;</div>
 	</div>
 
-	<h2><TMPL_VAR INPUTSOUTPUTS.TITLE_INFLUX_CREDENTIALS></h2>
-
+	<!-- Credentials belong to the InfluxDB section above, not under a heading of
+	     their own - it is the same database being configured. -->
 	<div class="lb_flex-container s4lrow">
 		<div	class="lb_flex-item-label"><TMPL_VAR INPUTSOUTPUTS.LABEL_INFLUX_USER></div>
 		<div	class="lb_flex-item">
-			<span id="influxuser">&nbsp;</span>
+			<span id="influxuser" class="fieldvalue mono">&nbsp;</span>
 		</div>
 	</div>
 
@@ -195,7 +259,8 @@
 		<div	class="lb_flex-item">
 			<div class="passwordrow">
 				<input type="password" name="influxpass" id="influxpass" data-mini="true" value="" autocomplete="off">
-				<a href="javascript:togglePassword();" id="btntogglepassword" class="ui-btn ui-btn-inline ui-mini ui-corner-all"><TMPL_VAR INPUTSOUTPUTS.BUTTON_SHOW_PASSWORD></a>
+				<a href="javascript:togglePassword();" id="btntogglepassword" class="s4l-tbtn s4l-tbtn-eye"
+					title="<TMPL_VAR INPUTSOUTPUTS.BUTTON_SHOW_PASSWORD>" aria-label="<TMPL_VAR INPUTSOUTPUTS.BUTTON_SHOW_PASSWORD>"></a>
 			</div>
 			<div class="hint small"><TMPL_VAR INPUTSOUTPUTS.HINT_PASSWORD_RULES></div>
 		</div>
@@ -210,7 +275,7 @@
 		<div	class="buttonrow">
 			<a href="javascript:changePassword(false);" id="btnchangepassword" class="ui-btn ui-corner-all ui-shadow ui-btn-b ui-btn-icon-left ui-icon-check ui-btn-inline"
 				data-inline="true"><TMPL_VAR INPUTSOUTPUTS.BUTTON_CHANGE_PASSWORD></a>
-			<a href="javascript:changePassword(true);" id="btngeneratepassword" class="ui-btn ui-corner-all ui-shadow ui-btn-icon-left ui-icon-refresh ui-btn-inline"
+			<a href="javascript:changePassword(true);" id="btngeneratepassword" class="ui-btn ui-corner-all ui-shadow ui-btn-b ui-btn-icon-left ui-icon-refresh ui-btn-inline"
 				data-inline="true"><TMPL_VAR INPUTSOUTPUTS.BUTTON_GENERATE_PASSWORD></a>
 		</div>
 	</div>
@@ -346,14 +411,21 @@ function getCredentials() {
 	} );
 }
 
+// The button carries no text, so what it does lives in the title - and the eye
+// gets a slash while the password is on screen.
 function togglePassword() {
 	var f = $('#influxpass');
+	var b = $('#btntogglepassword');
 	if( f.attr("type") == "password" ) {
 		f.attr("type", "text");
-		$('#btntogglepassword').text( $('#lang_hide_password').text() );
+		b.addClass("revealed").html('<span class="slash"></span>')
+		 .attr("title", $('#lang_hide_password').text())
+		 .attr("aria-label", $('#lang_hide_password').text());
 	} else {
 		f.attr("type", "password");
-		$('#btntogglepassword').text( $('#lang_show_password').text() );
+		b.removeClass("revealed").html("")
+		 .attr("title", $('#lang_show_password').text())
+		 .attr("aria-label", $('#lang_show_password').text());
 	}
 }
 
