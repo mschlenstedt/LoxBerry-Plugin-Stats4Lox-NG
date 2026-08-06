@@ -120,8 +120,17 @@
 	/* A plain value in the field column. The label carries a padding-top to line
 	   up with the form controls next to it, so a bare span needs the same or it
 	   sits higher than its own label. */
-	.fieldvalue { display:inline-block; padding-top:8px; }
-	.mono { font-family:monospace; }
+	.fieldvalue { display:inline-block; padding-top:8px; line-height:1.4em; }
+	/* font-family twice, and font-size explicitly.
+	   A bare "font-family:monospace" makes the browser switch to its separate
+	   default size for fixed-width text - 13px where the surrounding text is 16 -
+	   so the value came out smaller than its label and sat higher. Naming the
+	   family twice stops that switch, the size makes sure of it. */
+	.mono
+	{
+		font-family	:monospace, monospace;
+		font-size	:1em;
+	}
 
 	/* Square icon button, same style as the ones in the tables - jQuery Mobile
 	   would put the glyph on a round grey disc. */
