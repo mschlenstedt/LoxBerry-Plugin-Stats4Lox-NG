@@ -81,9 +81,27 @@ sub msget_value
 	my $resp_code;
 
 	if( ! eval { $respjson = JSON::decode_json( "$rawdata" ); 1 } ) {
-		print STDERR "No valid JSON received from Miniserver for $block: $@\n" if $DEBUG;
-		print STDERR "Raw response was: " . substr($rawdata, 0, 500) . "\n" if $DEBUG;
-		return (602, undef);
+
+		# One kind of breakage is worth repairing, because the Miniserver produces
+		# it and the block is otherwise unreadable: a status block whose text
+		# itself contains quotes is sent without escaping them, which ends the
+		# string early and breaks the document from there on.
+		#
+		#   "value": "{"text": "26.5°","duration": 3,"icon": 6397}"}
+		#
+		# The repair escapes that content and then hands the result back to
+		# decode_json - the parser is the test. If it accepts the document, the
+		# repair was right; if not, we are where we were and give up. That is the
+		# difference to the regular expression that used to sit here and
+		# "repaired" every response before decoding: this one only runs after
+		# strict parsing has already failed, and its result has to parse.
+		my $repaired = repair_status_json( $rawdata );
+		if( !$repaired or ! eval { $respjson = JSON::decode_json( "$repaired" ); 1 } ) {
+			print STDERR "No valid JSON received from Miniserver for $block: $@\n" if $DEBUG;
+			print STDERR "Raw response was: " . substr($rawdata, 0, 500) . "\n" if $DEBUG;
+			return (602, undef);
+		}
+		print STDERR "Repaired the unescaped status text of $block\n" if $DEBUG;
 	}
 	print STDERR "Received json data:\n" . Data::Dumper::Dumper($respjson) . "\n" if ($DUMP);
 
@@ -183,9 +201,18 @@ sub msget_value
 #   Val     the TextV of that state, when it is a constant
 #
 # Text is what the user always gets; State and Val appear only when the block
-# allows it. On the test installation 44 of 66 blocks could be identified, 17 not
-# because several of their states share the same text, and 5 answer with invalid
-# JSON and never get here.
+# allows it. On the test installation 49 of 66 blocks could be identified and 17
+# not, because several of their states share the same text.
+#
+# The text is stored as it arrives. Some of these blocks are configured with a
+# whole JSON object as their status text, to feed something outside Loxone:
+#
+#   {"text": "26.5°","duration": 3,"icon": 6397}
+#
+# That is a text somebody wrote on purpose and it is stored as one. Reading a
+# number back out of it by capturing what a placeholder was replaced with was
+# tried and dropped - a text can hold several placeholders and which of them would
+# be "the" value is not knowable.
 #####################################################
 
 # Anything from "<v" up to ">" is a placeholder that Loxone substitutes at
@@ -198,6 +225,36 @@ sub msget_value
 # exactly that typo and arrives unchanged.
 my $PLACEHOLDER = qr/<v[^<>]*>/;
 
+# Repairs the one breakage the Miniserver produces on its own: the text of a
+# status block is put into the response without escaping the quotes it contains.
+# Only the value of the "output" object is affected, and that is the last value in
+# the document - the match is greedy on purpose, because the content itself may
+# contain "} sequences.
+#
+# Returns undef when the shape does not fit, so nothing is touched that this does
+# not understand.
+sub repair_status_json
+{
+	my ($raw) = @_;
+	return undef if( !defined $raw );
+	return undef if( $raw !~ m{^(.*"value"\s*:\s*")(.*)("\}\s*\}\}\s*)\z}s );
+
+	my ($head, $content, $tail) = ($1, $2, $3);
+	$content =~ s/\\/\\\\/g;
+	$content =~ s/"/\\"/g;
+	$content =~ s/\r/\\r/g;
+	$content =~ s/\n/\\n/g;
+	$content =~ s/\t/\\t/g;
+	return $head . $content . $tail;
+}
+
+# Does the received text match one of the configured ones?
+#
+# Only that - the placeholders are skipped, not read out. Taking the substituted
+# value out of the text was tried and deliberately dropped: which of the inputs
+# would be "the" value is not knowable, a text can hold several placeholders, and
+# a status text that happens to be a JSON object is a text somebody wrote on
+# purpose - not a container to be picked apart.
 sub status_text_matches
 {
 	my ($configured, $received) = @_;
@@ -478,15 +535,29 @@ sub influx_lineprot
 			print STDERR "Field '$key' has no value - skipped\n" if $DEBUG;
 			next;
 		}
+		# A field key must have comma, equals sign and space escaped. Only the
+		# comma used to be, and an output whose name holds a space - Loxone has
+		# them, "Stereo LR" of the MusicPlayer - then ended the field set right
+		# there and made the line invalid.
+		my $fkey = $key;
+		$fkey =~ s/([,= ])/\\$1/g;
+
 		#Try to figure out if field must be handled as string - maybe to complicated here - better suggestions are welcome ;-)
 		my $stringtest = $fields{$key};
 		$stringtest =~ s/(.*)i$/$1/g; # i as last position is integer
 		if ( $fields{$key} eq '' or $stringtest =~ m/[a-zA-Z]/ ) { # still String?
-			$data = "$key=\"$fields{$key}\"";
+			# Inside a quoted string value only the quote and the backslash have to
+			# be escaped - and they HAVE to be. A status text can contain quotes of
+			# its own, and an unescaped one ends the value early and makes InfluxDB
+			# reject the whole batch. The comma must NOT be escaped in here; doing
+			# that put a stray backslash into the stored text.
+			my $v = $fields{$key};
+			$v =~ s/\\/\\\\/g;
+			$v =~ s/"/\\"/g;
+			$data = "$fkey=\"$v\"";
 		} else {
-			$data = "$key=$fields{$key}";
+			$data = "$fkey=$fields{$key}";
 		}
-		$data =~ s/([,])/\\$1/g;
 		$line .= "," if $i > 0;
 		$line .= "$data";
 		$i++;
