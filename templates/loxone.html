@@ -248,7 +248,12 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 }
 
 /* A warning inside a popup - narrower than .hintbox, which is built for the
-   full-width boxes at the top of the page. */
+   full-width boxes at the top of the page.
+
+   The width is capped at that of .LoxoneDetails_table on purpose. The popup lays
+   its two halves out with flex-wrap, so a box wider than the table widened the
+   whole live-values column until the details no longer fitted beside it and
+   dropped onto the next line. */
 .warnbox {
 	background-color: #ffff73;
 	border: 1px solid #b8860b;
@@ -256,6 +261,8 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 	padding: 8px;
 	margin: 8px 0;
 	text-align: left;
+	max-width: 400px;
+	box-sizing: border-box;
 }
 
 .errorbox {
