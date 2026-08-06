@@ -246,6 +246,19 @@ sub manual_loxplan_file
 	return "$lbpdatadir/loxplan_ms${msno}.Loxone";
 }
 
+# Is there a manually uploaded configuration at all?
+#
+# The setting is one for the whole plugin while the uploads are per Miniserver,
+# so a single file is enough to make manual mode work for that Miniserver.
+sub have_manual_loxplan
+{
+	my %ms = LoxBerry::System::get_miniservers();
+	foreach my $n ( keys %ms ) {
+		return 1 if( -e manual_loxplan_file( $n ) );
+	}
+	return 0;
+}
+
 ## saveloxplansource - auto or manual (issue #101)
 ##
 ## Its own action and not a section of savepluginconfig: that one forks and
@@ -254,7 +267,18 @@ sub manual_loxplan_file
 ## there is no reason to go through the config handler either.
 if( $q->{action} eq "saveloxplansource" ) {
 	require LoxBerry::JSON;
-	my $v = ( defined $q->{loxplansource} and $q->{loxplansource} eq 'manual' ) ? 'manual' : 'auto';
+	my $wanted = ( defined $q->{loxplansource} and $q->{loxplansource} eq 'manual' ) ? 'manual' : 'auto';
+
+	# Manual mode is only stored once there is a file to read.
+	#
+	# Clicking the radio button is not a decision yet - it only opens the upload
+	# field. If it were stored right away and the user then walked away without
+	# uploading anything, the plugin would be left in a mode with no
+	# configuration at all: every page load would fail with "nothing uploaded
+	# yet". So the switch stays a state of the page, and reloading it comes back
+	# up in automatic mode until an upload has actually arrived.
+	my $v = ( $wanted eq 'manual' and !have_manual_loxplan() ) ? 'auto' : $wanted;
+
 	my $obj = LoxBerry::JSON->new();
 	my $cfg = $obj->open( filename => $stats4loxconfig, lockexclusive => 1, locktimeout => 10 );
 	if( !$cfg ) {
@@ -263,8 +287,10 @@ if( $q->{action} eq "saveloxplansource" ) {
 	else {
 		$cfg->{loxone}->{loxplansource} = $v;
 		$obj->write();
-		LOGOK "Loxone configuration source set to $v";
-		$response = JSON::encode_json( { loxplansource => $v } );
+		$Globals::loxone->{loxplansource} = $v;
+		LOGOK "Loxone configuration source set to $v"
+		      . ( $v ne $wanted ? " ($wanted was asked for, but nothing has been uploaded yet)" : "" );
+		$response = JSON::encode_json( { loxplansource => $v, requested => $wanted } );
 	}
 }
 

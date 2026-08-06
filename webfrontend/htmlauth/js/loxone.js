@@ -671,6 +671,10 @@ function initLoxplanSource() {
 
 	$('#upload_msno').on( "change", showLoxplanFileInfo );
 
+	// The page follows the radio button immediately, the configuration does not
+	// necessarily: "manual" is only stored once something has been uploaded, so
+	// the server may answer with "auto" here. That is deliberate - the upload
+	// field opens either way, and uploadLoxplan stores the mode afterwards.
 	$('input[name="loxplansource"]').on( "change", function() {
 		var v = $('input[name="loxplansource"]:checked').val();
 		applyLoxplanSource( v );
@@ -759,10 +763,18 @@ function uploadLoxplan() {
 		}
 		$('#loxplanupload_hint').attr("style","color:green").text( $('#lang_loxplan_upload_ok').text() );
 		input.value = "";
-		// Read in right away - that is the point of the upload.
-		getLoxplan();
-		$.post( "ajax.cgi", { action: 'loxplaninfo' } )
-		.done( function( d ) { if( d && d.files ) { loxplanFiles = d.files; } } );
+		// Only now is manual mode worth storing - the radio button alone does not
+		// do it, the server refuses it while no file is there. And it has to
+		// happen before the configuration is requested, otherwise that request
+		// would still be served from the Miniserver instead of from the upload.
+		$.post( "ajax.cgi", { action: 'saveloxplansource', loxplansource: 'manual' } )
+		.fail( function( d ) { console.log( "saveloxplansource failed", d ); } )
+		.always( function() {
+			// Read in right away - that is the point of the upload.
+			getLoxplan();
+			$.post( "ajax.cgi", { action: 'loxplaninfo' } )
+			.done( function( d ) { if( d && d.files ) { loxplanFiles = d.files; } } );
+		} );
 	} );
 }
 function escAttr( s ) {
