@@ -273,6 +273,22 @@ $ImportMapping->{Default} = [
 # checks it - the whole list is compared against type names that come from
 # Loxone.
 
+# RADIO ("Radiotasten"), EIBPUSH ("EIB-Taster") and PUSHBUTTON ("Schalter") were
+# on this list and have been taken off again. All three are writable and driven by
+# commands, so the worry was that /jdev/sps/io/<uuid>/all would be taken as one -
+# which for a text input is exactly what happens (issue #143).
+#
+# Measured on a live installation with Michael's explicit go-ahead for one block of
+# each type: all three answer HTTP 200 with their numbered outputs and their
+# values, which is the documented READ form - a command would be acknowledged with
+# a bare value and no output list. Three calls in a row per block came back byte
+# for byte identical, and on the PushButton the switch-on and switch-off pulses Qon
+# and Qoff stayed 0 throughout. So "all" is read, not executed.
+#
+# The variants stay on the list. RADIO2, PUSHBUTTON2 and PUSHBUTTONSEL do not exist
+# in that configuration and could not be tested at all; PUSHBUTTON2SEL does exist
+# but was not part of what was authorised. Untested is untested.
+
 # STATE ("Statusbaustein") was on this list and has been taken off again. It
 # answers with the rendered text of its active state, and the state table from
 # the LoxPLAN turns that back into a state number and the configured value of the
@@ -513,7 +529,6 @@ EDGEDETECTION
 EDGEWIPINGRELAY
 EIBACTORCAPTION
 EIBLINE
-EIBPUSH
 EIBSENSORCAPTION
 EIBTEXTACTOR
 EIBTEXTSENSOR
@@ -639,13 +654,11 @@ PROGRAM
 PULSEAT
 PULSEBY
 PULSEGEN
-PUSHBUTTON
 PUSHBUTTON2
 PUSHBUTTON2SEL
 PUSHBUTTONSEL
 PUSHDIMMER
 PWM
-RADIO
 RADIO2
 RAMP
 RAND
