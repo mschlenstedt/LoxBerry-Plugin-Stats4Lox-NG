@@ -65,46 +65,32 @@ sub msget_value
 	# We therefore decode directly and report a failure together with the raw
 	# response, instead of silently continuing with mangled data.
 	#
-	# The retry below is a legacy workaround: older firmware answered 0 for an
-	# analog block when queried with /all. Checked against a current Miniserver
-	# (Loxone Config 17) this no longer happens - LL.value carries real values
-	# such as "49.6%" or "-5.126". It is kept for older firmware, but its
-	# trigger is now the properly parsed number. Previously the WHOLE JSON
-	# document was numified, which yields 0 for any response and fired the
-	# retry far more often than intended.
+	# There used to be a retry here: when the parsed value was 0 and the response
+	# carried no output0, the block was queried a second time WITHOUT /all. That
+	# was a workaround for old firmware which answered 0 for an analog block on
+	# /all.
 	#
-	# Careful with that retry: a query without /all writes on some block types.
-	# That is issue #143, and the reason VIRTUALINTEXT is on the blacklist.
+	# Removed, because it was measured to be obsolete and harmful at the same time.
+	# On firmware 17.1.6.30, all 24 blocks whose condition could be checked safely
+	# answered identically both ways - not one case where the second query brought
+	# anything the first had not. Meanwhile it fired for 8 of 128 subscribed
+	# statistics, three of them of a writable type: a query without /all writes on
+	# those (issue #143), so a VirtualOutCmd and two Memory blocks were being
+	# written to on every single grabber cycle.
 	my $respjson;
 	my $resp_code;
-	my $attempt = 0;
-	while( 1 ) {
-		$attempt++;
 
-		if( ! eval { $respjson = JSON::decode_json( "$rawdata" ); 1 } ) {
-			print STDERR "No valid JSON received from Miniserver for $block: $@\n" if $DEBUG;
-			print STDERR "Raw response was: " . substr($rawdata, 0, 500) . "\n" if $DEBUG;
-			return (602, undef);
-		}
-		print STDERR "Received json data:\n" . Data::Dumper::Dumper($respjson) . "\n" if ($DUMP);
+	if( ! eval { $respjson = JSON::decode_json( "$rawdata" ); 1 } ) {
+		print STDERR "No valid JSON received from Miniserver for $block: $@\n" if $DEBUG;
+		print STDERR "Raw response was: " . substr($rawdata, 0, 500) . "\n" if $DEBUG;
+		return (602, undef);
+	}
+	print STDERR "Received json data:\n" . Data::Dumper::Dumper($respjson) . "\n" if ($DUMP);
 
-		$resp_code = $respjson->{LL}->{Code};
-		if( !defined $resp_code or $resp_code ne "200" ) {
-			print STDERR "Error from Miniserver. Code: " . (defined $resp_code ? $resp_code : '<none>') . "\n" if $DEBUG;
-			return ((defined $resp_code ? $resp_code : 602), undef);
-		}
-
-		my ($v) = parse_loxone_value( $respjson->{LL}->{value} );
-
-		last if( $attempt >= 2 );                       # at most one retry
-		last if( $respjson->{LL}->{output0} );          # precise values are in the outputs
-		last if( $block =~ m{^/jdev/} );                # caller passed a full url
-		last if( !defined $v or $v !~ /^-?[0-9]+(?:\.[0-9]+)?$/ or $v != 0 );
-
-		print STDERR "Value is 0 and the block has no outputs - re-querying $block without /all\n" if ($DEBUG);
-		my ($retryraw, $retrystatus) = LoxBerry::IO::mshttp_call2( $msnr, "/jdev/sps/io/" . URI::Escape::uri_escape($block) );
-		last if( !$retryraw or $retrystatus->{code} ne "200" );
-		$rawdata = $retryraw;
+	$resp_code = $respjson->{LL}->{Code};
+	if( !defined $resp_code or $resp_code ne "200" ) {
+		print STDERR "Error from Miniserver. Code: " . (defined $resp_code ? $resp_code : '<none>') . "\n" if $DEBUG;
+		return ((defined $resp_code ? $resp_code : 602), undef);
 	}
 
 	$resp_code = $resp_code + 0; # Convert from string
@@ -402,6 +388,25 @@ sub state_name
 #
 # A value that holds no number is returned as text rather than being replaced
 # by a number - the caller can tell the difference, and no value is invented.
+#
+# The number is only taken from the START of the string, and that is deliberate.
+# What arrives here for a StateV ("Virtueller Status") is not a measurement but
+# its display template rendered by the Miniserver, and the template is free text
+# with a <v> placeholder somewhere in it. Measured over the 43 such blocks of a
+# live installation:
+#
+#   "31.3°C", "102074 Lux", "0.25 ppm"   35 blocks, template starts with <v>
+#                                        -> number plus unit, which is wanted
+#   "0", "1"                              6 blocks set to digital mode; the
+#                                        Miniserver then ignores the template
+#                                        entirely -> plain number, also wanted
+#   "in 11 Tagen"                         2 blocks, template "in <v> Tagen"
+#                                        -> stored as text, which is wanted too
+#
+# Taking the first number found ANYWHERE would break that last group in the wrong
+# direction and, worse, would read the 2 out of a template like "Zone 2: <v> °C"
+# as the measurement. If a number is ever wanted out of such a string, the
+# template from the LoxPLAN is what locates it - not a guess.
 sub parse_loxone_value
 {
 	my ($raw) = @_;
