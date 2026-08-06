@@ -127,7 +127,7 @@ foreach my $msno (sort keys %miniservers) {
 		LOGWARN "Miniserver $msno -> $ms_fetcherrors errors. Miniserver not reachable?";
 	}
 	my $lineprot = Stats4Lox::influx_lineprot(undef, $measurement, \%tags, \%fields);
-	push @data, $lineprot;
+	push @data, $lineprot if( defined $lineprot );
 }
 
 #print STDERR Dumper @data;

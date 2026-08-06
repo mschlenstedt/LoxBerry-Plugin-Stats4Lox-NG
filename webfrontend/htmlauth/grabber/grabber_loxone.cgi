@@ -296,8 +296,15 @@ for my $results( @{$cfg->{loxone}} ){
 		}
 	}
 
-	my $lineprot = Stats4Lox::influx_lineprot(undef, $measurement, \%tags, \%fields);	
-	push @data, $lineprot;
+	# undef means no field had a usable value - see influx_lineprot. Pushing it
+	# would put an empty entry into the batch.
+	my $lineprot = Stats4Lox::influx_lineprot(undef, $measurement, \%tags, \%fields);
+	if( defined $lineprot ) {
+		push @data, $lineprot;
+	}
+	else {
+		LOGWARN "$results->{name} -> no usable value in this cycle - nothing written";
+	}
 
 	if( time() > ($starttime+$max_runtime) ) {
 

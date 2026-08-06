@@ -1289,6 +1289,12 @@ function popupLoxoneDetails( uid, msno ) {
 	
 	$("#LoxoneDetails_pagelabel").text(loxone_elements['PAGE'].localname);
 	$("#LoxoneDetails_page").html( control.Page ? control.Page : "&nbsp;" );
+
+	// Status blocks get a warning about their state texts (issue #20). The
+	// Miniserver only reports the text of the active state, so the state - and
+	// with it the value of the Val output - can only be worked out when the texts
+	// differ from each other.
+	$("#LoxoneDetails_statehint").toggle( (control.Type || "").toUpperCase() == "STATE" );
 	
 	// Icons
 	var isLoxVisu = control.Visu === "true" ? true : false;

@@ -62,6 +62,7 @@ sub readloxplan
 	my %lox_room;
 	my %lox_room_used;
 	my %lox_page;
+	my %lox_statetexts;
 	my %lox_elementType;
 	my $start_run = time();
 	my %lox_statsobject; 
@@ -377,6 +378,33 @@ sub readloxplan
 			$lox_statsobject{$object->{U}}{connectors} = \%connectors if( %connectors );
 		}
 
+		# States of a status block (issue #20)
+		#
+		# A State block answers /jdev/sps/io/<uuid>/all with the rendered text of
+		# the state it is in - not with the value of its Val output; the connector
+		# UUIDs of TQ and AQ answer 404, measured on all 66 blocks of a live
+		# installation. The configured states are the only way back to a number:
+		# with Text, Icon and colour the answer can be matched to one of them, and
+		# that state carries its index and its TextV.
+		#
+		# Icon and IcC come along because the API sends both, and they separate
+		# states that share a text - "Sensor EG nicht OK" and its two siblings
+		# only differ by icon on the test installation.
+		if( uc($object->{Type} // '') eq 'STATE' ) {
+			my @sts;
+			foreach my $stexts ( $object->getElementsByTagName('StateTexts') ) {
+				foreach my $s ( $stexts->getElementsByTagName('StateText') ) {
+					push @sts, {
+						Text  => ( defined $s->{Text}  ? $s->{Text}  : '' ),
+						TextV => ( defined $s->{TextV} ? $s->{TextV} : '' ),
+						Icon  => ( defined $s->{Icon}  ? $s->{Icon}  : '' ),
+						IcC   => ( defined $s->{IcC}   ? $s->{IcC}   : '' ),
+					};
+				}
+			}
+			$lox_statetexts{ lc($object->{U}) } = \@sts if( @sts );
+		}
+
 		# Page in the document
 		# Not sure if the xpath query recursively goes up until type Page, but should
 		my @page = $object->findnodes('ancestor::C[@Type="Page"]');
@@ -407,6 +435,8 @@ sub readloxplan
 	$combined_data{rooms} = \%lox_room;
 	$combined_data{categories} = \%lox_category;
 	$combined_data{pages} = \%lox_page;
+	# Goes into its own sidecar file, not into ms<n>.json - see loxplan2json.
+	$combined_data{statetexts} = \%lox_statetexts;
 	$combined_data{controls} = \%lox_statsobject;
 	$combined_data{elementTypes} = \@lox_elementTypes;
 	$combined_data{rooms_used} = \@lox_roomsUsed;
@@ -482,6 +512,12 @@ sub loxplan2json
 
 	$result->{documentInfo}->{LoxAPPversion3timestamp} = $remoteTimestamp ? $remoteTimestamp : $localTimestamp;
 	$result->{documentInfo}->{S4L_LastChecked} = $lastChecked;
+
+	# The state tables go into their own file and are then taken out of the
+	# structure: only the grabber needs them, and ms<n>.json is loaded by the web
+	# interface on every visit to the block list.
+	writeStateTexts( output => $args{output}, statetexts => $result->{statetexts}, log => $log );
+	delete $result->{statetexts};
 
 	# Write atomically.
 	#
@@ -734,6 +770,49 @@ sub stateNamesFile
 	return undef if( !defined $loxplanjson or $loxplanjson eq "" );
 	my $f = $loxplanjson;
 	return $f =~ s/\.json$//r . "_statenames.json";
+}
+
+#############################################################################
+# Where the state table of the status blocks is kept (issue #20)
+#############################################################################
+# Its own file next to ms<n>.json, not a section inside it. The grabber needs it
+# once per status block per interval, and ms<n>.json is 587 KB on the test
+# installation - the same reason state_name() reads a small sidecar instead.
+#############################################################################
+
+sub stateTextsFile
+{
+	my ($loxplanjson) = @_;
+	return undef if( !defined $loxplanjson or $loxplanjson eq "" );
+	my $f = $loxplanjson;
+	return $f =~ s/\.json$//r . "_statetexts.json";
+}
+
+sub writeStateTexts
+{
+	my %args = @_;
+	my $log = $args{log};
+	my $file = stateTextsFile( $args{output} );
+	return if( !$file );
+
+	my $texts = ( ref($args{statetexts}) eq 'HASH' ) ? $args{statetexts} : {};
+
+	# Written even when empty: an old file from a configuration that still had
+	# status blocks would otherwise keep resolving states that no longer exist.
+	my $tmp = "$file.tmp.$$";
+	eval {
+		open( my $fh, '>', $tmp ) or die "Could not open $tmp: $!\n";
+		print {$fh} JSON->new->canonical(1)->encode( $texts ) or die "Could not write $tmp: $!\n";
+		close($fh) or die "Could not close $tmp: $!\n";
+		rename( $tmp, $file ) or die "Could not rename $tmp: $!\n";
+	};
+	if( $@ ) {
+		unlink $tmp;
+		$log->WARN("writeStateTexts: $@") if ($log);
+		return;
+	}
+	$log->OK("writeStateTexts: " . scalar(keys %$texts) . " status blocks written to $file") if ($log);
+	return 1;
 }
 
 # Collects both resolution paths for one control into %$names.

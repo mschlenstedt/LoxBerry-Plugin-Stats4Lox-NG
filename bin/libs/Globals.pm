@@ -254,6 +254,14 @@ $ImportMapping->{Default} = [
 # checks it - the whole list is compared against type names that come from
 # Loxone.
 
+# STATE ("Statusbaustein") was on this list and has been taken off again. It
+# answers with the rendered text of its active state, and the state table from
+# the LoxPLAN turns that back into a state number and the configured value of the
+# Val output - see Stats4Lox::status_block_outputs(). Measured on 66 blocks of a
+# live installation: 44 identifiable, 17 not because several of their states share
+# the same text, 5 unreadable because the Miniserver sends invalid JSON when the
+# text itself contains quotes.
+
 # Unsure
 # ACTOR="Aktor (Relais)"
 # AUTOJALOUSIE="Automatikjalousie"
@@ -639,7 +647,6 @@ SONNENBATTERYDEVICE
 SRFLIPFLOP
 STAIRWAYLS
 STARTPULSE
-STATE
 STEAKTHERMO
 SUB
 SUNALTITUDE

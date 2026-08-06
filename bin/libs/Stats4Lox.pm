@@ -120,14 +120,25 @@ sub msget_value
 	# capture of the PREVIOUS block, so a text block silently reported the
 	# number of whatever had been queried before it. The unit was assigned from
 	# $2, which never existed because the pattern has a single group.
-	my ($defvalue, $defunit) = parse_loxone_value( $respjson->{LL}->{value} );
-	$data{Value} = $defvalue;
-	$data{Name} = "Default";
-	$data{Key} = "Default";
-	$data{Unit} = $defunit;
-	$data{Code} = $resp_code;
+	#
+	# One block type is exempt: a status block answers with an "output" WITHOUT a
+	# number, and its LL.value is then not a value at all but a memory address -
+	# "-1538922352", "-1517014704", different on every block. Measured on all 66
+	# status blocks of a live installation, and on none of the other 54 types.
+	# Handing that on as "Default" would write nonsense into the database.
+	if( ref($respjson->{LL}->{output}) eq 'HASH' and !$respjson->{LL}->{output0} ) {
+		push( @response, @{ status_block_outputs( $msnr, $block, $respjson, $resp_code ) } );
+	}
+	else {
+		my ($defvalue, $defunit) = parse_loxone_value( $respjson->{LL}->{value} );
+		$data{Value} = $defvalue;
+		$data{Name} = "Default";
+		$data{Key} = "Default";
+		$data{Unit} = $defunit;
+		$data{Code} = $resp_code;
 
-	push (@response, \%data);
+		push (@response, \%data);
+	}
 
 	# Additional outputs
 	my $i = 0;
@@ -166,6 +177,158 @@ sub msget_value
 	print STDERR "Response of subroutine:\n" . Data::Dumper::Dumper(\@response) . "\n" if ($DUMP);
 
 	return ($resp_code, \@response);
+}
+
+#####################################################
+# Outputs of a status block (issue #20)
+#####################################################
+# A status block answers /jdev/sps/io/<uuid>/all with the rendered text of the
+# state it is in, under an "output" key without a number. Its LL.value is a
+# memory address, and the connector UUIDs of TQ and AQ answer 404 - the value
+# output is not reachable over HTTP at all, measured on all 66 blocks of a live
+# installation.
+#
+# The way back to a number is the state table from the LoxPLAN: match the answer
+# against the configured states, and the matching state carries its index and its
+# TextV. Three outputs are offered:
+#
+#   Text    the rendered text, always
+#   State   the index of the state, when it could be identified
+#   Val     the TextV of that state, when it is a constant
+#
+# Text is what the user always gets; State and Val appear only when the block
+# allows it. On the test installation 44 of 66 blocks could be identified, 17 not
+# because several of their states share the same text, and 5 answer with invalid
+# JSON and never get here.
+#####################################################
+
+# Anything from "<v" up to ">" is a placeholder that Loxone substitutes at
+# runtime. Counted in a real LoxPLAN: <v1> 45x, <v1.1> 17x, <v3.2/1000> 3x,
+# <v4.1*31.5> 1x - input number, decimals, and a divisor or factor that may
+# itself have decimals. Michael also named the forms v.n and v.t, which did not
+# occur there. Hence the wide pattern: a narrow one would silently stop resolving
+# a form nobody thought of, and the cost of being wide is only a looser
+# comparison. A ">" without a "<" is not a placeholder - one configured text has
+# exactly that typo and arrives unchanged.
+my $PLACEHOLDER = qr/<v[^<>]*>/;
+
+sub status_text_matches
+{
+	my ($configured, $received) = @_;
+	$configured = '' if( !defined $configured );
+	$received   = '' if( !defined $received );
+	return 1 if( $configured eq $received );
+	return 0 if( $configured !~ $PLACEHOLDER );
+
+	# The literal parts have to match, whatever the placeholders became.
+	my @literal = split( /$PLACEHOLDER/, $configured, -1 );
+	my $re = join( '.*?', map { quotemeta } @literal );
+	return ( $received =~ /\A$re\z/s ) ? 1 : 0;
+}
+
+my %statetexts;
+my %statetexts_mtime;
+
+sub state_texts
+{
+	my ($msnr) = @_;
+	return undef if( !defined $msnr );
+
+	my $dir = eval { $Globals::stats4lox->{loxplanjsondir} };
+	return undef if( !$dir );
+
+	my $file  = "$dir/ms${msnr}_statetexts.json";
+	my $mtime = (stat($file))[9] || 0;
+
+	if( !exists $statetexts{$msnr} or ($statetexts_mtime{$msnr} // -1) != $mtime ) {
+		$statetexts{$msnr} = {};
+		$statetexts_mtime{$msnr} = $mtime;
+		if( $mtime ) {
+			eval {
+				open( my $fh, '<', $file ) or die "$!\n";
+				local $/;
+				my $content = <$fh>;
+				close($fh);
+				$statetexts{$msnr} = JSON::decode_json( $content );
+			};
+			# A broken sidecar must never take the grabber down - it only means
+			# the state stays unidentified and the text is all there is.
+			$statetexts{$msnr} = {} if( $@ or ref($statetexts{$msnr}) ne 'HASH' );
+		}
+	}
+	return $statetexts{$msnr};
+}
+
+sub status_block_outputs
+{
+	my ($msnr, $block, $respjson, $resp_code) = @_;
+
+	my $out  = $respjson->{LL}->{output};
+	my $text = $out->{value};
+	$text = '' if( !defined $text );
+
+	my @response;
+	my ($tval, $tunit) = parse_loxone_value( $text );
+	push @response, {
+		Value => $tval,
+		Name  => "Text",
+		Key   => "Text",
+		Unit  => $tunit,
+		Code  => $resp_code,
+	};
+
+	my $table = state_texts( $msnr );
+	my $states = ( ref($table) eq 'HASH' ) ? $table->{ lc($block // '') } : undef;
+	return \@response if( ref($states) ne 'ARRAY' or !@$states );
+
+	my $icon  = defined $out->{icon}  ? $out->{icon}  : '';
+	my $color = defined $out->{color} ? $out->{color} : '';
+
+	my (@hit, @exact);
+	for( my $i = 0; $i < @$states; $i++ ) {
+		my $s = $states->[$i];
+		my $ci = defined $s->{Icon} ? $s->{Icon} : '';
+		my $cc = defined $s->{IcC}  ? $s->{IcC}  : '';
+		next if( $ci ne '' and $icon ne '' and lc($ci) ne lc($icon) );
+		next if( $cc ne '' and $color ne '' and $cc ne $color );
+		next if( !status_text_matches( $s->{Text}, $text ) );
+		push @hit, $i;
+		push @exact, $i if( ( defined $s->{Text} ? $s->{Text} : '' ) eq $text );
+	}
+
+	# One candidate, or one that matches literally - in the second case the
+	# placeholders turned into wildcards created the ambiguity, and the literal
+	# match is the better answer. Anything else is genuinely ambiguous: several
+	# states carry the same text, and no rule can tell them apart. A third rule
+	# based on how specific the patterns are was tried and resolved nothing on the
+	# test installation, so it is not here.
+	my $winner;
+	if(    scalar @hit   == 1 ) { $winner = $hit[0] }
+	elsif( scalar @exact == 1 ) { $winner = $exact[0] }
+	return \@response if( !defined $winner );
+
+	push @response, {
+		Value => $winner,
+		Name  => "State",
+		Key   => "State",
+		Code  => $resp_code,
+	};
+
+	# TextV can itself be a placeholder - the value output then passes an input
+	# value through and there is no constant to store. Measured: 4 of 44.
+	my $textv = $states->[$winner]->{TextV};
+	if( defined $textv and $textv ne '' and $textv !~ $PLACEHOLDER ) {
+		my ($vval, $vunit) = parse_loxone_value( $textv );
+		push @response, {
+			Value => $vval,
+			Name  => "Val",
+			Key   => "Val",
+			Unit  => $vunit,
+			Code  => $resp_code,
+		};
+	}
+
+	return \@response;
 }
 
 #####################################################
@@ -324,6 +487,16 @@ sub influx_lineprot
 		$i++;
 	}
 
+	# Every field was skipped - the line would end after the tags and be invalid
+	# line protocol, and InfluxDB rejects the WHOLE batch for one bad line. So one
+	# block without a usable value would cost the data of every other block in the
+	# same cycle. Reachable since status blocks became selectable: a state whose
+	# text is empty and cannot be identified has nothing to write (issue #20).
+	if( $i == 0 ) {
+		print STDERR "No usable field for measurement '$measurement' - nothing to write\n" if $DEBUG;
+		return (undef);
+	}
+
 	$line .= " $timestamp" if $timestamp;
 
 	return ($line);
@@ -385,7 +558,7 @@ sub lox2telegraf
 		#print Data::Dumper::Dumper \%fields;
 
 		my $line = Stats4Lox::influx_lineprot( $timestamp, $measurement, \%tags, \%fields );
-		push (@queue, $line);
+		push (@queue, $line) if( defined $line );
 	}
 
 	#my @outputs;
