@@ -137,7 +137,18 @@
 	<h2><TMPL_VAR LOXBERRYSRC.TITLE></h2>
 	<p><TMPL_VAR LOXBERRYSRC.DESCRIPTION></p>
 
-	<!-- Which machines. First, because everything below is about them. -->
+	<div class="lb_flex-container s4lrow loxberry">
+		<div	class="lb_flex-item-label"><TMPL_VAR LOXBERRYSRC.LABEL_ACTIVE></div>
+		<div	class="lb_flex-item">
+			<input type="checkbox" data-role="flipswitch" name="lb_active" id="lb_active" <TMPL_VAR LOXBERRY_ACTIVE>>
+		</div>
+		<div	class="lb_flex-item-help hint">
+		<TMPL_VAR LOXBERRYSRC.HINT_ACTIVE>
+		</div>
+	</div>
+
+	<!-- Which machines. Below the switch: the switch is what this page is for,
+	     and the list is the first of the things it decides about. -->
 	<h3><TMPL_VAR LOXBERRYSRC.TITLE_HOSTS></h3>
 
 	<div class="lb_flex-container s4lrow loxberry">
@@ -160,16 +171,6 @@
 		</div>
 		<div	class="lb_flex-item-help hint">
 		<TMPL_VAR LOXBERRYSRC.HINT_HOSTS>
-		</div>
-	</div>
-
-	<div class="lb_flex-container s4lrow loxberry">
-		<div	class="lb_flex-item-label"><TMPL_VAR LOXBERRYSRC.LABEL_ACTIVE></div>
-		<div	class="lb_flex-item">
-			<input type="checkbox" data-role="flipswitch" name="lb_active" id="lb_active" <TMPL_VAR LOXBERRY_ACTIVE>>
-		</div>
-		<div	class="lb_flex-item-help hint">
-		<TMPL_VAR LOXBERRYSRC.HINT_ACTIVE>
 		</div>
 	</div>
 
