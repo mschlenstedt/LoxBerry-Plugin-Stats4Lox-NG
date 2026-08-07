@@ -595,6 +595,158 @@ sub _num
 }
 
 #####################################################
+# What a LoxBerry reports about itself, from Linfo
+# Param 1: URL of the Linfo JSON output
+# Param 2: arrayref of entries from @Globals::LOXBERRY_METRICS
+# Returns: ( \%values, $error, $hostname )
+#####################################################
+# One request per host. Linfo answers with the whole system in one document -
+# 9 to 15 kB depending on the machine - so everything selected comes out of that
+# one answer.
+#
+# No authentication: /system/tools/linfo/index.php is open on every LoxBerry.
+# That is why a remote LoxBerry needs nothing but its address here.
+sub linfo_metric_values
+{
+	my ($url, $metrics) = @_;
+	require LWP::UserAgent;
+
+	my $ua = LWP::UserAgent->new( timeout => 15 );
+	$ua->agent( "Stats4Lox" );
+	my $resp = $ua->get( $url );
+
+	if( !$resp->is_success ) {
+		# LWP reports a failure of its own - no route, name not resolved, timeout -
+		# as HTTP 500 with the reason in the message. Saying "HTTP 500" there reads
+		# as if the other machine had answered, which is the one thing it did not
+		# do. Its own failures carry this header, so they can be told apart.
+		my $internal = ( $resp->header('Client-Warning') // '' ) eq 'Internal response';
+		return ( {}, ( $internal ? $resp->message
+		                         : "HTTP " . $resp->code . " " . $resp->message ), undef );
+	}
+
+	my $doc = eval { JSON::decode_json( $resp->decoded_content ) };
+	if( !$doc or ref($doc) ne 'HASH' ) {
+		# A LoxBerry that has no Linfo answers with an HTML error page, and an
+		# address that is something else entirely answers with whatever it likes.
+		# Both end up here, and both mean the same to the user: no data.
+		return ( {}, "No Linfo data (the answer was not JSON)", undef );
+	}
+
+	my %values;
+	foreach my $m ( @$metrics ) {
+		my $v = linfo_pick( $m, $doc );
+		$values{ $m->{key} } = $v if( defined $v );
+	}
+
+	return ( \%values, undef, $doc->{HostName} );
+}
+
+#####################################################
+# One number out of one Linfo document
+# Param 1: entry from the catalogue
+# Param 2: the decoded document
+#####################################################
+# Returns a number or undef. undef means "this machine does not report it" - the
+# field is then left out instead of being written as 0, which would be a
+# measurement nobody made. That is not an edge case here: Temps is empty on an
+# x86 machine, and /opt/loxberry/log/ramlog only exists on a Pi.
+sub linfo_pick
+{
+	my ($m, $doc) = @_;
+	my $rule = $m->{pick} // 'path';
+
+	if( $rule eq 'path' ) {
+		return _linfo_num( _linfo_at( $doc, $m->{path} ) );
+	}
+
+	# Seconds since the boot, from the timestamp Linfo reports
+	if( $rule eq 'uptime' ) {
+		my $booted = _linfo_num( _linfo_at( $doc, ['UpTime','bootedTimestamp'] ) );
+		return undef if( !defined $booted or $booted <= 0 );
+		my $up = time() - $booted;
+		return $up >= 0 ? $up : undef;
+	}
+
+	# Percentage in use, from a total and what is free. Linfo reports both, and
+	# never the used part - and a total of zero (no swap) is not 100% used, it is
+	# nothing to report.
+	if( $rule eq 'usedpct' ) {
+		my $total = _linfo_num( _linfo_at( $doc, $m->{of} ) );
+		my $free  = _linfo_num( _linfo_at( $doc, $m->{free} ) );
+		return undef if( !defined $total or !defined $free or $total <= 0 );
+		return sprintf( "%.1f", ( $total - $free ) / $total * 100 ) + 0;
+	}
+
+	# One named mount out of the list. Mounted twice - autofs and cifs both
+	# appear for a network share - the first one wins; they report the same
+	# numbers.
+	if( $rule eq 'mount' ) {
+		return undef if( ref($doc->{Mounts}) ne 'ARRAY' );
+		foreach my $mp ( @{ $doc->{Mounts} } ) {
+			next if( ref($mp) ne 'HASH' or ( $mp->{mount} // '' ) ne $m->{mount} );
+			return _linfo_num( $mp->{ $m->{field} } );
+		}
+		return undef;
+	}
+
+	# The processor temperature. Linfo returns a list of sensors whose names
+	# differ per board ("cpu-thermal (thermal_zone0)" on a Pi), so the CPU one is
+	# looked for by name and the first sensor is the fallback. Fahrenheit is
+	# converted - the label says degrees Celsius.
+	if( $rule eq 'temp' ) {
+		return undef if( ref($doc->{Temps}) ne 'ARRAY' or !scalar @{ $doc->{Temps} } );
+		my ($sensor) = grep { ref($_) eq 'HASH' and ( $_->{name} // '' ) =~ /cpu|thermal|soc/i } @{ $doc->{Temps} };
+		$sensor = $doc->{Temps}->[0] if( !$sensor );
+		my $t = _linfo_num( $sensor->{temp} );
+		return undef if( !defined $t );
+		$t = ( $t - 32 ) / 1.8 if( ( $sensor->{unit} // 'C' ) =~ /^F/i );
+		return sprintf( "%.1f", $t ) + 0;
+	}
+
+	# Summed over every interface but the loopback. Linfo spells it "recieved".
+	if( $rule eq 'net' ) {
+		return undef if( ref($doc->{'Network Devices'}) ne 'HASH' );
+		my $sum;
+		foreach my $if ( keys %{ $doc->{'Network Devices'} } ) {
+			my $d = $doc->{'Network Devices'}->{$if};
+			next if( ref($d) ne 'HASH' );
+			next if( $if eq 'lo' or ( $d->{type} // '' ) =~ /loopback/i );
+			my $v = _linfo_num( ( $d->{ $m->{dir} } || {} )->{ $m->{field} } );
+			next if( !defined $v );
+			$sum = ( $sum // 0 ) + $v;
+		}
+		return $sum;
+	}
+
+	return undef;
+}
+
+# Walk a list of keys into the document
+sub _linfo_at
+{
+	my ($doc, $path) = @_;
+	return undef if( ref($path) ne 'ARRAY' );
+	my $at = $doc;
+	foreach my $k ( @$path ) {
+		return undef if( ref($at) ne 'HASH' or !exists $at->{$k} );
+		$at = $at->{$k};
+	}
+	return $at;
+}
+
+# Linfo mixes numbers and numeric strings ("0.61", 17.5, false). Anything that is
+# not a number becomes undef, so a "false" never lands in the database as 0.
+sub _linfo_num
+{
+	my ($v) = @_;
+	return undef if( !defined $v or ref($v) );
+	return undef if( $v !~ /^\s*[-+]?[0-9]*[.,]?[0-9]+\s*$/ );
+	$v =~ s/,/./;
+	return $v + 0;
+}
+
+#####################################################
 # Create InfluxDB lineformat
 # Param 1: Timestamp
 # Param 2: measurement

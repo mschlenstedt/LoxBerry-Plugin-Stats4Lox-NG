@@ -180,10 +180,23 @@ our $retention = {
 our @RETENTION_INTERVALS = qw( 1h 2h 6h 12h 1d 1w );
 our @RETENTION_DURATIONS = qw( 0 30d 90d 180d 365d 730d 1095d 1825d 3650d );
 
+# What a LoxBerry knows about itself, read from Linfo - the system information
+# every LoxBerry serves at /system/tools/linfo/index.php?out=json, without
+# authentication.
+#
+# Off by default, and unlike the Miniserver that is not caution about upgrades:
+# this source has never collected anything, so switching it on is the user's
+# decision either way.
+#
+# "hosts" are the OTHER LoxBerrys. The one this plugin runs on is not in that list
+# and cannot be taken out of the collection - it is always asked first and over
+# localhost, so it needs neither a name nor working DNS.
 our $loxberry = {
-	active => "True",
-	interval => 300,
+	active => "False",
+	interval => 900,
 	measurement => "stats_loxberry",
+	metrics => [],
+	hosts => [],
 };
 
 our $loxone = {
@@ -209,17 +222,18 @@ our $miniserver = {
 	metrics => [],
 };
 
-# What the page may offer as a polling interval, in seconds. Checked again in
-# ajax.cgi before anything is written, for the same reason as the retention lists
-# above: a list that lives in the browser is a suggestion, not a rule.
+# What the two data source pages may offer as a polling interval, in seconds.
+# Checked again in ajax.cgi before anything is written, for the same reason as the
+# retention lists above: a list that lives in the browser is a suggestion, not a
+# rule.
 #
-# Five minutes is the shortest on offer. These are vital signs of a controller,
-# not a measurement - and one round is one HTTP request per selected value per
-# Miniserver, which is the most expensive thing the plugin asks of the Miniserver
-# on its own initiative. Every value is a multiple of a minute, because Telegraf
-# asks the grabber once a minute and the grabber decides for itself whether the
-# interval has come round; anything in between just drifts.
-our @MINISERVER_INTERVALS = ( 300, 600, 900, 1800, 3600 );
+# Five minutes is the shortest on offer. These are vital signs of a machine, not a
+# measurement - and for the Miniserver one round is one HTTP request per selected
+# value, the most expensive thing the plugin asks of it on its own initiative.
+# Every value is a multiple of a minute, because Telegraf asks the grabbers once a
+# minute and they decide for themselves whether the interval has come round;
+# anything in between just drifts.
+our @GRABBER_INTERVALS = ( 300, 600, 900, 1800, 3600 );
 
 # Where the grabber remembers when each Miniserver is due again. On the ramdisk
 # on purpose: after a reboot every Miniserver is simply due at once.
@@ -229,6 +243,7 @@ our @MINISERVER_INTERVALS = ( 300, 600, 900, 1800, 3600 );
 # effect only after the OLD one had elapsed - up to an hour of a page saying it
 # polls every minute while nothing happens.
 our $miniserver_memfile = "/dev/shm/stats4lox_mem_miniservergrabber.json";
+our $loxberry_memfile   = "/dev/shm/stats4lox_mem_loxberrygrabber.json";
 
 # Everything the Miniserver will tell us about itself, measured against a live
 # Miniserver (firmware 17.1.6.30) on 07.08.2026 rather than taken from a list.
@@ -318,6 +333,138 @@ sub miniserver_metrics
 	}
 	return @out if( scalar @out );
 	return grep { $_->{default} } @MINISERVER_METRICS;
+}
+
+# What a LoxBerry reports about itself, out of one Linfo document.
+#
+#   key      the field name in the database. No host in it - the host is a tag,
+#            which is what tags are for. The Miniserver grabber writes
+#            msno_1_sys_cpu and repeats the number it already has as a tag; that
+#            is history, and a new measurement should not copy it.
+#   pick     how to get the number out of the document, see Stats4Lox
+#   path     for pick "path": where the value sits, as a list of keys
+#   group    only for the ordering of the selection list
+#   default  collected when the source is switched on and nothing has been chosen
+#
+# Read against two live LoxBerrys on 07.08.2026 - an x86 VM (Debian 12, Linfo
+# 14965 bytes) and a Raspberry Pi 4 (aarch64, 8991 bytes) - because half of what
+# Linfo reports depends on the machine.
+#
+# What is deliberately NOT here:
+#   Mounts as a whole    38 entries on the VM, 30 of them tmpfs/sysfs/cgroup and
+#                        ten SMB shares that all report the same 7.9 TB
+#   HD, Devices, CPU     partition tables, 20 PCI/USB devices, per-core Vendor and
+#                        MHz - inventory, not a time series
+#   OS, Kernel, Distro, phpVersion, webService, CPUArchitecture, virtualization,
+#   Model, AccessedIP    text that never changes
+#   Battery, Raid, Wifi  empty on both machines
+#   services             Linfo reports whether Apache and SSHd are running, and
+#                        "Apache is up" cannot be anything but 1 here: Linfo is a
+#                        page served BY that Apache. If it were down, the whole
+#                        document would be missing, not one field in it.
+our @LOXBERRY_METRICS = (
+	{ key => 'load_1',          pick => 'path', path => ['Load','now'],     group => 'SYSTEM', default => 1 },
+	{ key => 'load_5',          pick => 'path', path => ['Load','5min'],    group => 'SYSTEM', default => 1 },
+	{ key => 'load_15',         pick => 'path', path => ['Load','15min'],   group => 'SYSTEM', default => 1 },
+	{ key => 'cpu_usage',       pick => 'path', path => ['cpuUsage'],       group => 'SYSTEM', default => 1 },
+	# Only the Pi answers this one: Temps is an empty list on the x86 machine, and
+	# a metric with no value simply writes no field.
+	{ key => 'cpu_temperature', pick => 'temp',                             group => 'SYSTEM', default => 1 },
+	# Seconds since the boot, not the boot timestamp: a restart is then a drop to
+	# zero rather than a step in a number nobody reads as a date.
+	{ key => 'uptime',          pick => 'uptime',                           group => 'SYSTEM', default => 1 },
+	{ key => 'users_loggedin',  pick => 'path', path => ['numLoggedIn'],    group => 'SYSTEM', default => 0 },
+
+	{ key => 'ram_total',        pick => 'path', path => ['RAM','total'],     group => 'RAM', default => 0 },
+	{ key => 'ram_free',         pick => 'path', path => ['RAM','free'],      group => 'RAM', default => 1 },
+	{ key => 'ram_used_percent', pick => 'usedpct', of => ['RAM','total'], free => ['RAM','free'], group => 'RAM', default => 1 },
+	{ key => 'swap_total',        pick => 'path', path => ['RAM','swapTotal'], group => 'RAM', default => 0 },
+	{ key => 'swap_free',         pick => 'path', path => ['RAM','swapFree'],  group => 'RAM', default => 0 },
+	{ key => 'swap_used_percent', pick => 'usedpct', of => ['RAM','swapTotal'], free => ['RAM','swapFree'], group => 'RAM', default => 1 },
+
+	{ key => 'proc_total',   pick => 'path', path => ['processStats','proc_total'],        group => 'PROC', default => 1 },
+	{ key => 'proc_threads', pick => 'path', path => ['processStats','threads'],           group => 'PROC', default => 0 },
+	{ key => 'proc_running', pick => 'path', path => ['processStats','totals','running'],  group => 'PROC', default => 0 },
+	{ key => 'proc_zombie',  pick => 'path', path => ['processStats','totals','zombie'],   group => 'PROC', default => 1 },
+
+	{ key => 'disk_root_size',         pick => 'mount', mount => '/', field => 'size',         group => 'DISK', default => 0 },
+	{ key => 'disk_root_used',         pick => 'mount', mount => '/', field => 'used',         group => 'DISK', default => 0 },
+	{ key => 'disk_root_used_percent', pick => 'mount', mount => '/', field => 'used_percent', group => 'DISK', default => 1 },
+	# The two ramdisks a LoxBerry has, and which one carries the logs depends on
+	# the machine: /var/log on the x86 installation, /opt/loxberry/log/ramlog on
+	# the Pi. Both are offered; the one that does not exist writes nothing.
+	{ key => 'disk_varlog_used_percent', pick => 'mount', mount => '/var/log',                 field => 'used_percent', group => 'DISK', default => 0 },
+	{ key => 'disk_ramlog_used_percent', pick => 'mount', mount => '/opt/loxberry/log/ramlog', field => 'used_percent', group => 'DISK', default => 0 },
+	{ key => 'disk_shm_used_percent',    pick => 'mount', mount => '/dev/shm',                 field => 'used_percent', group => 'DISK', default => 0 },
+
+	# Summed over every interface except the loopback. Which one exists is up to
+	# the machine - eth0, wlan0, enp1s0 - so a fixed catalogue cannot name them.
+	{ key => 'net_bytes_received',   pick => 'net', dir => 'recieved', field => 'bytes',   group => 'NET', default => 1 },
+	{ key => 'net_bytes_sent',       pick => 'net', dir => 'sent',     field => 'bytes',   group => 'NET', default => 1 },
+	{ key => 'net_packets_received', pick => 'net', dir => 'recieved', field => 'packets', group => 'NET', default => 0 },
+	{ key => 'net_packets_sent',     pick => 'net', dir => 'sent',     field => 'packets', group => 'NET', default => 0 },
+	{ key => 'net_errors_received',  pick => 'net', dir => 'recieved', field => 'errors',  group => 'NET', default => 1 },
+	{ key => 'net_errors_sent',      pick => 'net', dir => 'sent',     field => 'errors',  group => 'NET', default => 1 },
+);
+
+# "recieved" is spelled that way in Linfo's output. It is not a typo in this file.
+
+# The same rule as miniserver_metrics(): the saved selection, or the default set
+# if nothing has ever been chosen. An empty selection means the same as none at
+# all, and the page refuses to save one.
+sub loxberry_metrics
+{
+	my $sel = $Globals::loxberry->{metrics};
+	my %known = map { $_->{key} => 1 } @LOXBERRY_METRICS;
+
+	my @out;
+	if( ref($sel) eq 'ARRAY' and scalar @$sel ) {
+		my %want = map { $_ => 1 } grep { $known{$_} } @$sel;
+		@out = grep { $want{ $_->{key} } } @LOXBERRY_METRICS;
+	}
+	return @out if( scalar @out );
+	return grep { $_->{default} } @LOXBERRY_METRICS;
+}
+
+# Every LoxBerry to ask, the one this runs on first.
+#
+# That first entry is not in the configuration and cannot be removed. It is
+# addressed as localhost on the configured web server port, so it works before
+# anybody has set a hostname and it does not depend on DNS.
+#
+# Returns a list of { address, url, tag, own }, and it is the ONE place that
+# decides what a LoxBerry is called - the page, the check, the live table and the
+# grabber all read "tag" from here rather than working the name out again.
+sub loxberry_hosts
+{
+	my $port = LoxBerry::System::lbwebserverport() || 80;
+	my @out = ( {
+		address => 'localhost',
+		url     => "http://localhost:$port/system/tools/linfo/index.php?out=json",
+		# Fetched over localhost, but labelled with the name the machine has.
+		# "host=localhost" in a Grafana legend says nothing, and it says even less
+		# once the data of several LoxBerrys sits side by side.
+		tag     => ( LoxBerry::System::lbhostname() || 'localhost' ),
+		own     => 1,
+	} );
+
+	my $hosts = $Globals::loxberry->{hosts};
+	return @out if( ref($hosts) ne 'ARRAY' );
+
+	foreach my $h ( @$hosts ) {
+		my $a = ref($h) eq 'HASH' ? $h->{address} : $h;
+		next if( !defined $a or $a !~ /\S/ );
+		$a =~ s/^\s+//; $a =~ s/\s+$//;
+		# A bare name or IP means port 80. Anything with a port keeps it, so a
+		# LoxBerry on a different port can be reached by writing it down.
+		push @out, {
+			address => $a,
+			url     => "http://$a/system/tools/linfo/index.php?out=json",
+			tag     => $a,
+			own     => 0,
+		};
+	}
+	return @out;
 }
 
 our $stats4lox = { 

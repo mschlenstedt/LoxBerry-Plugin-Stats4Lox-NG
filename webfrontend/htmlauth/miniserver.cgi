@@ -40,7 +40,7 @@ $template->param( 'MINISERVER_ACTIVE',
 	LoxBerry::System::is_enabled( $Globals::miniserver->{active} ) ? 'checked="checked"' : '' );
 
 my $msiv = int( $Globals::miniserver->{interval} || 300 );
-my @msoffer = @Globals::MINISERVER_INTERVALS;
+my @msoffer = @Globals::GRABBER_INTERVALS;
 # Whatever is configured stays selectable, even if it is not on the list. It can
 # only have got there by hand, and dropping it would move the setting to some
 # other value the next time this page is saved - without anybody asking.

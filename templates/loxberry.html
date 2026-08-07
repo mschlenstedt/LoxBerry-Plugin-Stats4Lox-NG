@@ -1,0 +1,450 @@
+<style>
+	.datahidden { display: none; }
+
+	/* Layout of a settings row - the same one the Miniserver and System pages
+	   use, so the three line up. */
+	.s4lrow
+	{
+		align-items	:flex-start;
+		margin-bottom	:16px;
+	}
+	.s4lrow .lb_flex-item
+	{
+		min-width	:0;
+		margin-top	:0;
+	}
+	.s4lrow .lb_flex-item-help
+	{
+		min-width	:0;
+		position	:relative;
+		margin-top	:6px;
+	}
+	@media ( min-width: 876px )
+	{
+		.s4lrow .lb_flex-item-label
+		{
+			min-width	:320px;
+			width		:320px;
+			max-width	:320px;
+			margin-right	:40px;
+			padding-top	:8px;
+		}
+		.s4lrow .lb_flex-item
+		{
+			flex		:1 1 0;
+			width		:auto;
+			max-width	:none;
+			min-width	:0;
+		}
+		.s4lrow .lb_flex-item-help
+		{
+			width		:calc(100% - 360px);
+			margin-left	:360px;
+		}
+	}
+	.s4lrow .lb_flex-item .ui-select,
+	.s4lrow .lb_flex-item .ui-input-text
+	{
+		width		:100%;
+		margin-left	:0;
+		margin-right	:0;
+		box-sizing	:border-box;
+	}
+
+	/* Same reason as on the Miniserver page: jQuery Mobile builds the list of a
+	   multiple select as a popup with no height of its own, and it measures the
+	   popup only when it opens it. */
+	#lb_metrics-listbox
+	{
+		max-height	:60vh;
+		overflow-y	:auto;
+	}
+
+	.buttonrow
+	{
+		min-height	:2em;
+		overflow	:auto;
+		width		:100%;
+		text-align	:center;
+		font-size	:smaller;
+	}
+
+	/* The list of machines */
+	table.hosttable
+	{
+		border-collapse	:collapse;
+		width		:100%;
+		max-width	:720px;
+	}
+	table.hosttable th,
+	table.hosttable td
+	{
+		padding		:4px 12px 4px 0;
+		text-align	:left;
+		vertical-align	:middle;
+	}
+	table.hosttable th { border-bottom:1px solid rgba(128,128,128,0.5); font-size:0.9em; }
+	table.hosttable td.state { font-size:0.9em; }
+	table.hosttable td.state.ok   { color:#2f7a2f; }
+	table.hosttable td.state.fail { color:#c0392b; }
+	table.hosttable input[type="text"] { margin:0; }
+	/* The row for this LoxBerry. It is not an entry the user made and cannot be
+	   removed, so it does not get a text field either. */
+	table.hosttable tr.own td.addr { font-weight:bold; }
+	table.hosttable tr.own td.addr .sub { font-weight:normal; color:#777; font-size:0.85em; }
+
+	/* The live table, its own scroll container for narrow screens */
+	.livewrap { overflow-x:auto; }
+	table.livetable
+	{
+		border-collapse	:collapse;
+		font-size	:0.9em;
+		margin-top	:6px;
+	}
+	table.livetable th,
+	table.livetable td
+	{
+		padding		:3px 12px 3px 0;
+		text-align	:left;
+		vertical-align	:top;
+		white-space	:nowrap;
+	}
+	table.livetable th { border-bottom:1px solid rgba(128,128,128,0.5); }
+	table.livetable td.mono { font-family:monospace; }
+	table.livetable tr.notlogged td { color:#777; }
+	table.livetable td.noanswer { color:#c0392b; }
+	/* The same green tick as everywhere else in the plugin */
+	table.livetable input[type="checkbox"]
+	{
+		accent-color	:#3c9a3c;
+		width		:18px;
+		height		:18px;
+		cursor		:default;
+		margin		:0;
+	}
+	.livems { font-weight:bold; margin-top:14px; }
+</style>
+
+<!-- Language strings for the sub navigation, which is built in JavaScript -->
+<div class="datahidden" id="lang_sub_mqtt_collector"><TMPL_VAR NAVBAR.SUB_MQTT_COLLECTOR></div>
+<div class="datahidden" id="lang_sub_mqtt_live"><TMPL_VAR NAVBAR.SUB_MQTT_LIVE></div>
+<div class="datahidden" id="lang_sub_miniserver"><TMPL_VAR NAVBAR.SUB_MINISERVER></div>
+<div class="datahidden" id="lang_sub_loxberry"><TMPL_VAR NAVBAR.SUB_LOXBERRY></div>
+
+<form>
+<div class="ui-body ui-body-a ui-corner-all">
+
+	<h2><TMPL_VAR LOXBERRYSRC.TITLE></h2>
+	<p><TMPL_VAR LOXBERRYSRC.DESCRIPTION></p>
+
+	<!-- Which machines. First, because everything below is about them. -->
+	<h3><TMPL_VAR LOXBERRYSRC.TITLE_HOSTS></h3>
+
+	<div class="lb_flex-container s4lrow loxberry">
+		<div	class="lb_flex-item-label">&nbsp;</div>
+		<div	class="lb_flex-item">
+			<table class="hosttable">
+				<thead>
+					<tr>
+						<th><TMPL_VAR LOXBERRYSRC.COL_HOST></th>
+						<th><TMPL_VAR LOXBERRYSRC.COL_STATE></th>
+						<th><TMPL_VAR LOXBERRYSRC.COL_ACTION></th>
+					</tr>
+				</thead>
+				<tbody id="lb_hosts"></tbody>
+			</table>
+			<div style="margin-top:8px">
+				<a href="javascript:lbAddHost();" id="btnaddhost" class="ui-btn ui-corner-all ui-shadow ui-btn-b ui-btn-icon-left ui-icon-plus ui-btn-inline ui-mini"
+					data-inline="true"><TMPL_VAR LOXBERRYSRC.BUTTON_ADD></a>
+			</div>
+		</div>
+		<div	class="lb_flex-item-help hint">
+		<TMPL_VAR LOXBERRYSRC.HINT_HOSTS>
+		</div>
+	</div>
+
+	<div class="lb_flex-container s4lrow loxberry">
+		<div	class="lb_flex-item-label"><TMPL_VAR LOXBERRYSRC.LABEL_ACTIVE></div>
+		<div	class="lb_flex-item">
+			<input type="checkbox" data-role="flipswitch" name="lb_active" id="lb_active" <TMPL_VAR LOXBERRY_ACTIVE>>
+		</div>
+		<div	class="lb_flex-item-help hint">
+		<TMPL_VAR LOXBERRYSRC.HINT_ACTIVE>
+		</div>
+	</div>
+
+	<div class="lb_flex-container s4lrow loxberry">
+		<div	class="lb_flex-item-label"><TMPL_VAR LOXBERRYSRC.LABEL_INTERVAL></div>
+		<div	class="lb_flex-item">
+			<select name="lb_interval" id="lb_interval" data-mini="true"><TMPL_VAR LOXBERRY_INTERVALS></select>
+		</div>
+		<div	class="lb_flex-item-help hint">
+		<TMPL_VAR LOXBERRYSRC.HINT_INTERVAL>
+		</div>
+	</div>
+
+	<div class="lb_flex-container s4lrow loxberry">
+		<div	class="lb_flex-item-label"><TMPL_VAR LOXBERRYSRC.LABEL_METRICS></div>
+		<div	class="lb_flex-item">
+			<select name="lb_metrics" id="lb_metrics" multiple="multiple" data-native-menu="false" data-mini="true"><TMPL_VAR LOXBERRY_METRICS></select>
+		</div>
+		<div	class="lb_flex-item-help hint">
+		<TMPL_VAR LOXBERRYSRC.HINT_METRICS>
+		<br><br>
+		<TMPL_VAR LOXBERRYSRC.HINT_AVAILABILITY>
+		</div>
+	</div>
+
+	<div style="padding: 0px 0px 20px 0px;"></div>
+
+	<div class="lb_flex-container loxberry">
+		<div	class="buttonrow">
+			<a href="javascript:saveLoxberry();" name="btnsaveloxberry" id="btnsaveloxberry" class="ui-btn ui-corner-all ui-shadow ui-btn-b ui-btn-icon-left ui-icon-check ui-btn-inline"
+				data-inline="true"><TMPL_VAR LOXBERRYSRC.BUTTON_SAVE></a>
+			<a href="javascript:loadLiveValues();" name="btnliveloxberry" id="btnliveloxberry" class="ui-btn ui-corner-all ui-shadow ui-btn-b ui-btn-icon-left ui-icon-refresh ui-btn-inline"
+				data-inline="true"><TMPL_VAR LOXBERRYSRC.BUTTON_LIVE></a>
+		</div>
+	</div>
+
+	<div class="lb_flex-container">
+		<div class="buttonrow" id="hint_loxberry">&nbsp;</div>
+	</div>
+
+	<div id="live_block" style="display:none">
+		<h3><TMPL_VAR LOXBERRYSRC.LIVE_TITLE></h3>
+		<div id="live_detail"></div>
+	</div>
+
+</div>
+</form>
+
+<script>
+// The catalogue, so the live table can be built without asking again what each
+// key is called.
+var lbCatalogue = <TMPL_VAR LOXBERRY_CATALOGUE>;
+
+// The machines. The first one is this LoxBerry: not in the configuration, not
+// removable, and always asked.
+var lbHosts = [
+<TMPL_LOOP LOXBERRY_HOSTS>	{ address: "<TMPL_VAR ADDRESS>", label: "<TMPL_VAR LABEL>", own: <TMPL_VAR OWN>, state: null },
+</TMPL_LOOP>];
+
+function lbEsc(s) {
+	return String(s === undefined || s === null ? "" : s)
+		.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// --- the list of machines -------------------------------------------------
+//
+// Redrawn from lbHosts rather than edited in place, so the state of a row and
+// the value in its field can never disagree.
+function lbRenderHosts() {
+	var h = "";
+	lbHosts.forEach( function( host, i ) {
+		var st = host.state;
+		var cls = st && st.ok ? "ok" : ( st ? "fail" : "" );
+		var txt = "<TMPL_VAR LOXBERRYSRC.STATE_UNKNOWN>";
+		if( st && st.checking ) txt = "<TMPL_VAR LOXBERRYSRC.STATE_CHECKING>";
+		else if( st && st.ok )  txt = "<TMPL_VAR LOXBERRYSRC.STATE_OK>".replace( "__N__", st.count );
+		else if( st )           txt = "<TMPL_VAR LOXBERRYSRC.STATE_FAIL>" + ( st.error ? " (" + lbEsc(st.error) + ")" : "" );
+
+		h += '<tr class="' + ( host.own ? "own" : "" ) + '">';
+		if( host.own ) {
+			h += '<td class="addr">' + lbEsc(host.label)
+				+ '<br><span class="sub"><TMPL_VAR LOXBERRYSRC.HOST_OWN></span></td>';
+		}
+		else {
+			h += '<td class="addr"><input type="text" data-mini="true" value="' + lbEsc(host.address)
+				+ '" placeholder="<TMPL_VAR LOXBERRYSRC.HOST_PLACEHOLDER>"'
+				+ ' onchange="lbHostChanged(' + i + ', this.value)"></td>';
+		}
+		h += '<td class="state ' + cls + '">' + txt + '</td>';
+		h += '<td>' + ( host.own ? '' :
+			'<a href="javascript:lbRemoveHost(' + i + ');" class="ui-btn ui-corner-all ui-btn-inline ui-mini ui-icon-delete ui-btn-icon-notext"'
+			+ ' title="<TMPL_VAR LOXBERRYSRC.BUTTON_REMOVE>"><TMPL_VAR LOXBERRYSRC.BUTTON_REMOVE></a>' ) + '</td>';
+		h += '</tr>';
+	} );
+	$("#lb_hosts").html( h ).trigger("create");
+}
+
+function lbHostChanged( i, value ) {
+	lbHosts[i].address = String(value).trim();
+	lbHosts[i].state = null;
+	lbMarkDirty();
+}
+
+function lbAddHost() {
+	lbHosts.push( { address: "", label: "", own: 0, state: null } );
+	lbRenderHosts();
+	lbMarkDirty();
+}
+
+function lbRemoveHost( i ) {
+	if( lbHosts[i] && lbHosts[i].own ) return;
+	lbHosts.splice( i, 1 );
+	lbRenderHosts();
+	lbMarkDirty();
+}
+
+// --- the selection --------------------------------------------------------
+
+// The label is the FIRST span of the generated button - the second is the count
+// bubble, and writing into that would replace the number by the sentence.
+function lbButtonText() {
+	var n = ( $("#lb_metrics").val() || [] ).length;
+	$("#lb_metrics-button").children("span").first()
+		.text( "<TMPL_VAR LOXBERRYSRC.SELECTED_COUNT>".replace( "%d", n ) );
+}
+
+function lbMarkDirty() {
+	$("#hint_loxberry").attr("style","color:#a06000").html("<TMPL_VAR LOXBERRYSRC.HINT_UNSAVED>");
+}
+
+$(function() {
+	lbRenderHosts();
+	lbButtonText();
+	$("#lb_metrics").on( "change", lbButtonText );
+	$("#lb_active, #lb_interval, #lb_metrics").on( "change", lbMarkDirty );
+} );
+
+function saveLoxberry() {
+	var metrics = $("#lb_metrics").val() || [];
+
+	// An empty selection is refused rather than saved: the grabber cannot tell it
+	// apart from "never chosen", and "collect nothing" already has a switch.
+	if( metrics.length === 0 ) {
+		$("#hint_loxberry").attr("style","color:red").html("<TMPL_VAR LOXBERRYSRC.ERROR_NO_METRIC>");
+		return;
+	}
+
+	// Only the machines the user added; the first one is not configuration.
+	// Empty rows are dropped rather than refused - an empty field is somebody
+	// changing their mind, not a mistake worth an error message.
+	var hosts = [];
+	var seen = {};
+	for( var i = 0; i < lbHosts.length; i++ ) {
+		if( lbHosts[i].own ) continue;
+		var a = String(lbHosts[i].address || "").trim();
+		if( a === "" ) continue;
+		if( seen[a.toLowerCase()] ) {
+			$("#hint_loxberry").attr("style","color:red").html("<TMPL_VAR LOXBERRYSRC.ERROR_DUPLICATE>");
+			return;
+		}
+		seen[a.toLowerCase()] = true;
+		hosts.push( a );
+	}
+
+	$(".loxberry").addClass('ui-disabled');
+	$("#hint_loxberry").html("");
+	$.post( "ajax.cgi", {
+		action:   'loxberry_save',
+		active:   $('#lb_active').is(':checked') ? 'True' : 'False',
+		interval: $('#lb_interval').val(),
+		metrics:  JSON.stringify( metrics ),
+		hosts:    JSON.stringify( hosts )
+	} )
+	.fail( function( data ) {
+		console.log( "loxberry_save failed", data );
+		$("#hint_loxberry").attr("style","color:red")
+			.html( data && data.responseJSON && data.responseJSON.error
+				? lbEsc(data.responseJSON.error) : "<TMPL_VAR LOXBERRYSRC.HINT_SAVING_FAIL>" );
+	} )
+	.done( function( data ) {
+		$("#hint_loxberry").attr("style","color:green").html("<TMPL_VAR LOXBERRYSRC.HINT_SAVING_SUCCESS>");
+		// Rebuilt from what the server accepted, not from what was typed: empty
+		// rows are gone now, and the row order is the saved one.
+		if( data && data.hosts ) {
+			lbHosts = data.hosts.map( function( h ) {
+				return { address: h.address, label: h.label, own: h.own ? 1 : 0, state: { checking: true } };
+			} );
+			lbRenderHosts();
+			lbCheckHosts();
+		}
+	} )
+	.always( function() { $(".loxberry").removeClass('ui-disabled'); } );
+}
+
+// Straight after saving: does every machine in the list actually answer with
+// Linfo data? An address that was mistyped is worth knowing about now rather
+// than in a week when a graph is empty.
+function lbCheckHosts() {
+	$.post( "ajax.cgi", { action: 'loxberry_check' } )
+	.fail( function( data ) {
+		console.log( "loxberry_check failed", data );
+		lbHosts.forEach( function(h) { h.state = { ok: false, error: "" } } );
+		lbRenderHosts();
+	} )
+	.done( function( data ) {
+		var by = {};
+		( data.hosts || [] ).forEach( function( r ) { by[r.address] = r } );
+		lbHosts.forEach( function( h ) {
+			var r = by[h.address];
+			h.state = r ? { ok: r.ok ? true : false, count: r.count, error: r.error } : null;
+		} );
+		lbRenderHosts();
+	} );
+}
+
+// --- what the machines report right now -----------------------------------
+
+function loadLiveValues() {
+	$("#live_block").show();
+	$("#live_detail").html("<TMPL_VAR LOXBERRYSRC.LIVE_LOADING>");
+	$("#btnliveloxberry").addClass('ui-disabled');
+
+	$.post( "ajax.cgi", { action: 'loxberry_live' } )
+	.fail( function( data ) {
+		console.log( "loxberry_live failed", data );
+		$("#live_detail").attr("style","color:red")
+			.html( data && data.responseJSON && data.responseJSON.error
+				? lbEsc(data.responseJSON.error) : "<TMPL_VAR LOXBERRYSRC.LIVE_FAIL>" );
+	} )
+	.done( function( data ) {
+		$("#live_detail").attr("style","").html( renderLive( data ) );
+	} )
+	.always( function() { $("#btnliveloxberry").removeClass('ui-disabled'); } );
+}
+
+function renderLive( data ) {
+	if( !data || !data.hosts || data.hosts.length === 0 ) {
+		return "<TMPL_VAR LOXBERRYSRC.LIVE_FAIL>";
+	}
+	// The selection as it is on screen, not as it was saved, so the table matches
+	// what the user is looking at.
+	var sel = {};
+	($("#lb_metrics").val() || []).forEach( function(k) { sel[k] = true } );
+
+	var h = "";
+	data.hosts.forEach( function( host ) {
+		var title = "<TMPL_VAR LOXBERRYSRC.LIVE_HOST>".replace( "__H__", lbEsc(host.label || host.address) );
+		// The name the machine calls itself, when it is not already the title
+		if( host.name && host.name !== ( host.label || host.address ) ) title += " - " + lbEsc(host.name);
+		h += '<div class="livems">' + title + '</div>';
+
+		if( host.error ) {
+			h += '<div style="color:#c0392b">' + lbEsc(host.error) + '</div>';
+			return;
+		}
+
+		h += '<div class="livewrap"><table class="livetable"><thead><tr>'
+			+ '<th><TMPL_VAR LOXBERRYSRC.COL_METRIC></th>'
+			+ '<th><TMPL_VAR LOXBERRYSRC.COL_VALUE></th>'
+			+ '<th><TMPL_VAR LOXBERRYSRC.COL_LOGGED></th>'
+			+ '</tr></thead><tbody>';
+
+		lbCatalogue.forEach( function( m ) {
+			var has = host.values && Object.prototype.hasOwnProperty.call( host.values, m.key );
+			h += '<tr' + ( sel[m.key] ? '' : ' class="notlogged"' ) + '>'
+				+ '<td>' + lbEsc(m.label) + '</td>'
+				+ ( has ? '<td class="mono">' + lbEsc(host.values[m.key]) + '</td>'
+				        : '<td class="noanswer"><TMPL_VAR LOXBERRYSRC.LIVE_NOANSWER></td>' )
+				+ '<td><input type="checkbox" data-role="none" tabindex="-1" onclick="return false;"'
+				+ ( sel[m.key] ? ' checked="checked" title="<TMPL_VAR COMMON.YES>"'
+				               : ' title="<TMPL_VAR COMMON.NO>"' ) + '></td>'
+				+ '</tr>';
+		} );
+		h += '</tbody></table></div>';
+	} );
+	return h;
+}
+</script>

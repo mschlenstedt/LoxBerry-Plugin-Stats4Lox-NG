@@ -990,7 +990,7 @@ if( $q->{action} eq "miniserver_save" ) {
 	# Against the list the page was given, plus whatever is configured right now -
 	# the page keeps a hand-edited value selectable, so it has to survive a save.
 	my %ok = map { $_ => 1 }
-		( @Globals::MINISERVER_INTERVALS, int( $Globals::miniserver->{interval} || 300 ) );
+		( @Globals::GRABBER_INTERVALS, int( $Globals::miniserver->{interval} || 300 ) );
 
 	# The selection, checked against the catalogue. An empty list is refused: the
 	# grabber cannot tell it apart from "never chosen" and would collect the
@@ -1066,6 +1066,129 @@ if( $q->{action} eq "miniserver_live" ) {
 			. scalar( keys %$errors ) . " endpoints not available";
 	}
 	$response = JSON::encode_json( { miniservers => \@out } );
+}
+
+##
+## The LoxBerrys and what they report about themselves (Data sources -> LoxBerry)
+##
+## The list of machines, the interval and the selection, in one save. Nothing is
+## restarted: grabber_loxberry.cgi reads the configuration on every call.
+if( $q->{action} eq "loxberry_save" ) {
+	my $iv = $q->{interval} // '';
+	my %ok = map { $_ => 1 }
+		( @Globals::GRABBER_INTERVALS, int( $Globals::loxberry->{interval} || 900 ) );
+
+	my %known = map { $_->{key} => 1 } @Globals::LOXBERRY_METRICS;
+	my $metrics = eval { JSON::decode_json( $q->{metrics} // '[]' ) };
+	my @cleanm;
+	@cleanm = grep { $known{$_} } @$metrics if( ref($metrics) eq 'ARRAY' );
+
+	# The addresses. Only what an address may contain - letters, digits, dots,
+	# hyphens and an optional port - because this string is put into a URL that
+	# the plugin then fetches. Duplicates and empty entries are dropped rather
+	# than refused; the page has already dropped them, this is the second line.
+	my $hosts = eval { JSON::decode_json( $q->{hosts} // '[]' ) };
+	my (@cleanh, %seenh, $badhost);
+	if( ref($hosts) eq 'ARRAY' ) {
+		foreach my $a ( @$hosts ) {
+			next if( ref($a) or !defined $a );
+			$a =~ s/^\s+//; $a =~ s/\s+$//;
+			next if( $a eq '' );
+			if( $a !~ /^[A-Za-z0-9][A-Za-z0-9\.\-]*(:\d{1,5})?$/ ) { $badhost = $a; last }
+			next if( $seenh{ lc $a }++ );
+			push @cleanh, { address => $a };
+		}
+	}
+
+	if( $iv !~ /^\d+$/ or !$ok{ $iv + 0 } ) {
+		$error = "Interval '$iv' was not offered";
+	}
+	elsif( ref($metrics) ne 'ARRAY' or ref($hosts) ne 'ARRAY' ) {
+		$error = "The list of values or of hosts is missing or malformed";
+	}
+	elsif( defined $badhost ) {
+		$error = "'$badhost' is not an address";
+	}
+	elsif( scalar @cleanm != scalar @$metrics ) {
+		$error = "The list of values contains something that was not offered";
+	}
+	elsif( !scalar @cleanm ) {
+		$error = "No value selected";
+	}
+	else {
+		require LoxBerry::JSON;
+		my $obj = LoxBerry::JSON->new();
+		my $cfg = $obj->open( filename => $stats4loxconfig, lockexclusive => 1, locktimeout => 10 );
+		if( !$cfg ) {
+			$error = "Could not open the configuration";
+		}
+		else {
+			my $on = is_enabled( $q->{active} ) ? "True" : "False";
+			$cfg->{loxberry}->{active}   = $on;
+			$cfg->{loxberry}->{interval} = $iv + 0;
+			$cfg->{loxberry}->{metrics}  = \@cleanm;
+			$cfg->{loxberry}->{hosts}    = \@cleanh;
+			$obj->write();
+
+			# The grabber's note of when each host is next due. Without dropping
+			# it, a shortened interval would take effect only after the old one
+			# had run out, and a machine that was just added would wait for it.
+			unlink( $Globals::loxberry_memfile ) if( -e $Globals::loxberry_memfile );
+
+			# Answer with the list as it was stored, so the page can redraw from
+			# what the server accepted rather than from what was typed.
+			$Globals::loxberry->{hosts} = \@cleanh;
+			my @rows = map {
+				{ address => $_->{address}, own => ( $_->{own} ? 1 : 0 ), label => $_->{tag} }
+			} Globals::loxberry_hosts();
+
+			LOGOK "LoxBerry grabber saved (active $on, interval ${iv}s, "
+				. scalar(@cleanm) . " values, " . scalar(@cleanh) . " additional hosts)";
+			$response = JSON::encode_json( { saved => 1, hosts => \@rows } );
+		}
+	}
+}
+
+## loxberry_check - does every configured LoxBerry answer with Linfo data?
+#
+# Asked right after saving. A mistyped address is worth finding out about now
+# rather than in a week, when a graph is empty and nobody knows why.
+if( $q->{action} eq "loxberry_check" ) {
+	require Stats4Lox;
+	my @out;
+	foreach my $h ( Globals::loxberry_hosts() ) {
+		my ($values, $err) = Stats4Lox::linfo_metric_values( $h->{url}, \@Globals::LOXBERRY_METRICS );
+		push @out, {
+			address => $h->{address},
+			ok      => $err ? JSON::false : JSON::true,
+			count   => scalar( keys %$values ),
+			error   => ( $err // '' ),
+		};
+		LOGINF "LoxBerry $h->{address}: " . ( $err ? $err : scalar( keys %$values ) . " values" );
+	}
+	$response = JSON::encode_json( { hosts => \@out } );
+}
+
+## loxberry_live - what every configured LoxBerry reports right now
+#
+# The whole catalogue, not the selection: the table is there to show what is on
+# offer, and a value this machine does not report is part of that answer.
+if( $q->{action} eq "loxberry_live" ) {
+	require Stats4Lox;
+	my @out;
+	foreach my $h ( Globals::loxberry_hosts() ) {
+		my ($values, $err, $name) = Stats4Lox::linfo_metric_values( $h->{url}, \@Globals::LOXBERRY_METRICS );
+		push @out, {
+			address => $h->{address},
+			# What the table calls it, and what goes into the database as the host
+			# tag - "localhost" is how this machine is reached, not what it is.
+			label   => ( $h->{tag} // $h->{address} ),
+			name    => ( $name // '' ),
+			values  => $values,
+			error   => ( $err // '' ),
+		};
+	}
+	$response = JSON::encode_json( { hosts => \@out } );
 }
 
 ##

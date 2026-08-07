@@ -42,7 +42,7 @@
    },
    "loxberry": {
       "measurement" : "stats_loxberry",
-      "interval": 300,
-      "active": "True"
+      "interval": 900,
+      "active": "False"
    }
 }

@@ -299,9 +299,36 @@ if [ -d $LBHOMEDIR/data/plugins/$PTEMPDIR\_upgrade ]; then
 
 	# Config
 	if [ -n "$(ls -A "$LBHOMEDIR/data/plugins/${PTEMPDIR}_upgrade/config/" 2>/dev/null)" ]; then
+		# The freshly installed Telegraf drop-ins, kept aside before the old ones
+		# are copied over them. One of them has to be put back afterwards, see
+		# below - and after this rsync the new version no longer exists anywhere.
+		S4L_FRESH_TELEGRAFD=$(mktemp -d)
+		cp -a $PCONFIG/telegraf/telegraf.d/. "$S4L_FRESH_TELEGRAFD/" 2>/dev/null
+
 		chown -R loxberry:loxberry $PCONFIG
 		rsync -Iav --exclude "systemd/*" --exclude "sysctl.conf" $LBHOMEDIR/data/plugins/${PTEMPDIR}_upgrade/config/* $PCONFIG/
-		if [ $? -ne 0 ]; then
+		# Kept before anything else runs - the check below used to read $? and
+		# would otherwise be testing whatever ran last instead of the rsync.
+		S4L_RSYNC_RC=$?
+
+		# The LoxBerry drop-in shipped for years with "urls = []" and a
+		# data_format that was never going to work - it collected nothing, ever.
+		# An upgrade would restore exactly that over the working one and the
+		# LoxBerry data source would silently do nothing on every installation
+		# that was not brand new.
+		#
+		# Only replaced when it still carries that empty URL list. A drop-in that
+		# has a URL is either the new one or something the user set up, and
+		# neither should be overwritten.
+		if grep -qE '^[[:space:]]*urls[[:space:]]*=[[:space:]]*\[[[:space:]]*\]' \
+			"$PCONFIG/telegraf/telegraf.d/stats4lox_loxberry.conf" 2>/dev/null \
+			&& [ -f "$S4L_FRESH_TELEGRAFD/stats4lox_loxberry.conf" ]; then
+			cp -a "$S4L_FRESH_TELEGRAFD/stats4lox_loxberry.conf" "$PCONFIG/telegraf/telegraf.d/stats4lox_loxberry.conf"
+			echo "<INFO> Replaced the empty LoxBerry Telegraf drop-in by the current one."
+		fi
+		rm -rf "$S4L_FRESH_TELEGRAFD"
+
+		if [ $S4L_RSYNC_RC -ne 0 ]; then
 			echo "<FAIL> Restoring config files failed. Giving up."
 			#pause 'Press [Enter] key to continue...'
 			mv $LBHOMEDIR/data/plugins/${PTEMPDIR}_upgrade $LBHOMEDIR/data/plugins/${DATE}_FAILED_INSTALLATION_STATS4LOX
@@ -575,9 +602,16 @@ chmod 660 $PCONFIG/telegraf/telegraf.env
 #
 # REPLACE THIS WITH CONFIG-HANDLER LATER ON
 #
-echo "<INFO> Activating LB Webserver Port in Telegraf configuration (telegraf.d/stats4lox_loxone.conf) and restart Telegraf afterwards."
+echo "<INFO> Activating LB Webserver Port in the Telegraf grabber drop-ins and restart Telegraf afterwards."
 LBWEBSERVERPORT=`perl -e 'use LoxBerry::System; print lbwebserverport();'`
-sed -i "s/^  urls = .*$/  urls = [ \"http:\/\/localhost:$LBWEBSERVERPORT\/admin\/plugins\/$PDIR\/grabber\/grabber_loxone.cgi\" ]/g" $PCONFIG/telegraf/telegraf.d/stats4lox_loxone.conf
+# Every grabber URL in every drop-in, addressed by the URL itself rather than by
+# the line it sits on. The Loxone drop-in writes its array on one line, the other
+# two spread it over several, and the previous version rewrote "the line that
+# starts with urls =" - which only ever worked for the first of them. The
+# Miniserver grabber has therefore always been called on port 80 no matter what
+# the LoxBerry web server was configured to use.
+sed -i -E "s#http://localhost(:[0-9]+)?/admin/plugins/[^/]+/grabber/#http://localhost:$LBWEBSERVERPORT/admin/plugins/$PDIR/grabber/#g" \
+	$PCONFIG/telegraf/telegraf.d/*.conf
 
 # Migrate options that the installed Telegraf version does not accept any
 # more. Runs on every install and upgrade, so a configuration restored from an
