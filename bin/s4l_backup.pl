@@ -784,11 +784,45 @@ sub cmd_restore
 		else           { LOGE "Could not restore the InfluxDB user: $out" }
 	}
 
+	my $db_failed = 0;
 	if( -d "$work/influxdb" ) {
+
+		# The database has to be gone from the METASTORE, not only from the disk.
+		#
+		# Deleting data/<db> and wal/<db> above leaves meta/ untouched, so InfluxDB
+		# still knows the database - and "influxd restore -portable" refuses to
+		# write into one that exists:
+		#
+		#   error updating meta: DB metadata not changed. database may already exist
+		#
+		# Which is exactly what happened on a real restore over a running
+		# installation - the normal case, not an edge case. DROP DATABASE through
+		# the client removes both halves. It is safe here in a way it never is
+		# elsewhere: the data files of this database were deleted a few lines up,
+		# and an archive to put back in their place is in hand.
+		my $bin = $LoxBerry::System::lbpbindir . "/s4linflux";
+		run( "$bin -execute " . quotemeta( "DROP DATABASE " . $m->{db_name} ) );
+
 		($rc, $out) = run( "influxd restore -portable -db " . quotemeta($m->{db_name})
 		                   . " " . quotemeta("$work/influxdb") );
-		if( $rc != 0 ) { LOGE "influxd restore failed: $out" }
-		else           { LOGO "Database restored" }
+		if( $rc != 0 ) {
+			LOGE "influxd restore failed: $out";
+			$db_failed = 1;
+		}
+		else {
+			# Asked, not assumed. This is the step whose failure went unnoticed,
+			# and the answer to "did it work" is one cheap query away.
+			my ($qrc, $qout) = run( "$bin -database " . quotemeta($m->{db_name})
+			                        . " -execute " . quotemeta("SHOW MEASUREMENTS") );
+			my @lines = grep { /\S/ and !/^name:/ and !/^name$/ and !/^-+$/ } split( /\n/, ($qout // '') );
+			if( $qrc != 0 or !@lines ) {
+				LOGE "The database is empty after the restore - the archive was not put back";
+				$db_failed = 1;
+			}
+			else {
+				LOGO sprintf( "Database restored, %d measurements", scalar @lines );
+			}
+		}
 	}
 
 	remove_tree($work);
@@ -803,6 +837,18 @@ sub cmd_restore
 	if( @dead ) {
 		LOGE "These services are not running: " . join( ", ", @dead );
 		status( running => 0, step => 'done', message => 'Restore finished with errors', errors => 1 );
+		exit 1;
+	}
+
+	# A failed database restore used to end up here as a success.
+	#
+	# The error was written to the logfile and then dropped on the floor: the final
+	# status said errors => 0 and the page showed a green "finished", while the old
+	# database was still in place and untouched. Somebody who restores a backup and
+	# is told it worked has every reason to believe their data is back.
+	if( $db_failed ) {
+		LOGE "Restore finished, but the DATABASE was not restored - see above. Your old database is untouched.";
+		status( running => 0, step => 'done', message => 'The database was not restored', errors => 1 );
 		exit 1;
 	}
 

@@ -325,10 +325,16 @@
 </form>
 
 <!-- Progress while a backup or a restore runs -->
-<div data-role="popup" id="popupProgress" data-position-to="window" data-transition="flip" data-theme="a" data-overlay-theme="a" data-dismissible="false" class="ui-content" style="min-width:300px;">
+<div data-role="popup" id="popupProgress" data-position-to="window" data-transition="flip" data-theme="a" data-overlay-theme="a" data-dismissible="false" class="ui-content" style="min-width:340px;max-width:600px;">
 	<center><h2 id="progress_title">&nbsp;</h2></center>
 	<div class="chstatus" id="progress_hint">&nbsp;</div>
 	<div class="chstatus" id="progress_status">&nbsp;</div>
+	<!-- The result stays on screen until it is acknowledged. It used to close
+	     itself after three seconds, which is long enough to miss and far too
+	     short to read a failure in - and a restore that did not restore anything
+	     is exactly the message nobody should be able to miss. -->
+	<div style="text-align:center;font-size:smaller;" id="progress_link">&nbsp;</div>
+	<div style="padding: 10px 0px 0px 0px; text-align:center;" id="progress_buttons"></div>
 </div>
 
 <!-- What the manifest of an archive holds -->
@@ -533,6 +539,10 @@ function backupNow() {
 	$('#progress_title').html("<TMPL_VAR BACKUP.POPUP_BACKUP_TITLE>");
 	$('#progress_hint').attr("style","").html("<TMPL_VAR BACKUP.HINT_BACKUP_RUNNING>");
 	$('#progress_status').html("");
+	// Whatever the previous run left behind - its result, its logfile link and
+	// its close button - goes before this one puts its own there.
+	$('#progress_link').html("&nbsp;");
+	$('#progress_buttons').html("");
 	$('#popupProgress').popup('open');
 	$.ajax( { url: 'ajax.cgi', type: 'POST', data: { action: 'backup_create' } } )
 	.fail( function( data ) {
@@ -596,11 +606,35 @@ function closeRestore() {
 	$('#popupRestore').popup('close');
 }
 
+// jQuery Mobile allows exactly ONE popup at a time, and closing is animated.
+//
+// This closed the confirmation and opened the progress window in the next line -
+// while the close was still running, so the open was dropped without a word. The
+// restore itself started; it just looked as if the button had done nothing at
+// all, and the button was still there to be pressed a second time.
+//
+// So: wait for the close to finish before opening the next one, with a timer as a
+// fallback in case the popup was not open at all. The same fault was in the
+// retention dialogue on the System page and is fixed there the same way.
 function doRestore() {
+	$('#popupRestore').one( 'popupafterclose', doRestoreStart );
 	$('#popupRestore').popup('close');
+	window.setTimeout( function() { if( !restoreStarted ) doRestoreStart() }, 600 );
+}
+
+var restoreStarted = false;
+
+function doRestoreStart() {
+	if( restoreStarted ) return;
+	restoreStarted = true;
+
 	$('#progress_title').html("<TMPL_VAR BACKUP.POPUP_RESTORE_TITLE>");
 	$('#progress_hint').attr("style","").html("<TMPL_VAR BACKUP.HINT_RESTORE_RUNNING>");
 	$('#progress_status').html("");
+	// Whatever the previous run left behind - its result, its logfile link and
+	// its close button - goes before this one puts its own there.
+	$('#progress_link').html("&nbsp;");
+	$('#progress_buttons').html("");
 	$('#popupProgress').popup('open');
 	$.ajax( {
 		url: 'ajax.cgi',
@@ -641,13 +675,31 @@ function startPolling( okmsg, failmsg ) {
 	}, 3000 );
 }
 
+// The end of a run stays on screen until it is closed by hand.
+//
+// It used to put the message up and close the popup three seconds later. That is
+// fine for "done" and wrong for everything else: a restore that failed says so
+// once, briefly, and then the window is gone and the list is back as if nothing
+// had happened. Now the result stays, with the logfile next to it and a button to
+// dismiss it.
 function finishProgress( ok, msg ) {
 	clearInterval( pollInterval );
+	restoreStarted = false;
+	$('#progress_hint').html( ok ? "<TMPL_VAR BACKUP.HINT_FINISHED>" : "<TMPL_VAR BACKUP.HINT_FINISHED_ERROR>" );
 	$('#progress_status').attr("style", ok ? "color:green" : "color:red").html( msg );
-	window.setTimeout( function() {
-		$('#popupProgress').popup('close');
-		loadBackups();
-	}, 3000 );
+	$('#progress_link').html(
+		'<a href="/admin/system/tools/logfile.cgi?package=<TMPL_VAR PLUGINDIR>&amp;name=Backup'
+		+ '&amp;header=html&amp;format=template" target="_blank">'
+		+ "<TMPL_VAR BACKUP.BUTTON_LOGFILE>" + '</a>' );
+	$('#progress_buttons').html(
+		'<a href="javascript:closeProgress();" class="ui-btn ui-corner-all ui-shadow ui-btn-b ui-btn-inline" data-inline="true">'
+		+ "<TMPL_VAR COMMON.BUTTON_CLOSE>" + '</a>' );
+	try { $('#popupProgress').popup('reposition', { positionTo: 'window' } ); } catch(e) {}
+}
+
+function closeProgress() {
+	$('#popupProgress').popup('close');
+	loadBackups();
 }
 
 </script>

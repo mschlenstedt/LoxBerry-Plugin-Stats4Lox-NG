@@ -32,6 +32,11 @@ my $s = $b->{schedule} || {};
 # Everything that jQuery Mobile turns into a widget is rendered with its value
 # already in place. Setting it from JavaScript afterwards works, but the widget
 # is built when the page is created - the user would watch it jump.
+# For the link into the Backup logfile at the end of a run. Addressed by package
+# and name rather than by path, so it keeps working although every run writes a
+# new file.
+$template->param( 'PLUGINDIR', $lbpplugindir );
+
 $template->param( 'STORAGE_PATH', LoxBerry::Storage::get_storage_html(
 	formid       => 'storagepath',
 	custom_folder=> 1,
