@@ -14,14 +14,20 @@
 # So the history is rewritten. InfluxDB 1.x cannot rename a field and cannot
 # delete one, so this is the only route there is:
 #
-#   1. SELECT "msno_1_sys_cpu" AS "sys_cpu", ... INTO <policy>.stats_miniserver_mig
-#   2. DROP MEASUREMENT stats_miniserver          (all policies at once - 1.x has
-#                                                  no per-policy drop)
-#   3. SELECT * INTO <policy>.stats_miniserver FROM <policy>.stats_miniserver_mig
+#   1. SELECT "msno_1_sys_cpu" AS "sys_cpu", ... INTO stats_miniserver_mig
+#   2. DROP MEASUREMENT stats_miniserver
+#   3. SELECT * INTO stats_miniserver FROM stats_miniserver_mig
 #   4. DROP MEASUREMENT stats_miniserver_mig
 #
-# Every retention policy that holds the measurement is done, and a downsampled
-# copy carries the aggregate in front: mean_msno_1_sys_cpu becomes mean_sys_cpu.
+# AUTOGEN ONLY. An installation whose fields still carry a Miniserver number is
+# older than the downsampling, which arrived with 1.9 - so autogen is the only
+# retention policy it has. The check at the end looks at all of them anyway and
+# says so if that ever turns out to be wrong; migrating a policy that cannot
+# exist would be code nobody can test.
+#
+# Note that step 2 takes the measurement out of EVERY policy at once, because
+# 1.x has no per-policy drop. That is another reason not to pretend this handles
+# more than one: it would have to copy them all out first.
 #
 # Idempotent. Without a single msno_ field it does nothing and says so, which is
 # what happens on a fresh installation and on the second run.
@@ -30,9 +36,13 @@
 # that name changes. Michael decided that trade knowingly on 07.08.2026: a
 # measurement that is wrong for good is worse than dashboards that have to be
 # adjusted once.
+#
+#   --database <name>   work on another database. For testing: the measurement
+#                       name is fixed, so a rehearsal needs a database of its own.
 
 use strict;
 use warnings;
+use Getopt::Long;
 use FindBin qw($Bin);
 use lib "$Bin/libs";
 use LoxBerry::System;
@@ -42,7 +52,13 @@ use InfluxInfo;
 
 my $MEASUREMENT = 'stats_miniserver';
 my $TEMP        = 'stats_miniserver_mig';
-my $DB          = $Globals::influx->{influxdatabase} // 'stats4lox';
+my $POLICY      = 'autogen';
+
+my $opt_database;
+GetOptions( "database=s" => \$opt_database ) or die "Unknown option\n";
+# InfluxInfo reads the database out of $Globals::influx on every call
+$Globals::influx->{influxdatabase} = $opt_database if( $opt_database );
+my $DB = $Globals::influx->{influxdatabase} // 'stats4lox';
 
 # loglevel 6 whatever the plugin is set to. This runs once, it rewrites somebody's
 # history, and the one place anybody will look afterwards is this log - at the
@@ -79,7 +95,8 @@ sub fail
 	exit 1;
 }
 
-# The retention policies of the database
+# Which policies exist. Only for the check at the end - the migration itself is
+# autogen, see the note at the top.
 my ($ok, $res, $err) = influx( "SHOW RETENTION POLICIES ON \"$DB\"" );
 fail( "Could not read the retention policies: " . ( $err // '?' ) ) if( !$ok );
 
@@ -90,34 +107,28 @@ foreach my $s ( @{ $res->[0]->{series} || [] } ) {
 	}
 }
 fail( "No retention policy found" ) if( !@policies );
-LOGINF "Policies: " . join( ", ", @policies );
 
-# The field names to be renamed, per policy.
-#
-# mean_ and last_ in front are the aggregates a downsampled copy carries. They
-# stay where they are - only the msno_<n>_ in the middle goes.
-my %rename;   # policy => { old => new }
-my $total = 0;
-foreach my $p ( @policies ) {
-	my ($o, $r, $e) = influx( "SHOW FIELD KEYS FROM \"$DB\".\"$p\".\"$MEASUREMENT\"" );
-	next if( !$o );
+# The field names to be renamed
+my %rename;   # old => new
+{
+	my ($o, $r, $e) = influx( "SHOW FIELD KEYS FROM \"$DB\".\"$POLICY\".\"$MEASUREMENT\"" );
+	fail( "Could not read the field names: " . ( $e // '?' ) ) if( !$o );
 	foreach my $s ( @{ $r->[0]->{series} || [] } ) {
 		foreach my $v ( @{ $s->{values} || [] } ) {
 			my $f = $v->[0];
 			next if( !defined $f );
-			next if( $f !~ /^((?:mean_|last_)?)msno_\d+_(.+)$/ );
-			$rename{$p}->{$f} = $1 . $2;
-			$total++;
+			next if( $f !~ /^msno_\d+_(.+)$/ );
+			$rename{$f} = $1;
 		}
 	}
-	LOGINF "  $p: " . scalar( keys %{ $rename{$p} || {} } ) . " fields to rename";
 }
 
-if( !$total ) {
-	LOGOK "Nothing to do - no field carries a Miniserver number.";
+if( !keys %rename ) {
+	LOGOK "Nothing to do - no field in $POLICY carries a Miniserver number.";
 	LOGEND "Finished";
 	exit 0;
 }
+LOGINF "$POLICY: " . scalar( keys %rename ) . " fields to rename";
 
 # Two fields must never end up with the same new name. That would happen with
 # data from two Miniservers, where msno_1_sys_cpu and msno_2_sys_cpu both want to
@@ -125,43 +136,37 @@ if( !$total ) {
 # apart by their msno tag. They therefore have to be written in separate passes,
 # one per Miniserver, or the second would overwrite the first at the same
 # timestamp.
-my %passes;   # policy => { msno => { old => new } }
-foreach my $p ( keys %rename ) {
-	foreach my $old ( keys %{ $rename{$p} } ) {
-		my ($n) = $old =~ /msno_(\d+)_/;
-		$passes{$p}->{$n}->{$old} = $rename{$p}->{$old};
-	}
+my %passes;   # msno => { old => new }
+foreach my $old ( keys %rename ) {
+	my ($n) = $old =~ /msno_(\d+)_/;
+	$passes{$n}->{$old} = $rename{$old};
 }
+LOGINF "Miniservers in the data: " . join( ", ", sort { $a <=> $b } keys %passes );
 
 # How much there is, so the log says afterwards whether it all arrived
 my %before;
-foreach my $p ( keys %passes ) {
-	foreach my $n ( keys %{ $passes{$p} } ) {
-		my ($first) = sort keys %{ $passes{$p}->{$n} };
-		my ($o, $r, $e) = influx( "SELECT count(\"$first\") FROM \"$DB\".\"$p\".\"$MEASUREMENT\"" );
-		my $c = eval { $r->[0]->{series}->[0]->{values}->[0]->[1] } // 0;
-		$before{$p}->{$n} = $c;
-		LOGINF "  $p, Miniserver $n: $c points (counted on $first)";
-	}
+foreach my $n ( keys %passes ) {
+	my ($first) = sort keys %{ $passes{$n} };
+	my ($o, $r, $e) = influx( "SELECT count(\"$first\") FROM \"$DB\".\"$POLICY\".\"$MEASUREMENT\"" );
+	my $c = eval { $r->[0]->{series}->[0]->{values}->[0]->[1] } // 0;
+	$before{$n} = $c;
+	LOGINF "  Miniserver $n: $c points (counted on $first)";
 }
 
-# 1. Copy every policy into a temporary measurement of the same policy, with the
-#    new names. The temporary one is needed because a measurement cannot be
-#    dropped per policy - and the drop has to happen before the data can come
-#    back under the same name.
+# 1. Copy into a temporary measurement with the new names. The temporary one is
+#    needed because the old name cannot be freed any other way - and the drop has
+#    to happen before the data can come back under it.
 LOGINF "Copying to $TEMP ...";
-foreach my $p ( sort keys %passes ) {
-	foreach my $n ( sort keys %{ $passes{$p} } ) {
-		my $map = $passes{$p}->{$n};
-		my $sel = join( ", ", map { "\"$_\" AS \"$map->{$_}\"" } sort keys %$map );
-		my $sql = "SELECT $sel INTO \"$DB\".\"$p\".\"$TEMP\" FROM \"$DB\".\"$p\".\"$MEASUREMENT\" GROUP BY *";
-		my ($o, $r, $e) = influx( $sql );
-		fail( "Copy failed ($p, Miniserver $n): " . ( $e // '?' ) ) if( !$o );
-		my $written = eval { $r->[0]->{series}->[0]->{values}->[0]->[1] } // 0;
-		LOGINF "  $p, Miniserver $n: $written points written";
-		fail( "$p, Miniserver $n: nothing was written although there are $before{$p}->{$n} points" )
-			if( $before{$p}->{$n} > 0 and $written == 0 );
-	}
+foreach my $n ( sort keys %passes ) {
+	my $map = $passes{$n};
+	my $sel = join( ", ", map { "\"$_\" AS \"$map->{$_}\"" } sort keys %$map );
+	my $sql = "SELECT $sel INTO \"$DB\".\"$POLICY\".\"$TEMP\" FROM \"$DB\".\"$POLICY\".\"$MEASUREMENT\" GROUP BY *";
+	my ($o, $r, $e) = influx( $sql );
+	fail( "Copy failed (Miniserver $n): " . ( $e // '?' ) ) if( !$o );
+	my $written = eval { $r->[0]->{series}->[0]->{values}->[0]->[1] } // 0;
+	LOGINF "  Miniserver $n: $written points written";
+	fail( "Miniserver $n: nothing was written although there are $before{$n} points" )
+		if( $before{$n} > 0 and $written == 0 );
 }
 
 # 2. The old measurement. This is the point of no return, and it is why step 1
@@ -172,40 +177,54 @@ LOGINF "Dropping $MEASUREMENT ...";
 	fail( "Could not drop $MEASUREMENT: " . ( $e // '?' ) ) if( !$o );
 }
 
-# 3. Back under the proper name, policy by policy
+# 3. Back under the proper name
 LOGINF "Writing $MEASUREMENT back ...";
-foreach my $p ( sort keys %passes ) {
-	my $sql = "SELECT * INTO \"$DB\".\"$p\".\"$MEASUREMENT\" FROM \"$DB\".\"$p\".\"$TEMP\" GROUP BY *";
+{
+	my $sql = "SELECT * INTO \"$DB\".\"$POLICY\".\"$MEASUREMENT\" FROM \"$DB\".\"$POLICY\".\"$TEMP\" GROUP BY *";
 	my ($o, $r, $e) = influx( $sql );
-	fail( "Writing back failed ($p): " . ( $e // '?' ) . " - the data is still in $TEMP" ) if( !$o );
+	fail( "Writing back failed: " . ( $e // '?' ) . " - the data is still in $TEMP" ) if( !$o );
 	my $written = eval { $r->[0]->{series}->[0]->{values}->[0]->[1] } // 0;
-	LOGINF "  $p: $written points";
+	LOGINF "  $written points";
 }
 
-# 4. The temporary measurement, in every policy at once
+# 4. The temporary measurement
 {
 	my ($o, $r, $e) = influx( "DROP MEASUREMENT \"$TEMP\"" );
 	LOGWARN "Could not drop $TEMP: " . ( $e // '?' ) if( !$o );
 }
 
 # Did it work? Not a formality - this ran over somebody's history.
+#
+# Every policy is looked at, not just autogen. Another one cannot hold these
+# names on an installation this migration applies to - but if that assumption is
+# ever wrong, it should say so rather than leave it lying there unmentioned.
 my $leftover = 0;
 foreach my $p ( @policies ) {
 	my ($o, $r, $e) = influx( "SHOW FIELD KEYS FROM \"$DB\".\"$p\".\"$MEASUREMENT\"" );
 	next if( !$o );
+	my $n = 0;
 	foreach my $s ( @{ $r->[0]->{series} || [] } ) {
 		foreach my $v ( @{ $s->{values} || [] } ) {
-			$leftover++ if( defined $v->[0] and $v->[0] =~ /msno_\d+_/ );
+			$n++ if( defined $v->[0] and $v->[0] =~ /msno_\d+_/ );
 		}
+	}
+	next if( !$n );
+	if( $p eq $POLICY ) {
+		LOGCRIT "$n field names in $p still carry a Miniserver number.";
+		$leftover += $n;
+	}
+	else {
+		LOGWARN "$n field names in the retention policy $p still carry a Miniserver "
+			. "number. That policy was not migrated - it should not have existed on an "
+			. "installation with these names. Fix it by hand or drop it.";
 	}
 }
 if( $leftover ) {
-	LOGCRIT "$leftover field names still carry a Miniserver number.";
 	LOGEND "Finished with errors";
 	exit 1;
 }
 
-LOGOK "Done. The Miniserver number is a tag now and no longer part of any field name.";
+LOGOK "Done. The Miniserver number is a tag now and no longer part of a field name.";
 LOGWARN "Grafana panels that select these fields by name have to be adjusted - the names have changed.";
 LOGEND "Finished";
 exit 0;
