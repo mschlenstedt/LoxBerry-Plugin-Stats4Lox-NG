@@ -149,15 +149,36 @@ our $retention = {
 	# Zaehlerstaende unbrauchbar, last allein verliert den Verlauf. Beide zusammen
 	# decken Temperaturen und Zaehler ab und kosten nur zwei Felder.
 	aggregates   => [ "mean", "last" ],
+	# Drei Stufen, nicht mehr.
+	#
+	# Es waren fuenf, und das war zu viel - gemessen, nicht gemeint. Eine
+	# InfluxDB-Aufbewahrungsstufe hat genau EINE Dauer, und die zaehlt immer ab
+	# jetzt. "Behalte nur, was zwischen einem und zwei Jahren alt ist" laesst sich
+	# damit nicht ausdruecken, also enthaelt jede Stufe ihr ganzes Fenster und
+	# nicht ein Band. Bei vier Stufen liegt das letzte Jahr viermal in der
+	# Datenbank.
+	#
+	# Auf der Testanlage (573 MB, Grabber stuendlich): vier Stufen sparten 56 MB,
+	# zwei Stufen 392 MB. Jede zusaetzliche Stufe legt eine weitere vollstaendige
+	# Kopie ihres Fensters an, und der Gewinn kommt nur aus dem aeltesten Band,
+	# das nichts Feineres abdeckt. Drei ist der Punkt, an dem sich das noch lohnt.
 	stages => [
 		# Stufe 1: Rohdaten, immer aktiv, Policy autogen
 		{ active => "True",  interval => "raw", duration => "0"  },
 		{ active => "False", interval => "1h",  duration => ""   },
-		{ active => "False", interval => "6h",  duration => ""   },
 		{ active => "False", interval => "1d",  duration => ""   },
-		{ active => "False", interval => "1w",  duration => ""   },
 	],
 };
+
+# What the web interface may offer for the two fields above. Here and not in the
+# JavaScript, because ajax.cgi checks against the same lists before writing - a
+# list that lives in the browser is a suggestion, not a rule.
+#
+# Nothing below an hour, for the reason given above. The durations are the ones
+# that were measured on the test installation: keeping one year frees 566 MB of
+# 571, two years 425 MB, three 232 MB, five 47 MB.
+our @RETENTION_INTERVALS = qw( 1h 2h 6h 12h 1d 1w );
+our @RETENTION_DURATIONS = qw( 0 30d 90d 180d 365d 730d 1095d 1825d 3650d );
 
 our $loxberry = {
 	active => "True",
@@ -793,7 +814,72 @@ sub merge_config
 	$Globals::telegraf = 	$merge->merge( $config->{telegraf}, $Globals::telegraf );
 	$Globals::backup = 		$merge->merge( $config->{backup}, $Globals::backup );
 
+	# Not through Hash::Merge, and that is not a preference.
+	#
+	# LEFT_PRECEDENT merges two ARRAYs by CONCATENATING them. The five configured
+	# stages plus the five defaults would come out as ten, and everything below
+	# counts stages. merge_retention() replaces the list instead.
+	$Globals::retention = merge_retention( $config->{retention} );
+
 	$config_is_parsed = 1;
+}
+
+##################################################
+# Retention section of stats4lox.json over the defaults
+##################################################
+# Scalars from the configuration win. The stage list is taken as a whole or not
+# at all: a list of a different length is a broken or half-written configuration,
+# and silently running with four stages instead of five would apply a retention
+# nobody asked for. The aggregates are never taken from the configuration - they
+# are fixed by design, see the comment at $retention above.
+
+sub merge_retention
+{
+	my ($cfg) = @_;
+	my $def = $Globals::retention;
+	return $def if( ref($cfg) ne 'HASH' );
+
+	my %out = %$def;
+	foreach my $k ( keys %$cfg ) {
+		next if( $k eq 'stages' or $k eq 'aggregates' );
+		$out{$k} = $cfg->{$k} if( defined $cfg->{$k} );
+	}
+
+	# Always exactly as many stages as the defaults have, whatever the file says.
+	#
+	# This used to insist on the same count and fall back to the defaults
+	# otherwise. That was fine while the number never changed; when it went from
+	# five to three it would have thrown away every stored setting in silence.
+	# Now a longer list is cut to length and a shorter one filled from the
+	# defaults - and the defaults are switched off, so filling can only ever add
+	# inactive stages.
+	#
+	# Cutting a longer list does change what a configuration means: the LAST
+	# active stage carries the total retention, so dropping stages moves that
+	# role. It is visible - the preview shows the new arrangement and names any
+	# stage whose data would go - which is better than silently reverting
+	# everything to off.
+	if( ref($cfg->{stages}) eq 'ARRAY' ) {
+		my @stages;
+		for( my $i = 0; $i < scalar @{$def->{stages}}; $i++ ) {
+			my %s = %{ $def->{stages}->[$i] };
+			my $c = $cfg->{stages}->[$i];
+			if( ref($c) eq 'HASH' ) {
+				foreach my $k ( keys %s ) {
+					$s{$k} = $c->{$k} if( defined $c->{$k} );
+				}
+			}
+			push @stages, \%s;
+		}
+		$out{stages} = \@stages;
+	}
+
+	# Stage 1 is the raw data in autogen and exists whatever the file says
+	$out{stages}->[0]->{active}   = "True";
+	$out{stages}->[0]->{interval} = "raw";
+
+	$out{aggregates} = $def->{aggregates};
+	return \%out;
 }
 
 
