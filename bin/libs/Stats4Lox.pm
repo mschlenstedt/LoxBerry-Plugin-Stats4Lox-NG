@@ -483,6 +483,118 @@ sub parse_loxone_value
 }
 
 #####################################################
+# The Miniserver's own vital signs
+# Param 1: Miniserver number
+# Param 2: arrayref of entries from @Globals::MINISERVER_METRICS
+# Returns: ( \%values, \%errors, \%raw )
+#####################################################
+# One HTTP request per URL, not per metric: /jdev/sys/heap carries the free and
+# the total memory, /jdev/sys/temperature carries two temperatures. Asking twice
+# for the same answer would double the requests for nothing.
+#
+# Not through msget_value(), for two reasons. It hands back the parsed default
+# value only, which throws away the second half of exactly those answers - and it
+# insists on JSON, while /jdev/sys/temperature replies in plain text:
+#
+#   Cpu Temperature: 53 C. STM32 Cpu Temperature: 34 C
+#
+# %errors is keyed by URL, so a Miniserver that does not know an endpoint is
+# reported once and not once per metric behind it.
+sub miniserver_metric_values
+{
+	my ($msno, $metrics) = @_;
+	my (%values, %errors, %raw);
+
+	my @urls;
+	my %seen;
+	foreach my $m ( @$metrics ) {
+		push @urls, $m->{url} if( !$seen{ $m->{url} }++ );
+	}
+
+	foreach my $url ( @urls ) {
+		my ($body, $status) = LoxBerry::IO::mshttp_call2( $msno, $url );
+		my $code = ( ref($status) eq 'HASH' and defined $status->{code} ) ? $status->{code} : '0';
+		if( $code ne "200" or !defined $body ) {
+			$errors{$url} = $code;
+			next;
+		}
+
+		# A JSON answer carries the payload in LL.value; the plain text ones are
+		# used as they are.
+		my $text = $body;
+		my $j = eval { JSON::decode_json( "$body" ) };
+		if( $j and ref($j->{LL}) eq 'HASH' ) {
+			my $llcode = $j->{LL}->{Code};
+			if( defined $llcode and $llcode ne "200" ) {
+				$errors{$url} = $llcode;
+				next;
+			}
+			$text = defined $j->{LL}->{value} ? $j->{LL}->{value} : '';
+		}
+		$raw{$url} = $text;
+	}
+
+	foreach my $m ( @$metrics ) {
+		next if( !exists $raw{ $m->{url} } );
+		my $v = miniserver_pick( $m->{pick}, $raw{ $m->{url} } );
+		$values{ $m->{key} } = $v if( defined $v );
+	}
+
+	return ( \%values, \%errors, \%raw );
+}
+
+#####################################################
+# One number out of one Miniserver answer
+# Param 1: rule from the catalogue in Globals.pm
+# Param 2: the answer (LL.value, or the plain text body)
+#####################################################
+# Every rule returns a number or undef. undef means "the Miniserver answered but
+# not with this value" - the field is then left out instead of being written as 0,
+# which would be a measurement nobody made.
+sub miniserver_pick
+{
+	my ($rule, $text) = @_;
+	return undef if( !defined $text );
+	$rule = 'number' if( !defined $rule or $rule eq '' );
+
+	# "17%", "79", "5"
+	if( $rule eq 'number' ) {
+		return ( $text =~ /^\s*([-+]?[0-9]*[.,]?[0-9]+)/ ) ? _num($1) : undef;
+	}
+	# "422388/1016404kB"
+	if( $rule eq 'heapfree' ) {
+		return ( $text =~ m{^\s*(\d+)\s*/} ) ? _num($1) : undef;
+	}
+	if( $rule eq 'heaptotal' ) {
+		return ( $text =~ m{/\s*(\d+)} ) ? _num($1) : undef;
+	}
+	# "Cpu Temperature: 53 C. STM32 Cpu Temperature: 34 C"
+	#
+	# The STM32 one has to be excluded explicitly: its label ENDS in "Cpu
+	# Temperature:" too, so a pattern for the first would match it just as well
+	# and the two metrics would report the same number on any answer that lists
+	# the STM32 first.
+	if( $rule eq 'tempcpu' ) {
+		return ( $text =~ /(?:^|[.;]\s*)Cpu\s+Temperature:\s*([-+]?[\d.]+)/i ) ? _num($1) : undef;
+	}
+	if( $rule eq 'tempstm32' ) {
+		return ( $text =~ /STM32[^:]*:\s*([-+]?[\d.]+)/i ) ? _num($1) : undef;
+	}
+	# "Running 100/sec"
+	if( $rule eq 'spsfreq' ) {
+		return ( $text =~ m{(\d+)\s*/\s*sec}i ) ? _num($1) : undef;
+	}
+	return undef;
+}
+
+sub _num
+{
+	my ($n) = @_;
+	$n =~ s/,/./;
+	return $n + 0;
+}
+
+#####################################################
 # Create InfluxDB lineformat
 # Param 1: Timestamp
 # Param 2: measurement

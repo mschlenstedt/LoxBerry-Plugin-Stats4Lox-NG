@@ -47,28 +47,15 @@ my $jsonobjmem = LoxBerry::JSON->new();
 my $memfile = $Globals::miniserver_memfile;
 my $mem = $jsonobjmem->open(filename => $memfile, writeonclose => 1);
 
-# Data to grab
-my %stats2grab = (
-	"sys_cpu" => "/jdev/sys/cpu",
-	"sys_heap" => "/jdev/sys/heap",
-	"bus_packetssent" => "/jdev/bus/packetssent",
-	"bus_packetsreceived" => "/jdev/bus/packetsreceived",
-	"bus_receiveerrors" => "/jdev/bus/receiveerrors",
-	"bus_frameerrors" => "/jdev/bus/frameerrors",
-	"bus_overruns" => "/jdev/bus/overruns",
-	"bus_parityerrors" => "/jdev/bus/parityerrors",
-	"lan_txp" => "/jdev/lan/txp",
-	"lan_txe" => "/jdev/lan/txe",
-	"lan_txc" => "/jdev/lan/txc",
-	"lan_exh" => "/jdev/lan/exh",
-	"lan_txu" => "/jdev/lan/txu",
-	"lan_rxp" => "/jdev/lan/rxp",
-	"lan_eof" => "/jdev/lan/eof",
-	"lan_rxo" => "/jdev/lan/rxo",
-	"lan_nob" => "/jdev/lan/nob",
-	"sys_numtasks" => "/jdev/sys/numtasks",
-	"sps_state" => "/jdev/sps/state",
-);
+# What to grab. Chosen on the Data sources -> Miniserver page; the list used to
+# be nineteen endpoints written out here. Without a saved selection this returns
+# exactly those nineteen, so an upgrade changes nothing.
+my @metrics = Globals::miniserver_metrics();
+
+if( ! @metrics ) {
+	LOGWARN "No metrics selected. Exiting.";
+	exit 0;
+}
 
 # All Miniservers
 my %miniservers = LoxBerry::System::get_miniservers();
@@ -100,29 +87,29 @@ foreach my $msno (sort keys %miniservers) {
 	$tags{note} = $miniservers{$msno}{Note} if $miniservers{$msno}{Note};
 	$tags{msno} = $msno;
 	
-	# Grab stat data
-	my %fields = ();
-	my $ms_fetcherrors = 0;
-	my $ms_fetchoks = 0;
-	foreach my $key (keys %stats2grab) {
-		my $url = $stats2grab{$key};
-		# Grab data
-		my ($code, $resp) = Stats4Lox::msget_value($msno, $url);
-		if ( !$resp || $code ne "200" ) {
-			LOGWARN "  Could not grab data from Miniserver $msno: HTTP $code (URL $url)";
-			$ms_fetcherrors++;
-			next;
-		}
-		$ms_fetchoks++;
-		LOGDEB "  Miniserver $msno -> $key = $resp->[0]->{Value}";
-		my $valname = "msno_" . $msno . "_" . $key;
-		$fields{$valname} = $resp->[0]->{Value};
+	# Grab stat data.
+	#
+	# One request per URL rather than per metric - two of the endpoints answer
+	# with two numbers each. There used to be a sleep(0.2) between the requests
+	# here to be gentle on the Miniserver; it never slept, because the built-in
+	# sleep takes whole seconds and Time::HiRes is not imported. Left out rather
+	# than repaired: nineteen real fifths of a second would be four seconds, and
+	# Telegraf gives this whole page five.
+	my ($values, $errors) = Stats4Lox::miniserver_metric_values( $msno, \@metrics );
 
-		# Slow down
-		sleep (0.2);
+	my %fields = ();
+	foreach my $key ( sort keys %$values ) {
+		LOGDEB "  Miniserver $msno -> $key = $values->{$key}";
+		$fields{ "msno_" . $msno . "_" . $key } = $values->{$key};
+	}
+
+	my $ms_fetchoks   = scalar keys %$values;
+	my $ms_fetcherrors = scalar keys %$errors;
+	foreach my $url ( sort keys %$errors ) {
+		LOGWARN "  Could not grab data from Miniserver $msno: HTTP $errors->{$url} (URL $url)";
 	}
 	if( $ms_fetcherrors > 0 and $ms_fetchoks > 0 ) {
-		LOGWARN "Miniserver $msno -> $ms_fetchoks values ok but $ms_fetcherrors values not reachable - possibly user not Miniserver Admin?";
+		LOGWARN "Miniserver $msno -> $ms_fetchoks values ok but $ms_fetcherrors endpoints not reachable - possibly user not Miniserver Admin, or this firmware does not know them?";
 	}
 	elsif ( $ms_fetcherrors > 0 and $ms_fetchoks == 0 ) {
 		LOGWARN "Miniserver $msno -> $ms_fetcherrors errors. Miniserver not reachable?";

@@ -1,0 +1,302 @@
+<style>
+	.datahidden { display: none; }
+
+	/* Layout of a settings row - the same one the System page uses, so the two
+	   pages line up. .lb_flex-item-help from the LoxBerry stylesheet is 100% wide
+	   and therefore always lands on a line of its own, starting at the very left
+	   below the label; indenting it by the label column puts it under the field it
+	   belongs to. Below 875px LoxBerry stacks the row into one column, so the
+	   indent has to disappear there. */
+	.s4lrow
+	{
+		align-items	:flex-start;
+		margin-bottom	:16px;
+	}
+	.s4lrow .lb_flex-item
+	{
+		min-width	:0;
+		margin-top	:0;
+	}
+	.s4lrow .lb_flex-item-help
+	{
+		min-width	:0;
+		position	:relative;
+		margin-top	:6px;
+	}
+	@media ( min-width: 876px )
+	{
+		.s4lrow .lb_flex-item-label
+		{
+			min-width	:320px;
+			width		:320px;
+			max-width	:320px;
+			margin-right	:40px;
+			padding-top	:8px;
+		}
+		.s4lrow .lb_flex-item
+		{
+			flex		:1 1 0;
+			width		:auto;
+			max-width	:none;
+			min-width	:0;
+		}
+		.s4lrow .lb_flex-item-help
+		{
+			width		:calc(100% - 360px);
+			margin-left	:360px;
+		}
+	}
+	/* Selects and text fields fill the field column. The two margin resets are
+	   what this needs: jQuery Mobile gives .ui-select a left and right margin of
+	   .3125em, so a box of width 100% ends up 10px wider than its column. The
+	   flipswitch is deliberately left alone - jQuery Mobile builds it with a fixed
+	   width and places the "off" label inside it. */
+	.s4lrow .lb_flex-item .ui-select,
+	.s4lrow .lb_flex-item .ui-input-text
+	{
+		width		:100%;
+		margin-left	:0;
+		margin-right	:0;
+		box-sizing	:border-box;
+	}
+
+	/* The selection list has two dozen entries. jQuery Mobile builds it as a popup
+	   with no height limit of its own, so it came out 1233px tall on a laptop
+	   screen: taller than the window, positioned half above it, and all that was
+	   left to see was the dark overlay. Capping the height here rather than after
+	   opening, because jQM measures the popup when it positions it - and it
+	   positions it only once. */
+	#ms_metrics-listbox
+	{
+		max-height	:60vh;
+		overflow-y	:auto;
+	}
+
+	.buttonrow
+	{
+		min-height	:2em;
+		overflow	:auto;
+		width		:100%;
+		text-align	:center;
+		font-size	:smaller;
+	}
+
+	/* The live table. Its own scroll container, because the web service paths
+	   make it wider than a phone. */
+	.livewrap { overflow-x:auto; }
+	table.livetable
+	{
+		border-collapse	:collapse;
+		font-size	:0.9em;
+		margin-top	:6px;
+	}
+	table.livetable th,
+	table.livetable td
+	{
+		padding		:3px 12px 3px 0;
+		text-align	:left;
+		vertical-align	:top;
+		white-space	:nowrap;
+	}
+	table.livetable th { border-bottom:1px solid rgba(128,128,128,0.5); }
+	table.livetable td.mono { font-family:monospace; }
+	table.livetable tr.notlogged td { color:#777; }
+	table.livetable td.noanswer { color:#c0392b; }
+	.livems { font-weight:bold; margin-top:14px; }
+</style>
+
+<!-- Language strings for the sub navigation, which is built in JavaScript -->
+<div class="datahidden" id="lang_sub_mqtt_collector"><TMPL_VAR NAVBAR.SUB_MQTT_COLLECTOR></div>
+<div class="datahidden" id="lang_sub_mqtt_live"><TMPL_VAR NAVBAR.SUB_MQTT_LIVE></div>
+<div class="datahidden" id="lang_sub_miniserver"><TMPL_VAR NAVBAR.SUB_MINISERVER></div>
+
+<form>
+<div class="ui-body ui-body-a ui-corner-all">
+
+	<h2><TMPL_VAR MINISERVER.TITLE></h2>
+	<p><TMPL_VAR MINISERVER.DESCRIPTION></p>
+
+	<div class="lb_flex-container s4lrow miniserver">
+		<div	class="lb_flex-item-label"><TMPL_VAR MINISERVER.LABEL_ACTIVE></div>
+		<div	class="lb_flex-item">
+			<input type="checkbox" data-role="flipswitch" name="ms_active" id="ms_active" <TMPL_VAR MINISERVER_ACTIVE>>
+		</div>
+		<div	class="lb_flex-item-help hint">
+		<TMPL_VAR MINISERVER.HINT_ACTIVE>
+		</div>
+	</div>
+
+	<div class="lb_flex-container s4lrow miniserver">
+		<div	class="lb_flex-item-label"><TMPL_VAR MINISERVER.LABEL_INTERVAL></div>
+		<div	class="lb_flex-item">
+			<!-- Options and the current one server-rendered, see miniserver.cgi -->
+			<select name="ms_interval" id="ms_interval" data-mini="true"><TMPL_VAR MINISERVER_INTERVALS></select>
+		</div>
+		<div	class="lb_flex-item-help hint">
+		<TMPL_VAR MINISERVER.HINT_INTERVAL>
+		</div>
+	</div>
+
+	<div class="lb_flex-container s4lrow miniserver">
+		<div	class="lb_flex-item-label"><TMPL_VAR MINISERVER.LABEL_METRICS></div>
+		<div	class="lb_flex-item">
+			<!-- data-native-menu="false" so the list opens as a dialogue with a
+			     checkbox per entry. The native multiple select of a browser needs
+			     ctrl-click to add to a selection, which loses the whole selection
+			     on one ordinary click. -->
+			<select name="ms_metrics" id="ms_metrics" multiple="multiple" data-native-menu="false" data-mini="true"><TMPL_VAR MINISERVER_METRICS></select>
+		</div>
+		<div	class="lb_flex-item-help hint">
+		<TMPL_VAR MINISERVER.HINT_METRICS>
+		<br><br>
+		<TMPL_VAR MINISERVER.HINT_UNDOCUMENTED>
+		<a href="https://www.loxone.com/dede/kb/webservices/" target="_blank"><TMPL_VAR MINISERVER.LOXONE_DOC></a>
+		</div>
+	</div>
+
+	<div style="padding: 0px 0px 20px 0px;"></div>
+
+	<div class="lb_flex-container miniserver">
+		<div	class="buttonrow">
+			<a href="javascript:saveMiniserver();" name="btnsaveminiserver" id="btnsaveminiserver" class="ui-btn ui-corner-all ui-shadow ui-btn-b ui-btn-icon-left ui-icon-check ui-btn-inline"
+				data-inline="true"><TMPL_VAR MINISERVER.BUTTON_SAVE></a>
+			<a href="javascript:loadLiveValues();" name="btnliveminiserver" id="btnliveminiserver" class="ui-btn ui-corner-all ui-shadow ui-btn-b ui-btn-icon-left ui-icon-refresh ui-btn-inline"
+				data-inline="true"><TMPL_VAR MINISERVER.BUTTON_LIVE></a>
+		</div>
+	</div>
+
+	<div class="lb_flex-container">
+		<div class="buttonrow" id="hint_miniserver">&nbsp;</div>
+	</div>
+
+	<!-- What the Miniserver answers right now. Fetched on demand and not on every
+	     page load: it is two dozen requests to the Miniserver. -->
+	<div id="live_block" style="display:none">
+		<h3><TMPL_VAR MINISERVER.LIVE_TITLE></h3>
+		<div id="live_detail"></div>
+	</div>
+
+</div>
+</form>
+
+<script>
+// The catalogue, so the live table can be built in the browser without asking
+// again what each key is called.
+var msCatalogue = <TMPL_VAR MINISERVER_CATALOGUE>;
+
+function msEsc(s) {
+	return String(s === undefined || s === null ? "" : s)
+		.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// jQuery Mobile writes the chosen labels into the button of a multiple select,
+// joined by commas - two dozen of them are a paragraph, not a label. jQuery
+// Mobile 1.4 has no option for this any more (the multipleSelectedText of the
+// older versions is gone), so the text is written over after every change. The
+// count bubble that jQM puts next to it stays as it is.
+// The label is the FIRST span of the generated button - the second one is the
+// count bubble, and writing into that would replace the number by the sentence.
+function msButtonText() {
+	var n = ( $("#ms_metrics").val() || [] ).length;
+	$("#ms_metrics-button").children("span").first()
+		.text( "<TMPL_VAR MINISERVER.SELECTED_COUNT>".replace( "%d", n ) );
+}
+
+$(function() {
+	msButtonText();
+	$("#ms_metrics").on( "change", msButtonText );
+	$("#ms_active, #ms_interval, #ms_metrics").on( "change", msMarkDirty );
+} );
+
+function msMarkDirty() {
+	$("#hint_miniserver").attr("style","color:#a06000").html("<TMPL_VAR MINISERVER.HINT_UNSAVED>");
+}
+
+function saveMiniserver() {
+	var metrics = $("#ms_metrics").val() || [];
+
+	// An empty selection is refused rather than saved. It would mean the same as
+	// "never chosen" - the grabber cannot tell the two apart in a configuration
+	// file - and "collect nothing" already has a switch of its own above.
+	if( metrics.length === 0 ) {
+		$("#hint_miniserver").attr("style","color:red").html("<TMPL_VAR MINISERVER.ERROR_NO_METRIC>");
+		return;
+	}
+
+	$(".miniserver").addClass('ui-disabled');
+	$("#hint_miniserver").html("");
+	$.post( "ajax.cgi", {
+		action:   'miniserver_save',
+		active:   $('#ms_active').is(':checked') ? 'True' : 'False',
+		interval: $('#ms_interval').val(),
+		metrics:  JSON.stringify( metrics )
+	} )
+	.fail( function( data ) {
+		console.log( "miniserver_save failed", data );
+		$("#hint_miniserver").attr("style","color:red")
+			.html( data && data.responseJSON && data.responseJSON.error
+				? msEsc(data.responseJSON.error) : "<TMPL_VAR MINISERVER.HINT_SAVING_FAIL>" );
+	} )
+	.done( function( data ) {
+		$("#hint_miniserver").attr("style","color:green").html("<TMPL_VAR MINISERVER.HINT_SAVING_SUCCESS>");
+	} )
+	.always( function() { $(".miniserver").removeClass('ui-disabled'); } );
+}
+
+// Ask every Miniserver for every value in the catalogue - not only the selected
+// ones. The point of the table is to show what is on offer, including what this
+// firmware does not know.
+function loadLiveValues() {
+	$("#live_block").show();
+	$("#live_detail").html("<TMPL_VAR MINISERVER.LIVE_LOADING>");
+	$("#btnliveminiserver").addClass('ui-disabled');
+
+	$.post( "ajax.cgi", { action: 'miniserver_live' } )
+	.fail( function( data ) {
+		console.log( "miniserver_live failed", data );
+		$("#live_detail").attr("style","color:red")
+			.html( data && data.responseJSON && data.responseJSON.error
+				? msEsc(data.responseJSON.error) : "<TMPL_VAR MINISERVER.LIVE_FAIL>" );
+	} )
+	.done( function( data ) {
+		$("#live_detail").attr("style","").html( renderLive( data ) );
+	} )
+	.always( function() { $("#btnliveminiserver").removeClass('ui-disabled'); } );
+}
+
+function renderLive( data ) {
+	if( !data || !data.miniservers || data.miniservers.length === 0 ) {
+		return "<TMPL_VAR MINISERVER.LIVE_FAIL>";
+	}
+	// Which keys are selected right now - the form, not what is saved, so the
+	// table matches what the user is looking at.
+	var sel = {};
+	($("#ms_metrics").val() || []).forEach( function(k) { sel[k] = true } );
+
+	var h = "";
+	data.miniservers.forEach( function( ms ) {
+		var title = "<TMPL_VAR MINISERVER.LIVE_MS>".replace( "__N__", msEsc(ms.msno) );
+		if( ms.name ) title += " - " + msEsc(ms.name);
+		h += '<div class="livems">' + title + '</div>';
+		h += '<div class="livewrap"><table class="livetable"><thead><tr>'
+			+ '<th><TMPL_VAR MINISERVER.COL_METRIC></th>'
+			+ '<th><TMPL_VAR MINISERVER.COL_URL></th>'
+			+ '<th><TMPL_VAR MINISERVER.COL_VALUE></th>'
+			+ '<th><TMPL_VAR MINISERVER.COL_LOGGED></th>'
+			+ '</tr></thead><tbody>';
+
+		msCatalogue.forEach( function( m ) {
+			var has = ms.values && Object.prototype.hasOwnProperty.call( ms.values, m.key );
+			h += '<tr' + ( sel[m.key] ? '' : ' class="notlogged"' ) + '>'
+				+ '<td>' + msEsc(m.label) + '</td>'
+				+ '<td class="mono">' + msEsc(m.url) + '</td>'
+				+ ( has ? '<td class="mono">' + msEsc(ms.values[m.key]) + '</td>'
+				        : '<td class="noanswer"><TMPL_VAR MINISERVER.LIVE_NOANSWER></td>' )
+				+ '<td>' + ( sel[m.key] ? "<TMPL_VAR COMMON.YES>" : "<TMPL_VAR COMMON.NO>" ) + '</td>'
+				+ '</tr>';
+		} );
+		h += '</tbody></table></div>';
+	} );
+	return h;
+}
+</script>

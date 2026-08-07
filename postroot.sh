@@ -231,6 +231,17 @@ s4l_migrate_telegraf_config() {
 		echo "<INFO>   $(basename "$f"): corrected logfile_rotation_interval from \"1d\" to \"24h\""
 	fi
 
+	# Not an option Telegraf rejects, but a limit that is now too tight. The
+	# Miniserver grabber asks once per selected value, and how many that is became
+	# the user's choice. Measured: 2.7 s for one Miniserver with the whole
+	# catalogue, so five seconds were already exceeded by the second Miniserver -
+	# and Telegraf discards the whole answer, not the part that was late.
+	if [ "$(basename "$f")" = "stats4lox_miniserver.conf" ] \
+		&& grep -qE '^[[:space:]]*timeout[[:space:]]*=[[:space:]]*"5s"' "$f"; then
+		sed -i -E 's/^([[:space:]]*timeout[[:space:]]*=[[:space:]]*)"5s"/\1"30s"/' "$f"
+		echo "<INFO>   $(basename "$f"): raised the request timeout from 5s to 30s"
+	fi
+
 	return 0
 }
 

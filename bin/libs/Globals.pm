@@ -194,18 +194,24 @@ our $loxone = {
 	mqttlive_basetopic => "s4l/mqttlive",
 };
 
-# The Miniserver's own vital signs - CPU load, heap, bus and LAN counters, the
-# number of tasks, the alarm state. Not a Loxone block, so nothing on the Loxone
-# tab switches it; the System tab does.
+# The Miniserver's own vital signs - CPU load, memory, temperature, bus and LAN
+# counters, the state of the PLC. Not a Loxone block, so nothing on the Loxone tab
+# switches it; Data sources -> Miniserver does.
+#
+# "metrics" is the list of keys from @MINISERVER_METRICS below that are actually
+# collected. Empty or missing means the default set, which is exactly what the
+# grabber fetched before it could be chosen: an upgrade must not silently start or
+# stop writing a series.
 our $miniserver = {
 	active => "True",
 	interval => 300,
 	measurement => "stats_miniserver",
+	metrics => [],
 };
 
-# What the System tab may offer as a polling interval, in seconds. Checked again
-# in ajax.cgi before anything is written, for the same reason as the retention
-# lists above: a list that lives in the browser is a suggestion, not a rule.
+# What the page may offer as a polling interval, in seconds. Checked again in
+# ajax.cgi before anything is written, for the same reason as the retention lists
+# above: a list that lives in the browser is a suggestion, not a rule.
 #
 # Nothing below 60 seconds, and every value a multiple of it. Telegraf asks the
 # grabber once a minute and the grabber decides for itself whether the interval
@@ -221,6 +227,82 @@ our @MINISERVER_INTERVALS = ( 60, 120, 300, 600, 900, 1800, 3600 );
 # effect only after the OLD one had elapsed - up to an hour of a page saying it
 # polls every minute while nothing happens.
 our $miniserver_memfile = "/dev/shm/stats4lox_mem_miniservergrabber.json";
+
+# Everything the Miniserver will tell us about itself, measured against a live
+# Miniserver (firmware 17.1.6.30) on 07.08.2026 rather than taken from a list.
+#
+#   key      the field name in the database, prefixed with msno_<n>_
+#   url      the web service that answers. Several keys may share one URL - it is
+#            fetched once and the values are picked out of the one answer.
+#   pick     how to get the number out of that answer, see grabber_miniserver.cgi
+#   group    only for the ordering of the selection list
+#   default  part of what was collected before any of this could be chosen
+#
+# The bus and LAN counters are NOT documented by Loxone. They answer, they count,
+# and the names are abbreviations - so their labels say what the abbreviation
+# most likely stands for and the page says that Loxone does not document them.
+# Guessing quietly would be worse than saying so.
+#
+# What was tried and does not work, so that nobody tries again:
+#   /jdev/sys/ints           answers 200 with an EMPTY value, although the Loxone
+#                            documentation lists it
+#   /jdev/sys/uptime, sensors, errors, loglevel, mem, stat        404
+#   /jdev/bus/collisions, buserrors, packetslost, breakerrors     404
+#   /jdev/lan/rxe, crc, len                                       404
+#   /jdev/task<n>/*          answers, but there are 79 tasks and their numbering
+#                            shifts with the firmware - not a stable series
+our @MINISERVER_METRICS = (
+	{ key => 'sys_cpu',              url => '/jdev/sys/cpu',         pick => 'number',    group => 'SYSTEM', default => 1 },
+	{ key => 'sys_heap',             url => '/jdev/sys/heap',        pick => 'heapfree',  group => 'SYSTEM', default => 1 },
+	{ key => 'sys_heap_total',       url => '/jdev/sys/heap',        pick => 'heaptotal', group => 'SYSTEM', default => 0 },
+	{ key => 'sys_numtasks',         url => '/jdev/sys/numtasks',    pick => 'number',    group => 'SYSTEM', default => 1 },
+	{ key => 'sys_temperature',      url => '/jdev/sys/temperature', pick => 'tempcpu',   group => 'SYSTEM', default => 0 },
+	{ key => 'sys_temperature_stm32',url => '/jdev/sys/temperature', pick => 'tempstm32', group => 'SYSTEM', default => 0 },
+	{ key => 'sys_check',            url => '/jdev/sys/check',       pick => 'number',    group => 'SYSTEM', default => 0 },
+
+	{ key => 'sps_state',            url => '/jdev/sps/state',       pick => 'number',    group => 'SPS',    default => 1 },
+	{ key => 'sps_frequency',        url => '/jdev/sps/status',      pick => 'spsfreq',   group => 'SPS',    default => 0 },
+
+	{ key => 'bus_packetssent',      url => '/jdev/bus/packetssent',     pick => 'number', group => 'BUS', default => 1 },
+	{ key => 'bus_packetsreceived',  url => '/jdev/bus/packetsreceived', pick => 'number', group => 'BUS', default => 1 },
+	{ key => 'bus_receiveerrors',    url => '/jdev/bus/receiveerrors',   pick => 'number', group => 'BUS', default => 1 },
+	{ key => 'bus_frameerrors',      url => '/jdev/bus/frameerrors',     pick => 'number', group => 'BUS', default => 1 },
+	{ key => 'bus_overruns',         url => '/jdev/bus/overruns',        pick => 'number', group => 'BUS', default => 1 },
+	{ key => 'bus_parityerrors',     url => '/jdev/bus/parityerrors',    pick => 'number', group => 'BUS', default => 1 },
+
+	{ key => 'lan_txp',              url => '/jdev/lan/txp',         pick => 'number',    group => 'LAN',    default => 1 },
+	{ key => 'lan_txe',              url => '/jdev/lan/txe',         pick => 'number',    group => 'LAN',    default => 1 },
+	{ key => 'lan_txc',              url => '/jdev/lan/txc',         pick => 'number',    group => 'LAN',    default => 1 },
+	{ key => 'lan_exh',              url => '/jdev/lan/exh',         pick => 'number',    group => 'LAN',    default => 1 },
+	{ key => 'lan_txu',              url => '/jdev/lan/txu',         pick => 'number',    group => 'LAN',    default => 1 },
+	{ key => 'lan_rxp',              url => '/jdev/lan/rxp',         pick => 'number',    group => 'LAN',    default => 1 },
+	{ key => 'lan_eof',              url => '/jdev/lan/eof',         pick => 'number',    group => 'LAN',    default => 1 },
+	{ key => 'lan_rxo',              url => '/jdev/lan/rxo',         pick => 'number',    group => 'LAN',    default => 1 },
+	{ key => 'lan_nob',              url => '/jdev/lan/nob',         pick => 'number',    group => 'LAN',    default => 1 },
+);
+
+# The keys that are collected: the saved selection, or the default set if nothing
+# has ever been chosen.
+#
+# An EMPTY selection therefore means the same as none at all. That is a rule, not
+# an oversight: the page refuses to save an empty list and points at the on/off
+# switch instead, because "collect nothing" already has a control of its own.
+sub miniserver_metrics
+{
+	my $sel = $Globals::miniserver->{metrics};
+	my %known = map { $_->{key} => 1 } @MINISERVER_METRICS;
+
+	my @out;
+	if( ref($sel) eq 'ARRAY' and scalar @$sel ) {
+		# In the order of the catalogue, not of the configuration, and without
+		# anything unknown - a key that was renamed here must not survive in a
+		# configuration file and go on producing a field nobody can find.
+		my %want = map { $_ => 1 } grep { $known{$_} } @$sel;
+		@out = grep { $want{ $_->{key} } } @MINISERVER_METRICS;
+	}
+	return @out if( scalar @out );
+	return grep { $_->{default} } @MINISERVER_METRICS;
+}
 
 our $stats4lox = { 
 	s4ltmp => 	'/dev/shm/s4ltmp',

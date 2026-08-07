@@ -980,21 +980,39 @@ if( $q->{action} eq "savepluginconfig" ) {
 }
 
 ##
-## The Miniserver's own vital signs (System tab)
+## The Miniserver's own vital signs (Data sources -> Miniserver)
 ##
-## Two settings that have been in stats4lox.json since the beginning and could
-## only be reached with an editor. Nothing is restarted and no config handler is
-## involved: grabber_miniserver.cgi is called by Telegraf once a minute and reads
-## the file every time, so the next round already uses what was saved here.
+## Nothing is restarted and no config handler is involved: grabber_miniserver.cgi
+## is called by Telegraf once a minute and reads the configuration every time, so
+## the next round already uses what was saved here.
 if( $q->{action} eq "miniserver_save" ) {
 	my $iv = $q->{interval} // '';
 	# Against the list the page was given, plus whatever is configured right now -
-	# system.cgi keeps a hand-edited value selectable, so it has to survive a save.
+	# the page keeps a hand-edited value selectable, so it has to survive a save.
 	my %ok = map { $_ => 1 }
 		( @Globals::MINISERVER_INTERVALS, int( $Globals::miniserver->{interval} || 300 ) );
 
+	# The selection, checked against the catalogue. An empty list is refused: the
+	# grabber cannot tell it apart from "never chosen" and would collect the
+	# default set, so saving it would quietly do the opposite of what it says.
+	my %known = map { $_->{key} => 1 } @Globals::MINISERVER_METRICS;
+	my $metrics = eval { JSON::decode_json( $q->{metrics} // '[]' ) };
+	my @clean;
+	if( ref($metrics) eq 'ARRAY' ) {
+		@clean = grep { $known{$_} } @$metrics;
+	}
+
 	if( $iv !~ /^\d+$/ or !$ok{ $iv + 0 } ) {
 		$error = "Interval '$iv' was not offered";
+	}
+	elsif( ref($metrics) ne 'ARRAY' ) {
+		$error = "The list of values is missing or malformed";
+	}
+	elsif( scalar @clean != scalar @$metrics ) {
+		$error = "The list of values contains something that was not offered";
+	}
+	elsif( !scalar @clean ) {
+		$error = "No value selected";
 	}
 	else {
 		require LoxBerry::JSON;
@@ -1009,6 +1027,7 @@ if( $q->{action} eq "miniserver_save" ) {
 			my $on = is_enabled( $q->{active} ) ? "True" : "False";
 			$cfg->{miniserver}->{active}   = $on;
 			$cfg->{miniserver}->{interval} = $iv + 0;
+			$cfg->{miniserver}->{metrics}  = \@clean;
 			$obj->write();
 
 			# The grabber notes per Miniserver when it is next due. Shortening the
@@ -1017,10 +1036,36 @@ if( $q->{action} eq "miniserver_save" ) {
 			# nothing arrives. Dropping the note makes every Miniserver due at once.
 			unlink( $Globals::miniserver_memfile ) if( -e $Globals::miniserver_memfile );
 
-			LOGOK "Miniserver grabber saved (active $on, interval ${iv}s)";
+			LOGOK "Miniserver grabber saved (active $on, interval ${iv}s, "
+				. scalar(@clean) . " values)";
 			$response = '{ "saved": 1 }';
 		}
 	}
+}
+
+## miniserver_live - what every Miniserver answers right now
+#
+# The whole catalogue, not the selection: the table exists to show what is on
+# offer, and an endpoint this firmware does not know is part of that answer.
+#
+# Two dozen requests per Miniserver, which is why this is a button and not
+# something the page does when it opens.
+if( $q->{action} eq "miniserver_live" ) {
+	require Stats4Lox;
+	my %ms = LoxBerry::System::get_miniservers();
+	my @out;
+	foreach my $msno ( sort { $a <=> $b } keys %ms ) {
+		my ($values, $errors) = Stats4Lox::miniserver_metric_values( $msno, \@Globals::MINISERVER_METRICS );
+		push @out, {
+			msno   => $msno + 0,
+			name   => ( $ms{$msno}{Name} // '' ),
+			values => $values,
+			errors => $errors,
+		};
+		LOGINF "Miniserver $msno answered " . scalar( keys %$values ) . " values, "
+			. scalar( keys %$errors ) . " endpoints not available";
+	}
+	$response = JSON::encode_json( { miniservers => \@out } );
 }
 
 ##

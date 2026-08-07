@@ -631,48 +631,6 @@
 		</div>
 	</div>
 
-	<!-- The Miniserver's own vital signs.
-	     A heading of its own rather than a group under the database above: this
-	     section is about what gets collected, not about where it is kept. It is
-	     also the only place in the plugin where these two settings can be
-	     reached - they have been in stats4lox.json since the beginning, read by
-	     grabber_miniserver.cgi, with no way to change them but an editor. -->
-	<h2><TMPL_VAR MINISERVER.TITLE></h2>
-
-	<div class="lb_flex-container s4lrow miniserver">
-		<div	class="lb_flex-item-label"><TMPL_VAR MINISERVER.LABEL_ACTIVE></div>
-		<div	class="lb_flex-item">
-			<input type="checkbox" data-role="flipswitch" name="ms_active" id="ms_active" <TMPL_VAR MINISERVER_ACTIVE>>
-		</div>
-		<div	class="lb_flex-item-help hint">
-		<TMPL_VAR MINISERVER.HINT_ACTIVE>
-		</div>
-	</div>
-
-	<div class="lb_flex-container s4lrow miniserver">
-		<div	class="lb_flex-item-label"><TMPL_VAR MINISERVER.LABEL_INTERVAL></div>
-		<div	class="lb_flex-item">
-			<!-- Options and the current one server-rendered, see system.cgi -->
-			<select name="ms_interval" id="ms_interval" data-mini="true"><TMPL_VAR MINISERVER_INTERVALS></select>
-		</div>
-		<div	class="lb_flex-item-help hint">
-		<TMPL_VAR MINISERVER.HINT_INTERVAL>
-		</div>
-	</div>
-
-	<div style="padding: 0px 0px 20px 0px;"></div>
-
-	<div class="lb_flex-container miniserver">
-		<div	class="buttonrow">
-			<a href="javascript:saveMiniserver();" name="btnsaveminiserver" id="btnsaveminiserver" class="ui-btn ui-corner-all ui-shadow ui-btn-b ui-btn-icon-left ui-icon-check ui-btn-inline"
-				data-inline="true"><TMPL_VAR MINISERVER.BUTTON_SAVE></a>
-		</div>
-	</div>
-
-	<div class="lb_flex-container">
-		<div class="buttonrow" id="hint_miniserver">&nbsp;</div>
-	</div>
-
 	<h2><TMPL_VAR INPUTSOUTPUTS.TITLE_SERVICELOG></h2>
 
 	<div class="lb_flex-container s4lrow servicelog">
@@ -994,42 +952,6 @@ function saveServiceLog() {
 		interval = window.setInterval( function(){ checkconfighandlerstatus(section); }, 3000);
 	});
 }
-
-// --- The Miniserver's own vital signs -------------------------------------
-//
-// Two settings, one save, no service to restart: grabber_miniserver.cgi reads
-// stats4lox.json on every call, so the next round - a minute at most - already
-// uses the new values. That is why this section does not go through the config
-// handler and its popup the way the two above do.
-function msMarkDirty() {
-	$("#hint_miniserver").attr("style","color:#a06000").html("<TMPL_VAR MINISERVER.HINT_UNSAVED>");
-}
-
-function saveMiniserver() {
-	$(".miniserver").addClass('ui-disabled');
-	$("#hint_miniserver").html("");
-	$.post( "ajax.cgi", {
-		action:   'miniserver_save',
-		active:   $('#ms_active').is(':checked') ? 'True' : 'False',
-		interval: $('#ms_interval').val()
-	} )
-	.fail( function( data ) {
-		console.log( "miniserver_save failed", data );
-		$("#hint_miniserver").attr("style","color:red")
-			.html( data && data.responseJSON && data.responseJSON.error
-				? retEsc(data.responseJSON.error) : "<TMPL_VAR MINISERVER.HINT_SAVING_FAIL>" );
-	} )
-	.done( function( data ) {
-		$("#hint_miniserver").attr("style","color:green").html("<TMPL_VAR MINISERVER.HINT_SAVING_SUCCESS>");
-	} )
-	.always( function() { $(".miniserver").removeClass('ui-disabled'); } );
-}
-
-// Same reason as in the retention section: a switch that has been flipped and
-// not saved looks exactly like one that has been saved.
-$(function() {
-	$("#ms_active, #ms_interval").on( "change", msMarkDirty );
-} );
 
 function checkconfighandlerstatus( section ) {
 	console.log ("Checking Config-Handler Status for section " + section);

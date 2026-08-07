@@ -84,41 +84,6 @@ for( my $i = 1; $i < scalar @{ $Globals::retention->{stages} }; $i++ ) {
 }
 $template->param( 'RETENTION_STAGES', \@stagerows );
 
-# The Miniserver's own vital signs.
-#
-# Both controls come out of the page in the state they are in, for the same
-# reason as the flipswitch above - and the select for one more: jQuery Mobile
-# replaces it with a button carrying the chosen label, so a value set from
-# JavaScript afterwards changes that label after the user has already read it.
-#
-# $Globals::miniserver and not $cfg, so an installation whose stats4lox.json has
-# no miniserver section at all still shows the defaults rather than an empty
-# form. Note that grabber_miniserver.cgi reads the file directly and does NOT
-# get those defaults - which is why the section is written in full below.
-$template->param( 'MINISERVER_ACTIVE',
-	LoxBerry::System::is_enabled( $Globals::miniserver->{active} ) ? 'checked="checked"' : '' );
-
-my $msiv = int( $Globals::miniserver->{interval} || 300 );
-my @msoffer = @Globals::MINISERVER_INTERVALS;
-# Whatever is configured stays selectable, even if it is not on the list. It can
-# only have got there by hand, and dropping it would move the setting to some
-# other value the next time this page is saved - without anybody asking.
-push @msoffer, $msiv if( !grep { $_ == $msiv } @msoffer );
-
-my $msopts = '';
-foreach my $s ( sort { $a <=> $b } @msoffer ) {
-	my $lbl;
-	if   ( $s == 60 )    { $lbl = $L{'MINISERVER.INTERVAL_MINUTE'} }
-	elsif( $s == 3600 )  { $lbl = $L{'MINISERVER.INTERVAL_HOUR'} }
-	# Braces as delimiters, so the division inside the code part does not end the
-	# replacement.
-	elsif( $s % 60 == 0 ){ ( $lbl = $L{'MINISERVER.INTERVAL_MINUTES'} ) =~ s{__N__}{ int( $s / 60 ) }e }
-	else                 { ( $lbl = $L{'MINISERVER.INTERVAL_SECONDS'} ) =~ s{__N__}{$s} }
-	$msopts .= '<option value="' . $s . '"'
-		. ( $s == $msiv ? ' selected="selected"' : '' ) . '>' . $lbl . '</option>';
-}
-$template->param( 'MINISERVER_INTERVALS', $msopts );
-
 # For the link into the Downsampling logfile, which is addressed by package and
 # name rather than by path - logfile.cgi looks the newest run up in the log
 # database, so the link survives every new run.
