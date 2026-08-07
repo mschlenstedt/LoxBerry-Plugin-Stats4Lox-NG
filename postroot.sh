@@ -562,6 +562,35 @@ else
 	echo "<OK> We are in Upgrade mode. I will use existing database stats4lox."
 fi
 
+# Take the Miniserver number out of the field names of stats_miniserver
+#
+# msno_1_sys_cpu becomes sys_cpu. The number is a tag on every one of those
+# points already, and having it in the name as well meant two Miniservers gave
+# two field names instead of two series.
+#
+# Here, and not on the first page load: this rewrites history, it needs InfluxDB
+# running and Telegraf not writing - which is exactly this spot - and it must
+# happen before the grabber starts writing the new names, or a measurement would
+# carry both for a while.
+#
+# The script decides for itself whether there is anything to do. On a fresh
+# installation and on every run after the first there is not, and it says so.
+# It never exits non-zero on "nothing to do", so a failure here is a real one -
+# and it is not fatal for the installation, which is why it does not exit.
+#
+# Existing Grafana panels select these fields by name and will not find them any
+# more. That was decided knowingly: a measurement that stays wrong is worse than
+# dashboards that have to be adjusted once.
+if [ $UPGRADE -ne "0" ]; then
+	echo "<INFO> Checking whether the Miniserver field names have to be migrated..."
+	sudo -u loxberry perl $PBIN/s4l_migrate_msfields.pl
+	if [ $? -ne 0 ]; then
+		echo "<WARNING> Migrating the Miniserver field names failed. Your data is untouched"
+		echo "<WARNING> unless the logfile 'Migration' says otherwise. The plugin works either"
+		echo "<WARNING> way; new values are written under the new names from now on."
+	fi
+fi
+
 # Activating own telegraf config which is delivered with the plugin
 echo "<INFO> Activating my own Telegraf configuration."
 if [ -d /etc/telegraf ] && [ ! -L /etc/telegraf ]; then

@@ -97,10 +97,14 @@ foreach my $msno (sort keys %miniservers) {
 	# Telegraf gives this whole page five.
 	my ($values, $errors) = Stats4Lox::miniserver_metric_values( $msno, \@metrics );
 
+	# Plain field names. The Miniserver number is a tag and was in the field name
+	# as well until 07.08.2026 - msno_1_sys_cpu - which meant two Miniservers gave
+	# two field names instead of two series, and every panel had to be written per
+	# machine. The history was rewritten with bin/s4l_migrate_msfields.pl.
 	my %fields = ();
 	foreach my $key ( sort keys %$values ) {
 		LOGDEB "  Miniserver $msno -> $key = $values->{$key}";
-		$fields{ "msno_" . $msno . "_" . $key } = $values->{$key};
+		$fields{$key} = $values->{$key};
 	}
 
 	my $ms_fetchoks   = scalar keys %$values;

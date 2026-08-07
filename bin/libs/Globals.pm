@@ -248,7 +248,8 @@ our $loxberry_memfile   = "/dev/shm/stats4lox_mem_loxberrygrabber.json";
 # Everything the Miniserver will tell us about itself, measured against a live
 # Miniserver (firmware 17.1.6.30) on 07.08.2026 rather than taken from a list.
 #
-#   key      the field name in the database, prefixed with msno_<n>_
+#   key      the field name in the database. The Miniserver is a tag, not part of
+#            the name - it used to be msno_<n>_<key>, see s4l_migrate_msfields.pl
 #   url      the web service that answers. Several keys may share one URL - it is
 #            fetched once and the values are picked out of the one answer.
 #   pick     how to get the number out of that answer, see grabber_miniserver.cgi
@@ -338,9 +339,8 @@ sub miniserver_metrics
 # What a LoxBerry reports about itself, out of one Linfo document.
 #
 #   key      the field name in the database. No host in it - the host is a tag,
-#            which is what tags are for. The Miniserver grabber writes
-#            msno_1_sys_cpu and repeats the number it already has as a tag; that
-#            is history, and a new measurement should not copy it.
+#            which is what tags are for, and the Miniserver measurement was
+#            corrected to the same shape (s4l_migrate_msfields.pl).
 #   pick     how to get the number out of the document, see Stats4Lox
 #   path     for pick "path": where the value sits, as a list of keys
 #   group    only for the ordering of the selection list
