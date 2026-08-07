@@ -22,8 +22,23 @@
    },
    "miniserver": {
       "measurement" : "stats_miniserver",
-      "interval": 300,
-      "active": "True"
+      "interval": 900,
+      "active": "True",
+      "metrics": [
+         "sys_cpu",
+         "sys_heap",
+         "sys_numtasks",
+         "sys_temperature",
+         "sys_temperature_stm32",
+         "sys_check",
+         "sps_state",
+         "bus_packetssent",
+         "bus_packetsreceived",
+         "bus_receiveerrors",
+         "bus_frameerrors",
+         "bus_overruns",
+         "bus_parityerrors"
+      ]
    },
    "loxberry": {
       "measurement" : "stats_loxberry",

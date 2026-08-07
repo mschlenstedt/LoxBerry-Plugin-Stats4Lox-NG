@@ -204,7 +204,7 @@ our $loxone = {
 # stop writing a series.
 our $miniserver = {
 	active => "True",
-	interval => 300,
+	interval => 900,
 	measurement => "stats_miniserver",
 	metrics => [],
 };
@@ -213,11 +213,13 @@ our $miniserver = {
 # ajax.cgi before anything is written, for the same reason as the retention lists
 # above: a list that lives in the browser is a suggestion, not a rule.
 #
-# Nothing below 60 seconds, and every value a multiple of it. Telegraf asks the
-# grabber once a minute and the grabber decides for itself whether the interval
-# has come round - so a minute is the smallest step there is, and a value that is
-# not a multiple of one just drifts.
-our @MINISERVER_INTERVALS = ( 60, 120, 300, 600, 900, 1800, 3600 );
+# Five minutes is the shortest on offer. These are vital signs of a controller,
+# not a measurement - and one round is one HTTP request per selected value per
+# Miniserver, which is the most expensive thing the plugin asks of the Miniserver
+# on its own initiative. Every value is a multiple of a minute, because Telegraf
+# asks the grabber once a minute and the grabber decides for itself whether the
+# interval has come round; anything in between just drifts.
+our @MINISERVER_INTERVALS = ( 300, 600, 900, 1800, 3600 );
 
 # Where the grabber remembers when each Miniserver is due again. On the ramdisk
 # on purpose: after a reboot every Miniserver is simply due at once.
@@ -236,7 +238,14 @@ our $miniserver_memfile = "/dev/shm/stats4lox_mem_miniservergrabber.json";
 #            fetched once and the values are picked out of the one answer.
 #   pick     how to get the number out of that answer, see grabber_miniserver.cgi
 #   group    only for the ordering of the selection list
-#   default  part of what was collected before any of this could be chosen
+#   default  collected unless the user has chosen otherwise
+#
+# The default set is the one Michael settled on after seeing the live values, and
+# it is not the set this grabber used to fetch: the nine LAN counters are out,
+# the two temperatures and the connection count are in. Nine counters that read
+# zero on a healthy installation are nine fields written every round for nothing,
+# while the temperature is the one value here that says something is wrong before
+# anything else does.
 #
 # The bus and LAN counters are NOT documented by Loxone. They answer, they count,
 # and the names are abbreviations - so their labels say what the abbreviation
@@ -256,9 +265,9 @@ our @MINISERVER_METRICS = (
 	{ key => 'sys_heap',             url => '/jdev/sys/heap',        pick => 'heapfree',  group => 'SYSTEM', default => 1 },
 	{ key => 'sys_heap_total',       url => '/jdev/sys/heap',        pick => 'heaptotal', group => 'SYSTEM', default => 0 },
 	{ key => 'sys_numtasks',         url => '/jdev/sys/numtasks',    pick => 'number',    group => 'SYSTEM', default => 1 },
-	{ key => 'sys_temperature',      url => '/jdev/sys/temperature', pick => 'tempcpu',   group => 'SYSTEM', default => 0 },
-	{ key => 'sys_temperature_stm32',url => '/jdev/sys/temperature', pick => 'tempstm32', group => 'SYSTEM', default => 0 },
-	{ key => 'sys_check',            url => '/jdev/sys/check',       pick => 'number',    group => 'SYSTEM', default => 0 },
+	{ key => 'sys_temperature',      url => '/jdev/sys/temperature', pick => 'tempcpu',   group => 'SYSTEM', default => 1 },
+	{ key => 'sys_temperature_stm32',url => '/jdev/sys/temperature', pick => 'tempstm32', group => 'SYSTEM', default => 1 },
+	{ key => 'sys_check',            url => '/jdev/sys/check',       pick => 'number',    group => 'SYSTEM', default => 1 },
 
 	{ key => 'sps_state',            url => '/jdev/sps/state',       pick => 'number',    group => 'SPS',    default => 1 },
 	{ key => 'sps_frequency',        url => '/jdev/sps/status',      pick => 'spsfreq',   group => 'SPS',    default => 0 },
@@ -270,15 +279,15 @@ our @MINISERVER_METRICS = (
 	{ key => 'bus_overruns',         url => '/jdev/bus/overruns',        pick => 'number', group => 'BUS', default => 1 },
 	{ key => 'bus_parityerrors',     url => '/jdev/bus/parityerrors',    pick => 'number', group => 'BUS', default => 1 },
 
-	{ key => 'lan_txp',              url => '/jdev/lan/txp',         pick => 'number',    group => 'LAN',    default => 1 },
-	{ key => 'lan_txe',              url => '/jdev/lan/txe',         pick => 'number',    group => 'LAN',    default => 1 },
-	{ key => 'lan_txc',              url => '/jdev/lan/txc',         pick => 'number',    group => 'LAN',    default => 1 },
-	{ key => 'lan_exh',              url => '/jdev/lan/exh',         pick => 'number',    group => 'LAN',    default => 1 },
-	{ key => 'lan_txu',              url => '/jdev/lan/txu',         pick => 'number',    group => 'LAN',    default => 1 },
-	{ key => 'lan_rxp',              url => '/jdev/lan/rxp',         pick => 'number',    group => 'LAN',    default => 1 },
-	{ key => 'lan_eof',              url => '/jdev/lan/eof',         pick => 'number',    group => 'LAN',    default => 1 },
-	{ key => 'lan_rxo',              url => '/jdev/lan/rxo',         pick => 'number',    group => 'LAN',    default => 1 },
-	{ key => 'lan_nob',              url => '/jdev/lan/nob',         pick => 'number',    group => 'LAN',    default => 1 },
+	{ key => 'lan_txp',              url => '/jdev/lan/txp',         pick => 'number',    group => 'LAN',    default => 0 },
+	{ key => 'lan_txe',              url => '/jdev/lan/txe',         pick => 'number',    group => 'LAN',    default => 0 },
+	{ key => 'lan_txc',              url => '/jdev/lan/txc',         pick => 'number',    group => 'LAN',    default => 0 },
+	{ key => 'lan_exh',              url => '/jdev/lan/exh',         pick => 'number',    group => 'LAN',    default => 0 },
+	{ key => 'lan_txu',              url => '/jdev/lan/txu',         pick => 'number',    group => 'LAN',    default => 0 },
+	{ key => 'lan_rxp',              url => '/jdev/lan/rxp',         pick => 'number',    group => 'LAN',    default => 0 },
+	{ key => 'lan_eof',              url => '/jdev/lan/eof',         pick => 'number',    group => 'LAN',    default => 0 },
+	{ key => 'lan_rxo',              url => '/jdev/lan/rxo',         pick => 'number',    group => 'LAN',    default => 0 },
+	{ key => 'lan_nob',              url => '/jdev/lan/nob',         pick => 'number',    group => 'LAN',    default => 0 },
 );
 
 # The keys that are collected: the saved selection, or the default set if nothing

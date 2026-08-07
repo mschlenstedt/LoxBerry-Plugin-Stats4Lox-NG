@@ -235,11 +235,15 @@ s4l_migrate_telegraf_config() {
 	# Miniserver grabber asks once per selected value, and how many that is became
 	# the user's choice. Measured: 2.7 s for one Miniserver with the whole
 	# catalogue, so five seconds were already exceeded by the second Miniserver -
-	# and Telegraf discards the whole answer, not the part that was late.
+	# and Telegraf discards the whole answer, not the part that was late. 290 s is
+	# ten short of the shortest interval the page offers.
+	#
+	# 30s appears here as well: it shipped for a few hours between the two.
 	if [ "$(basename "$f")" = "stats4lox_miniserver.conf" ] \
-		&& grep -qE '^[[:space:]]*timeout[[:space:]]*=[[:space:]]*"5s"' "$f"; then
-		sed -i -E 's/^([[:space:]]*timeout[[:space:]]*=[[:space:]]*)"5s"/\1"30s"/' "$f"
-		echo "<INFO>   $(basename "$f"): raised the request timeout from 5s to 30s"
+		&& grep -qE '^[[:space:]]*timeout[[:space:]]*=[[:space:]]*"(5|30)s"' "$f"; then
+		s4l_old_timeout=$(grep -oE '^[[:space:]]*timeout[[:space:]]*=[[:space:]]*"[^"]*"' "$f" | grep -oE '"[^"]*"')
+		sed -i -E 's/^([[:space:]]*timeout[[:space:]]*=[[:space:]]*)"(5|30)s"/\1"290s"/' "$f"
+		echo "<INFO>   $(basename "$f"): raised the request timeout from $s4l_old_timeout to \"290s\""
 	fi
 
 	return 0

@@ -102,6 +102,20 @@
 	table.livetable td.mono { font-family:monospace; }
 	table.livetable tr.notlogged td { color:#777; }
 	table.livetable td.noanswer { color:#c0392b; }
+	/* The same tick as the stage table on the System page: green when it is on,
+	   an empty grey box when it is not. The browser default is the accent colour
+	   of the operating system, which on some machines is the same blue as an
+	   unchecked focus ring. Not disabled - a disabled tick is greyed out and
+	   reads as "switched off", which is exactly the wrong message here; it is
+	   simply not clickable, see the onclick in the markup. */
+	table.livetable input[type="checkbox"]
+	{
+		accent-color	:#3c9a3c;
+		width		:18px;
+		height		:18px;
+		cursor		:default;
+		margin		:0;
+	}
 	.livems { font-weight:bold; margin-top:14px; }
 </style>
 
@@ -292,7 +306,12 @@ function renderLive( data ) {
 				+ '<td class="mono">' + msEsc(m.url) + '</td>'
 				+ ( has ? '<td class="mono">' + msEsc(ms.values[m.key]) + '</td>'
 				        : '<td class="noanswer"><TMPL_VAR MINISERVER.LIVE_NOANSWER></td>' )
-				+ '<td>' + ( sel[m.key] ? "<TMPL_VAR COMMON.YES>" : "<TMPL_VAR COMMON.NO>" ) + '</td>'
+				// A tick rather than the word "yes": the column is two dozen rows
+				// long and a shape is read at a glance where a word has to be. The
+				// word stays as the tooltip, and it is what a screen reader gets.
+				+ '<td><input type="checkbox" data-role="none" tabindex="-1" onclick="return false;"'
+				+ ( sel[m.key] ? ' checked="checked" title="<TMPL_VAR COMMON.YES>"'
+				               : ' title="<TMPL_VAR COMMON.NO>"' ) + '></td>'
 				+ '</tr>';
 		} );
 		h += '</tbody></table></div>';
