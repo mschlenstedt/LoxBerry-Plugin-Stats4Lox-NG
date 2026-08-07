@@ -980,6 +980,50 @@ if( $q->{action} eq "savepluginconfig" ) {
 }
 
 ##
+## The Miniserver's own vital signs (System tab)
+##
+## Two settings that have been in stats4lox.json since the beginning and could
+## only be reached with an editor. Nothing is restarted and no config handler is
+## involved: grabber_miniserver.cgi is called by Telegraf once a minute and reads
+## the file every time, so the next round already uses what was saved here.
+if( $q->{action} eq "miniserver_save" ) {
+	my $iv = $q->{interval} // '';
+	# Against the list the page was given, plus whatever is configured right now -
+	# system.cgi keeps a hand-edited value selectable, so it has to survive a save.
+	my %ok = map { $_ => 1 }
+		( @Globals::MINISERVER_INTERVALS, int( $Globals::miniserver->{interval} || 300 ) );
+
+	if( $iv !~ /^\d+$/ or !$ok{ $iv + 0 } ) {
+		$error = "Interval '$iv' was not offered";
+	}
+	else {
+		require LoxBerry::JSON;
+		my $obj = LoxBerry::JSON->new();
+		# locktimeout for the same reason as everywhere else in this file: without
+		# one the lock is taken blocking, and this is a CGI.
+		my $cfg = $obj->open( filename => $stats4loxconfig, lockexclusive => 1, locktimeout => 10 );
+		if( !$cfg ) {
+			$error = "Could not open the configuration";
+		}
+		else {
+			my $on = is_enabled( $q->{active} ) ? "True" : "False";
+			$cfg->{miniserver}->{active}   = $on;
+			$cfg->{miniserver}->{interval} = $iv + 0;
+			$obj->write();
+
+			# The grabber notes per Miniserver when it is next due. Shortening the
+			# interval would otherwise take effect only after the OLD one had run
+			# out - up to an hour of a page claiming it polls every minute while
+			# nothing arrives. Dropping the note makes every Miniserver due at once.
+			unlink( $Globals::miniserver_memfile ) if( -e $Globals::miniserver_memfile );
+
+			LOGOK "Miniserver grabber saved (active $on, interval ${iv}s)";
+			$response = '{ "saved": 1 }';
+		}
+	}
+}
+
+##
 ## InfluxDB credentials (issue #45)
 ##
 ## The password is handed out and changed only against a valid SecurePIN. The

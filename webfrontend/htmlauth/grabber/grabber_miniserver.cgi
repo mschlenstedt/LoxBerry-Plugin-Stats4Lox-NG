@@ -23,27 +23,28 @@ my $log = LoxBerry::Log->new (
 
 LOGSTART "Grabber Miniserver";
 
-# Plugin config
-my $pcfgfile = $lbpconfigdir . "/stats4lox.json";
-my $pjsonobj = LoxBerry::JSON->new();
-my $pcfg = $pjsonobj->open(filename => $pcfgfile, readonly => 1);
-
 # Settings
-my $measurement = $pcfg->{miniserver}->{measurement};
-my $interval = $pcfg->{miniserver}->{interval};
+#
+# Through Globals, which merges stats4lox.json over the defaults. This used to
+# open the file itself and take whatever it happened to contain: a configuration
+# without a miniserver section left the interval undefined and switched the
+# grabber off - while the System tab, which does use the defaults, showed it as
+# on and running every five minutes.
+my $measurement = $Globals::miniserver->{measurement};
+my $interval = $Globals::miniserver->{interval};
 
 # Header
 print "Content-type: text/ascii; charset=UTF-8\n\n";
 
 # Skip if not enabled
-if ( ! is_enabled($pcfg->{miniserver}->{active}) ) {
+if ( ! is_enabled($Globals::miniserver->{active}) ) {
 	LOGINF "Miniserver Grabber is disabled. Existing.";
 	exit 0;
 }
   
 # Next runs
 my $jsonobjmem = LoxBerry::JSON->new();
-my $memfile = "/dev/shm/stats4lox_mem_miniservergrabber.json";
+my $memfile = $Globals::miniserver_memfile;
 my $mem = $jsonobjmem->open(filename => $memfile, writeonclose => 1);
 
 # Data to grab

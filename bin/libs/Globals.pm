@@ -194,11 +194,33 @@ our $loxone = {
 	mqttlive_basetopic => "s4l/mqttlive",
 };
 
+# The Miniserver's own vital signs - CPU load, heap, bus and LAN counters, the
+# number of tasks, the alarm state. Not a Loxone block, so nothing on the Loxone
+# tab switches it; the System tab does.
 our $miniserver = {
 	active => "True",
 	interval => 300,
 	measurement => "stats_miniserver",
 };
+
+# What the System tab may offer as a polling interval, in seconds. Checked again
+# in ajax.cgi before anything is written, for the same reason as the retention
+# lists above: a list that lives in the browser is a suggestion, not a rule.
+#
+# Nothing below 60 seconds, and every value a multiple of it. Telegraf asks the
+# grabber once a minute and the grabber decides for itself whether the interval
+# has come round - so a minute is the smallest step there is, and a value that is
+# not a multiple of one just drifts.
+our @MINISERVER_INTERVALS = ( 60, 120, 300, 600, 900, 1800, 3600 );
+
+# Where the grabber remembers when each Miniserver is due again. On the ramdisk
+# on purpose: after a reboot every Miniserver is simply due at once.
+#
+# Named here rather than in the grabber because the System tab deletes the file
+# when the interval is saved. Without that, shortening the interval would take
+# effect only after the OLD one had elapsed - up to an hour of a page saying it
+# polls every minute while nothing happens.
+our $miniserver_memfile = "/dev/shm/stats4lox_mem_miniservergrabber.json";
 
 our $stats4lox = { 
 	s4ltmp => 	'/dev/shm/s4ltmp',
