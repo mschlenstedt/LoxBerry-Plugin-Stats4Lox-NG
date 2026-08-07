@@ -1544,6 +1544,240 @@ if( $q->{action} eq "update_mqttsubscriptions" ) {
 # Manage Response and error
 #####################################
 
+##
+## Retention and downsampling (issue #44)
+##
+## All four go through bin/s4l_retention.pl. No sudo: the script only talks to
+## InfluxDB, with the credentials from cred.json, exactly as the InfluxDB page
+## already does.
+##
+## The order the page uses is save, preview, apply - and preview reads the SAVED
+## configuration rather than taking the form fields as parameters. That is safe
+## because the configuration on its own does nothing: not one line outside
+## s4l_retention.pl reads $Globals::retention, so a saved but unapplied setting is
+## a draft and nothing else. It also means a user who previews, takes fright and
+## leaves finds their entries again instead of an empty form.
+
+sub s4l_retention_bin { return "$lbpbindir/s4l_retention.pl" }
+
+## retention_get - the configuration and what the page may offer
+if( $q->{action} eq "retention_get" ) {
+	require LoxBerry::JSON;
+
+	# The largest interval the grabber writes with, for the warning next to the
+	# downsampling interval. From stats.json plus the two system grabbers.
+	my $grabber = 0;
+	foreach my $g ( $Globals::miniserver, $Globals::loxberry ) {
+		next if( !is_enabled( $g->{active} ) );
+		$grabber = $g->{interval} if( ( $g->{interval} // 0 ) > $grabber );
+	}
+	my $obj = LoxBerry::JSON->new();
+	my $st  = $obj->open( filename => $statsconfig, readonly => 1 );
+	if( $st and ref($st->{loxone}) eq 'ARRAY' ) {
+		foreach my $e ( @{ $st->{loxone} } ) {
+			next if( !is_enabled( $e->{active} ) );
+			$grabber = $e->{interval} if( ( $e->{interval} // 0 ) > $grabber );
+		}
+	}
+
+	$response = JSON::encode_json( {
+		retention        => $Globals::retention,
+		intervals        => \@Globals::RETENTION_INTERVALS,
+		durations        => \@Globals::RETENTION_DURATIONS,
+		# Forced numeric. The intervals come out of stats.json as strings, and the
+		# page treats a zero as "no grabber configured" - a string "0" is truthy
+		# in JavaScript and would announce a warning about an interval of zero
+		# minutes.
+		grabber_interval => $grabber + 0,
+	} );
+}
+
+# The settings out of a request, checked against the lists the page was given.
+# A value that is not on them was not offered, so it did not come from the form.
+# Returns ( $settings, $error ).
+sub s4l_retention_from_request
+{
+	my ($q) = @_;
+	my %interval_ok = map { $_ => 1 } @Globals::RETENTION_INTERVALS;
+	my %duration_ok = map { $_ => 1 } ( @Globals::RETENTION_DURATIONS, '' );
+
+	my $stages = eval { JSON::decode_json( $q->{stages} // '[]' ) };
+	return ( undef, "The stage list is missing or has the wrong length" )
+		if( ref($stages) ne 'ARRAY' or scalar @$stages != scalar @{ $Globals::retention->{stages} } );
+	return ( undef, "Unknown retention duration" )
+		if( !$duration_ok{ $q->{duration} // '' } or ( $q->{duration} // '' ) eq '' );
+
+	my @clean;
+	for( my $i = 0; $i < scalar @$stages; $i++ ) {
+		my $s  = $stages->[$i];
+		my $iv = ( $i == 0 ) ? 'raw' : ( $s->{interval} // '' );
+		return ( undef, "Unknown interval $iv" )  if( $i > 0 and !$interval_ok{$iv} );
+		return ( undef, "Unknown duration" )      if( !$duration_ok{ $s->{duration} // '' } );
+		push @clean, {
+			# Stage 1 is the raw data and is always on
+			active   => ( $i == 0 or is_enabled( $s->{active} ) ) ? "True" : "False",
+			interval => $iv,
+			duration => $s->{duration} // '',
+		};
+	}
+
+	return ( {
+		duration     => $q->{duration},
+		downsampling => is_enabled( $q->{downsampling} ) ? "True" : "False",
+		stages       => \@clean,
+	}, undef );
+}
+
+## retention_save - writes the settings, changes nothing in the database
+if( $q->{action} eq "retention_save" ) {
+	my ($set, $err) = s4l_retention_from_request( $q );
+	if( $err ) { $error = $err }
+	else {
+		require LoxBerry::JSON;
+		my $obj = LoxBerry::JSON->new();
+		# locktimeout for the same reason as everywhere else in this file:
+		# without one the lock is taken blocking, and this is a CGI.
+		my $cfg = $obj->open( filename => $stats4loxconfig, lockexclusive => 1, locktimeout => 10 );
+		if( !$cfg ) {
+			$error = "Could not open the configuration";
+		}
+		else {
+			$cfg->{retention}->{$_} = $set->{$_} foreach ( keys %$set );
+			$obj->write();
+			LOGOK "Retention settings saved (duration $set->{duration}, downsampling $set->{downsampling})";
+			$response = '{ "saved": 1 }';
+		}
+	}
+}
+
+## retention_preview - what an apply would do, and what it would cost
+#
+# Reads nothing and writes nothing. If the request carries settings they are
+# passed to the script with --config and the answer describes THOSE; without them
+# it describes what is saved.
+#
+# It used to save the form first and then preview what had just been saved. That
+# made a button called "Preview" write to the configuration, and it left the user
+# with the honest question of what a saved-but-never-applied setting even is.
+# Nothing outside the script reads it, so the answer was "nothing" - but a button
+# should not need that explanation.
+if( $q->{action} eq "retention_preview" ) {
+	my $opts = '';
+	if( defined $q->{stages} ) {
+		my ($set, $err) = s4l_retention_from_request( $q );
+		if( $err ) { $error = $err }
+		else       { $opts = ' --config ' . quotemeta( JSON::encode_json( $set ) ) }
+	}
+	if( !$error ) {
+		# Seconds, not minutes: the timestamps of every measurement in every policy
+		# are asked for, about 2.2 s per policy on 146 measurements.
+		$response = `@{[ s4l_retention_bin() ]} preview$opts 2>/dev/null`;
+		$response = '{ "ok": 0, "error": "The preview produced no answer" }' if( !$response or $response !~ /\S/ );
+	}
+}
+
+## retention_apply - carries the settings out, in the background
+if( $q->{action} eq "retention_apply" ) {
+	# backfill and force are the two ways out of the warning the page shows:
+	# condense the history first, or accept the loss. Neither is a default.
+	my $opts = '';
+	$opts .= ' --backfill' if( ( $q->{backfill} // '' ) eq 'true' );
+	$opts .= ' --force'    if( ( $q->{force}    // '' ) eq 'true' );
+	# Carrying on where a run that was cut short stopped. The script checks for
+	# itself that the settings still match the ones that run started with.
+	$opts .= ' --resume'   if( ( $q->{resume}   // '' ) eq 'true' );
+
+	# Marked as running before forking. Between the click and the first line the
+	# script writes there is a gap of a second or two, and in that gap the page
+	# would read the finished status of the previous run and report success - the
+	# same trap the backup page fell into.
+	require File::Path;
+	File::Path::make_path( $Globals::stats4lox->{s4ltmp} ) if( ! -d $Globals::stats4lox->{s4ltmp} );
+	if( open( my $fh, '>', $Globals::stats4lox->{s4ltmp} . "/retention-status.json" ) ) {
+		print {$fh} '{"running":1,"step":"starting","current":"","total":0,"done":0,"error":"","time":' . time() . '}';
+		close $fh;
+	}
+
+	my $pid = fork();
+	if( !defined $pid ) {
+		$error = "Could not start the retention run";
+	}
+	elsif( $pid == 0 ) {
+		open STDIN,  "< /dev/null";
+		open STDOUT, "> /dev/null";
+		open STDERR, "> /dev/null";
+		system( s4l_retention_bin() . " apply" . $opts );
+		exit 0;
+	}
+	else {
+		LOGOK "Retention run started$opts";
+		$response = '{ "started": 1 }';
+	}
+}
+
+## retention_status - what the run is doing, polled by the page
+#
+# The file alone cannot answer the question the page needs answered. It says
+# "running: 1" just as loudly after a power cut as during a run, and the page
+# would then block for ever waiting for a process that is gone.
+#
+# So the process is asked as well. The file carries the pid; if that pid is no
+# longer there, the run was interrupted and the page has to offer a way on
+# instead of a spinner.
+#
+# The file lives in s4ltmp, which is a ramdisk - after a reboot it is gone, and
+# the page starts clean without anybody having to remove anything.
+if( $q->{action} eq "retention_status" ) {
+	my $statfile = $Globals::stats4lox->{s4ltmp} . "/retention-status.json";
+	my $raw = ( -e $statfile ) ? LoxBerry::System::read_file($statfile) : undef;
+	my $st  = ( $raw and $raw =~ /\S/ ) ? eval { JSON::decode_json($raw) } : undef;
+
+	# After a reboot the ramdisk is empty, and that is exactly when a run that was
+	# cut short has to be noticed. The resume point on the card outlives it.
+	my $prog = {};
+	{
+		my $pf = $LoxBerry::System::lbpdatadir . "/retention-progress.json";
+		if( -e $pf ) {
+			my $p = eval { JSON::decode_json( LoxBerry::System::read_file($pf) // '' ) };
+			$prog = $p if( ref($p) eq 'HASH' and ref($p->{cursor}) eq 'HASH' );
+		}
+	}
+
+	if( ref($st) ne 'HASH' and %$prog ) {
+		# Nothing in the ramdisk, but a run left a resume point behind
+		$response = JSON::encode_json( {
+			running => 0, interrupted => 1, step => $prog->{step},
+			done => $prog->{done}, total => $prog->{total},
+		} );
+	}
+	elsif( ref($st) ne 'HASH' ) {
+		$response = '{ "running": 0 }';
+	}
+	else {
+		if( $st->{running} and $st->{pid} ) {
+			# /proc and not kill(0, $pid).
+			#
+			# kill 0 answers "does it exist AND may I signal it", and those are two
+			# questions. For a process belonging to another user it says no while
+			# the process is running perfectly well - the page would then offer to
+			# resume a run that is in full swing. The directory in /proc exists for
+			# every process on the machine and needs no permission to look at.
+			my $alive = ( $st->{pid} =~ /^\d+$/ and -d "/proc/$st->{pid}" ) ? 1 : 0;
+			$st->{interrupted} = 1 if( !$alive );
+			$st->{running} = 0    if( !$alive );
+		}
+		# The ramdisk may also be simply out of date - a reboot wipes it, and the
+		# plugin writes a fresh one on the next unrelated action. A resume point
+		# on the card outlives all of that and settles the question.
+		if( !$st->{running} and !$st->{interrupted} and %$prog ) {
+			$st->{interrupted} = 1;
+			$st->{done}  = $prog->{done};
+			$st->{total} = $prog->{total};
+		}
+		$response = JSON::encode_json( $st );
+	}
+}
+
 if( defined $response and !defined $error ) {
 	print "Status: 200 OK\r\n";
 	print "Content-type: application/json; charset=utf-8\r\n\r\n";
