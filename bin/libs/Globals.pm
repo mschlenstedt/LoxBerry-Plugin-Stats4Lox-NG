@@ -116,6 +116,49 @@ our $influx = {
 	influxurl => "https://localhost:8086",
 };
 
+# How long measurements are kept, and whether older ones are condensed instead of
+# deleted (issue #44).
+#
+# Both off by default, and that is not a formality: an upgrade must never start
+# deleting somebody's history. "0" means keep everything, which is what InfluxDB
+# does today with autogen at DURATION 0s.
+#
+# The retention is applied to autogen itself and NOT to a newly created default
+# policy. That was tried and measured: creating another policy and making it the
+# default leaves all existing data in autogen and makes it invisible to every
+# query that does not name a policy - which is every existing Grafana panel. The
+# 571 MB of history on the test installation would have disappeared from all
+# graphs. Renaming a policy is not possible in InfluxDB, and moving the data would
+# mean rewriting the whole database. So autogen keeps its ugly name.
+#
+# The stages describe the downsampling. Stage 1 is always the raw data in autogen
+# and cannot be switched off; the others are named policies fed by continuous
+# queries. The LAST active stage always carries the total retention from
+# "duration" above - the web interface shows that greyed out, because two fields
+# for the same number can only contradict each other.
+#
+# interval is what a continuous query condenses into one point. Nothing below an
+# hour is offered: measured on real data, a five minute interval on values that
+# arrive every five minutes produces MORE data than it replaces, because one point
+# with one field becomes one point with two.
+our $retention = {
+	# "0" = unbegrenzt, sonst eine InfluxDB-Dauer: 30d, 365d, 1095d, 1825d, 3650d
+	duration     => "0",
+	downsampling => "False",
+	# Aggregate der Verdichtung. Bewusst nicht einstellbar: mean allein macht
+	# Zaehlerstaende unbrauchbar, last allein verliert den Verlauf. Beide zusammen
+	# decken Temperaturen und Zaehler ab und kosten nur zwei Felder.
+	aggregates   => [ "mean", "last" ],
+	stages => [
+		# Stufe 1: Rohdaten, immer aktiv, Policy autogen
+		{ active => "True",  interval => "raw", duration => "0"  },
+		{ active => "False", interval => "1h",  duration => ""   },
+		{ active => "False", interval => "6h",  duration => ""   },
+		{ active => "False", interval => "1d",  duration => ""   },
+		{ active => "False", interval => "1w",  duration => ""   },
+	],
+};
+
 our $loxberry = {
 	active => "True",
 	interval => 300,
