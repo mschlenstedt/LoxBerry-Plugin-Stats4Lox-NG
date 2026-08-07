@@ -18,7 +18,13 @@
 		text-align	:center;
 		font-size	:smaller;
 	}
-	.ui-popup-container
+	/* The save popup, and ONLY the save popup.
+	   This used to be a bare ".ui-popup-container" and therefore squeezed every
+	   popup on the page into 40% of the window, whatever width the popup itself
+	   asked for - which is why the preview dialogue came out narrow no matter what
+	   was set on it. jQuery Mobile names a popup's container "<id>-popup", so it
+	   can be addressed one at a time. */
+	#popupSave-popup
 	{
 		width:  40%;
 		height: 30%;
@@ -53,7 +59,9 @@
 			min-width	:320px;
 			width		:320px;
 			max-width	:320px;
-			margin-right	:10px;
+			/* A wide gutter, so the label column and the field column read as two
+			   columns instead of as one run-on line. */
+			margin-right	:40px;
 			padding-top	:8px;
 		}
 		.s4lrow .lb_flex-item
@@ -63,11 +71,23 @@
 			max-width	:none;
 			min-width	:0;
 		}
+		/* The help text is indented to start under the field it belongs to, so it
+		   has to follow the gutter above: 320 + 40. */
 		.s4lrow .lb_flex-item-help
 		{
-			width		:calc(100% - 330px);
-			margin-left	:330px;
+			width		:calc(100% - 360px);
+			margin-left	:360px;
 		}
+	}
+
+	/* Sub-headings. Indented against the h2 above them, because the level is what
+	   they are for - the page has one heading per subject (the database) and one
+	   per group within it.
+	   The indent is the same 40px as the gutter between the label column and the
+	   field column, so the page has one step size instead of two. */
+	h3.s4lsub
+	{
+		margin		:1.8em 0 0.8em 40px;
 	}
 	/* Selects and text fields fill the field column.
 	   The two margin resets are what this needs to work: jQuery Mobile gives
@@ -190,6 +210,173 @@
 		z-index		:1;
 	}
 
+	/* --- Retention stages (issue #44) ------------------------------------
+	   A table and not five more .s4lrow blocks: the three fields of a stage
+	   only mean something next to the same fields of the stage above and
+	   below - that a later stage is coarser and keeps longer is a relation
+	   between rows, and a column is what shows a relation between rows. */
+	table.stagetable
+	{
+		width		:100%;
+		border-collapse	:collapse;
+		margin-bottom	:8px;
+	}
+	table.stagetable th, table.stagetable td
+	{
+		padding		:6px 8px;
+		text-align	:left;
+		border-bottom	:1px solid rgba(128,128,128,0.3);
+		font-size	:smaller;
+		vertical-align	:middle;
+	}
+	table.stagetable th.col-no     { width:60px; }
+	table.stagetable th.col-active { width:70px; text-align:center; }
+	table.stagetable td.center     { text-align:center; }
+	/* jQuery Mobile gives a select inside a table its own margins and a
+	   minimum width that pushes the columns apart. */
+	table.stagetable .ui-select { width:100%; margin:0; }
+	table.stagetable .ui-select .ui-btn { margin:0; font-size:1em; }
+	/* A stage that is off is still readable, just clearly not in play. */
+	table.stagetable tr.stage-off td { opacity:0.45; }
+	/* Green ticks, so a stage that is on says so at a glance. The browser default
+	   is the accent colour of the operating system, which on some machines is the
+	   same blue as an unchecked focus ring. */
+	table.stagetable input[type="checkbox"] { accent-color:#3c9a3c; width:18px; height:18px; }
+	/* Stage 1 is always on. NOT disabled: a disabled tick is greyed out and reads
+	   as "switched off", which is exactly the wrong message. It is simply not
+	   clickable - see the onclick in the markup. */
+	table.stagetable input.fixedcheck { cursor:default; }
+
+	/* Both dialogues get a fixed size instead of one derived from their content.
+	   jQuery Mobile measures a popup when it opens and again on every reposition,
+	   so the progress window changed width with the length of the measurement
+	   name it was showing and grew a line taller whenever the text wrapped
+	   differently - it twitched its way through the whole run.
+	   The width is in pixels, never a percentage: a percentage on a popup is
+	   measured against its container, which shrinks to fit its content, and that
+	   circle collapsed the popup to zero width once already. vw is measured
+	   against the window and has no such problem, so it can cap the width on a
+	   phone. */
+	#popupRetRun
+	{
+		width		:560px;
+		max-width	:92vw;
+	}
+	#popupRetPreview
+	{
+		width		:860px;
+		max-width	:92vw;
+	}
+
+	/* Fixed boxes inside the progress window, so nothing moves while it runs.
+	   The detail line carries the name of the measurement being worked on and
+	   later the advice after a failure - both of them of any length. */
+	#ret_progress          { height:3.4em; overflow-y:auto; }
+	#ret_progress_detail   { height:9.5em; overflow-y:auto; text-align:center; }
+	#ret_progress_link     { min-height:1.5em; }
+	#ret_progress_buttons  { min-height:3.2em; }
+
+	/* The consequences dialog. Long enough to need its own scroll rather than
+	   growing past the bottom of the window. */
+	#preview_detail
+	{
+		max-height	:52vh;
+		overflow-y	:auto;
+		font-size	:smaller;
+	}
+	#preview_detail h3 { margin:12px 0 4px 0; font-size:1em; }
+	#preview_detail ul { margin:0 0 0 18px; padding:0; }
+	#preview_detail li { margin:3px 0; }
+	#preview_detail .sql
+	{
+		font-family	:monospace, monospace;
+		font-size	:0.85em;
+		color		:#555;
+		word-break	:break-all;
+	}
+	.warnbox
+	{
+		border		:1px solid #c0392b;
+		padding		:8px;
+		margin		:8px 0;
+		border-radius	:4px;
+	}
+	/* Three levels, and they mean three different things: yellow is "think about
+	   this", red-bordered is "you would lose something you can still save", solid
+	   red is "this is gone for good". */
+	.warnbox-warn
+	{
+		background-color:#fdf3c8;
+		border-color	:#d4ac0d;
+		color		:#5f4b00;
+	}
+	.warnbox-danger
+	{
+		background-color:#c0392b;
+		border-color	:#a93226;
+		color		:#ffffff;
+		font-weight	:bold;
+	}
+
+	/* One block per stage in the preview dialogue */
+	.pvstage
+	{
+		border-left	:3px solid rgba(128,128,128,0.4);
+		padding		:2px 0 2px 10px;
+		margin		:10px 0;
+	}
+	.pvstage .pvhead { font-weight:bold; }
+	.pvsum
+	{
+		border-top	:1px solid rgba(128,128,128,0.4);
+		margin-top	:14px;
+		padding-top	:8px;
+	}
+	.pvsum .pvbig { font-size:1.1em; font-weight:bold; }
+	.pvnote { color:#666; font-size:0.9em; margin-top:6px; }
+	/* The LoxBerry jQuery Mobile theme has no red swatch, and a destructive
+	   button has to look destructive. Two leading elements in the selector,
+	   because the theme colours buttons with "html .ui-body-a .ui-btn" and a
+	   plain two-class selector loses against it. */
+	html body .s4l-btn-danger.ui-btn,
+	html body .s4l-btn-danger.ui-btn:visited
+	{
+		background	:#c0392b;
+		border-color	:#a93226;
+		color		:#ffffff;
+		text-shadow	:none;
+	}
+	html body .s4l-btn-danger.ui-btn:hover,
+	html body .s4l-btn-danger.ui-btn:focus,
+	html body .s4l-btn-danger.ui-btn.ui-btn-active
+	{
+		background	:#a93226;
+		border-color	:#922b21;
+		color		:#ffffff;
+		text-shadow	:none;
+	}
+
+	/* And the counterpart: the way through that loses nothing. Red already means
+	   "this destroys something", so the safe route should not be the same grey as
+	   Cancel next to it. Same selector weight as above, for the same reason. */
+	html body .s4l-btn-go.ui-btn,
+	html body .s4l-btn-go.ui-btn:visited
+	{
+		background	:#3c9a3c;
+		border-color	:#2f7a2f;
+		color		:#ffffff;
+		text-shadow	:none;
+	}
+	html body .s4l-btn-go.ui-btn:hover,
+	html body .s4l-btn-go.ui-btn:focus,
+	html body .s4l-btn-go.ui-btn.ui-btn-active
+	{
+		background	:#2f7a2f;
+		border-color	:#256125;
+		color		:#ffffff;
+		text-shadow	:none;
+	}
+
 	/* Dice for "suggest a random password": a square with the five pips of a
 	   die, all five drawn with box-shadow from one element. */
 	.s4l-tbtn-dice::before
@@ -260,7 +447,12 @@
 <form>
 <div class="ui-body ui-body-a ui-corner-all">
 
+	<!-- One h2 for the database, and an h3 per group below it. The groups were
+	     already there in the layout - storage, credentials, retention - but only
+	     the first one was announced, and by a field label rather than a heading. -->
 	<h2><TMPL_VAR INFLUX.TITLE></h2>
+
+	<h3 class="s4lsub"><TMPL_VAR INFLUX.TITLE_STORAGE></h3>
 
 	<div class="lb_flex-container s4lrow influx">
 		<div	class="lb_flex-item-label">
@@ -287,8 +479,8 @@
 		<div class="buttonrow" id="hint_influx">&nbsp;</div>
 	</div>
 
-	<!-- Credentials belong to the InfluxDB section above, not under a heading of
-	     their own - it is the same database being configured. -->
+	<h3 class="s4lsub"><TMPL_VAR INFLUX.TITLE_CREDENTIALS></h3>
+
 	<div class="lb_flex-container s4lrow">
 		<div	class="lb_flex-item-label"><TMPL_VAR INPUTSOUTPUTS.LABEL_INFLUX_USER></div>
 		<div	class="lb_flex-item">
@@ -329,6 +521,116 @@
 		<div class="buttonrow" id="hint_credentials">&nbsp;</div>
 	</div>
 
+	<!-- Data retention and downsampling (issue #44).
+	     Under the InfluxDB heading and not under one of its own: this is how
+	     long that database keeps what it is given, and it is the same database
+	     being configured above. -->
+	<h3 class="s4lsub"><TMPL_VAR RETENTION.TITLE></h3>
+
+	<div class="lb_flex-container s4lrow retention">
+		<div	class="lb_flex-item-label"><TMPL_VAR RETENTION.LABEL_DURATION></div>
+		<div	class="lb_flex-item">
+			<select name="ret_duration" id="ret_duration" data-mini="true"></select>
+		</div>
+		<div	class="lb_flex-item-help hint">
+			<TMPL_VAR RETENTION.HINT_DURATION>
+			<a href="https://wiki.loxberry.de/plugins/statistics_4_loxone/influx_downsampling_data" target="_blank"><TMPL_VAR RETENTION.WIKI></a>
+		</div>
+	</div>
+
+	<div class="lb_flex-container s4lrow retention">
+		<div	class="lb_flex-item-label"><TMPL_VAR RETENTION.LABEL_DOWNSAMPLING></div>
+		<div	class="lb_flex-item">
+			<!-- Server-rendered, like the service logging switch above: jQuery
+			     Mobile builds the flipswitch when the page is created, so setting
+			     it from JavaScript afterwards shows it visibly flipping. -->
+			<input type="checkbox" data-role="flipswitch" name="ret_downsampling" id="ret_downsampling" <TMPL_VAR RETENTION_DOWNSAMPLING>>
+		</div>
+		<div	class="lb_flex-item-help hint">
+			<TMPL_VAR RETENTION.HINT_DOWNSAMPLING>
+			<a href="https://wiki.loxberry.de/plugins/statistics_4_loxone/influx_downsampling_data" target="_blank"><TMPL_VAR RETENTION.WIKI></a>
+		</div>
+	</div>
+
+	<!-- The table sits in the field column of a normal settings row, not at the
+	     left edge: it holds form controls, and form controls on this page line up
+	     under each other, not under the labels. -->
+	<div class="lb_flex-container s4lrow retention" id="ret_stages">
+		<div	class="lb_flex-item-label"><TMPL_VAR RETENTION.LABEL_STAGES></div>
+		<div	class="lb_flex-item" id="ret_stagebox">
+			<table class="stagetable">
+				<thead>
+					<tr>
+						<th class="col-no"><TMPL_VAR RETENTION.COL_STAGE></th>
+						<th class="col-active"><TMPL_VAR RETENTION.COL_ACTIVE></th>
+						<th><TMPL_VAR RETENTION.COL_INTERVAL></th>
+						<th><TMPL_VAR RETENTION.COL_KEEP></th>
+					</tr>
+				</thead>
+				<tbody>
+					<!-- Stage 1 gets a real tick like every other stage rather than
+					     the words "always on". It is checked, it cannot be
+					     unticked, and it is NOT disabled - a greyed-out tick reads
+					     as "switched off", which is the opposite of what it is. -->
+					<tr id="ret_row1">
+						<td>1</td>
+						<td class="center">
+							<input type="checkbox" id="ret_active1" data-role="none" checked="checked"
+								class="fixedcheck" tabindex="-1" onclick="return false;"
+								title="<TMPL_VAR RETENTION.STAGE_ALWAYS>">
+						</td>
+						<td><TMPL_VAR RETENTION.STAGE_RAW></td>
+						<td><select id="ret_duration1" data-mini="true"></select></td>
+					</tr>
+					<TMPL_LOOP RETENTION_STAGES>
+					<tr id="ret_row<TMPL_VAR STAGE_NO>" class="stage-off">
+						<td><TMPL_VAR STAGE_NO></td>
+						<td class="center">
+							<input type="checkbox" id="ret_active<TMPL_VAR STAGE_NO>" data-role="none" <TMPL_VAR STAGE_CHECKED>>
+						</td>
+						<td><select id="ret_interval<TMPL_VAR STAGE_NO>" data-mini="true"></select></td>
+						<td><select id="ret_duration<TMPL_VAR STAGE_NO>" data-mini="true"></select></td>
+					</tr>
+					</TMPL_LOOP>
+				</tbody>
+			</table>
+			<div class="hint" id="ret_grabberhint" style="color:#c0392b"></div>
+		</div>
+		<div	class="lb_flex-item-help hint">
+			<TMPL_VAR RETENTION.HINT_STAGES>
+			<a href="https://wiki.loxberry.de/plugins/statistics_4_loxone/influx_downsampling_data" target="_blank"><TMPL_VAR RETENTION.WIKI></a>
+		</div>
+	</div>
+
+	<div style="padding: 0px 0px 20px 0px;"></div>
+
+	<div class="lb_flex-container retention">
+		<div	class="buttonrow">
+			<!-- Both in swatch b, like every other button on this page. Swatch a -
+			     which is what a plain .ui-btn gets - comes out dark in this theme
+			     and made the save button look like something else entirely.
+			     "Speichern und Anwenden" goes through the same dialogue the
+			     preview opens. There is no way to reach the database without
+			     having been shown what it would do first. -->
+			<a href="javascript:previewRetention(false);" id="btnpreviewretention" class="ui-btn ui-corner-all ui-shadow ui-btn-b ui-btn-icon-left ui-icon-eye ui-btn-inline"
+				data-inline="true"><TMPL_VAR RETENTION.BUTTON_PREVIEW></a>
+			<a href="javascript:previewRetention(true);" id="btnsaveretention" class="ui-btn ui-corner-all ui-shadow ui-btn-b ui-btn-icon-left ui-icon-check ui-btn-inline"
+				data-inline="true"><TMPL_VAR RETENTION.BUTTON_SAVE></a>
+		</div>
+	</div>
+
+	<!-- The status line of this section is a whole sentence, not the two or three
+	     words the other sections put here. In a .buttonrow it spans the full page
+	     width, so its first line starts at the very left edge and reads as if it
+	     had slipped out of the layout. In a settings row with an empty label it
+	     starts where the fields start. -->
+	<div class="lb_flex-container s4lrow retention">
+		<div	class="lb_flex-item-label">&nbsp;</div>
+		<div	class="lb_flex-item">
+			<div id="hint_retention">&nbsp;</div>
+		</div>
+	</div>
+
 	<h2><TMPL_VAR INPUTSOUTPUTS.TITLE_SERVICELOG></h2>
 
 	<div class="lb_flex-container s4lrow servicelog">
@@ -364,6 +666,29 @@
 	<center><h2><TMPL_VAR INPUTSOUTPUTS.POPUP_SAVING_TITLE></h2></center>
 	<div class="chstatus" id="ch_hint"><TMPL_VAR INPUTSOUTPUTS.HINT_SAVING></div>
 	<div class="chstatus" id="ch_status">&nbsp;</div>
+</div>
+
+<!-- What an apply would do, and what it would cost. This is the only place the
+     user learns that eleven years of history are about to be shortened, so it is
+     a dialogue and not a hint line: it has to be read before it can be dismissed. -->
+<div data-role="popup" id="popupRetPreview" data-position-to="window" data-transition="flip" data-theme="a" data-overlay-theme="a" data-dismissible="false" class="ui-content" style="max-width:900px;">
+	<center><h2><TMPL_VAR RETENTION.POPUP_PREVIEW_TITLE></h2></center>
+	<div id="preview_detail"><TMPL_VAR RETENTION.PREVIEW_LOADING></div>
+	<div style="padding: 10px 0px 0px 0px; text-align:center;" id="preview_buttons"></div>
+</div>
+
+<!-- Progress. Fed from the status file the script writes, exactly like the
+     backup page - and with a link into the logfile, which is being written while
+     it runs. -->
+<!-- Schliessbar: das Fenster sagt selbst, dass der Durchgang im Hintergrund
+     weiterlaeuft - dann muss man es auch wegklicken duerfen. Es oeffnet sich beim
+     naechsten Besuch der Seite von allein wieder. -->
+<div data-role="popup" id="popupRetRun" data-position-to="window" data-transition="flip" data-theme="a" data-overlay-theme="a" data-dismissible="true" class="ui-content" style="min-width:320px;max-width:600px;">
+	<center><h2><TMPL_VAR RETENTION.POPUP_RUN_TITLE></h2></center>
+	<div class="chstatus" id="ret_progress"><TMPL_VAR RETENTION.RUN_STARTING></div>
+	<div class="chstatus" id="ret_progress_detail">&nbsp;</div>
+	<div style="text-align:center;font-size:smaller;" id="ret_progress_link">&nbsp;</div>
+	<div style="padding: 10px 0px 0px 0px; text-align:center;" id="ret_progress_buttons"></div>
 </div>
 
 </div><!-- main_content -->
@@ -425,6 +750,8 @@ function checkSecurePIN() {
 		// Only now is anything loaded.
 		getconfig();
 		getCredentials();
+		getRetention();
+		retCheckOnLoad();
 	})
 	.always(function() {
 		$("#check_securepin").attr("disabled", false);
@@ -679,6 +1006,859 @@ function checkconfighandlerstatus( section ) {
 		console.log( "Checking Config-Handler Finished" );
 	});
 }
+
+// --- Data retention and downsampling (issue #44) --------------------------
+//
+// Three things happen here and they are deliberately three steps: the settings
+// are SAVED, then a preview ASKS the database what carrying them out would do,
+// and only a button in that dialogue APPLIES anything. Saving on its own changes
+// nothing - nothing outside s4l_retention.pl reads the setting - so it is safe to
+// save before previewing, and that is what lets the preview work on the same
+// configuration the script will later act on.
+
+// Labels for the values the server offers. The server owns the lists, this owns
+// their names - a value without a name falls back to the value itself, so a new
+// entry on the server side shows up rather than disappearing.
+var RET_DURLABEL = {
+	"0"     : "<TMPL_VAR RETENTION.DURATION_0>",
+	"30d"   : "<TMPL_VAR RETENTION.DURATION_30D>",
+	"90d"   : "<TMPL_VAR RETENTION.DURATION_90D>",
+	"180d"  : "<TMPL_VAR RETENTION.DURATION_180D>",
+	"365d"  : "<TMPL_VAR RETENTION.DURATION_365D>",
+	"730d"  : "<TMPL_VAR RETENTION.DURATION_730D>",
+	"1095d" : "<TMPL_VAR RETENTION.DURATION_1095D>",
+	"1825d" : "<TMPL_VAR RETENTION.DURATION_1825D>",
+	"3650d" : "<TMPL_VAR RETENTION.DURATION_3650D>"
+};
+var RET_IVLABEL = {
+	"1h"  : "<TMPL_VAR RETENTION.INTERVAL_1H>",
+	"2h"  : "<TMPL_VAR RETENTION.INTERVAL_2H>",
+	"6h"  : "<TMPL_VAR RETENTION.INTERVAL_6H>",
+	"12h" : "<TMPL_VAR RETENTION.INTERVAL_12H>",
+	"1d"  : "<TMPL_VAR RETENTION.INTERVAL_1D>",
+	"1w"  : "<TMPL_VAR RETENTION.INTERVAL_1W>"
+};
+
+var retCfg = null;          // what the server offers and what is configured
+var retStages = 5;
+var retInterval = null;     // the poll while a run is going on
+
+function retEsc(s) {
+	return String(s === undefined || s === null ? "" : s)
+		.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// Seconds behind a duration or an interval. 0 means unlimited, in the
+// configuration and in InfluxDB alike - which is why it cannot simply be
+// compared as a number, see retCmp().
+function retSecs(d) {
+	if( !d || d === "0" ) return 0;
+	var m = /^(\d+)([hdw])$/.exec(d);
+	if( !m ) return 0;
+	return parseInt(m[1],10) * ({ h:3600, d:86400, w:604800 })[m[2]];
+}
+function retCmp(a, b) {
+	var x = retSecs(a), y = retSecs(b);
+	if( x === y ) return 0;
+	if( x === 0 ) return 1;      // unlimited is longer than anything
+	if( y === 0 ) return -1;
+	return x < y ? -1 : 1;
+}
+
+// Options into an existing jQuery Mobile select. The element stays, only its
+// options change - building a new select would mean enhancing it again on every
+// keystroke of the cascade.
+//
+// $ordered: the values are a contiguous slice of the master list, sorted from
+// short to long. A current value that has fallen out of the slice is then CLAMPED
+// to the nearest end instead of jumping to the first entry. It matters: ticking
+// stage 5 shortens what stage 2 may choose, and a stage 2 sitting at 12 hours
+// would otherwise drop all the way back to 1 hour instead of stepping down by
+// one.
+function retFill( id, values, labels, current, ordered ) {
+	var $s = $(id);
+	var h = "";
+	for( var i = 0; i < values.length; i++ ) {
+		h += '<option value="' + retEsc(values[i]) + '">'
+		   + retEsc( labels[values[i]] || values[i] ) + '</option>';
+	}
+	$s.html(h);
+	if( values.indexOf(current) < 0 ) {
+		if( !values.length )                                      current = "";
+		else if( !ordered || current === undefined || current === null ) current = values[0];
+		else if( retCmp( current, values[0] ) < 0 )               current = values[0];
+		else                                                      current = values[ values.length-1 ];
+	}
+	$s.val(current);
+	try { $s.selectmenu("refresh", true); } catch(e) { try { $s.selectmenu(); } catch(e2) {} }
+	return current;
+}
+
+function retActive(k) {
+	if( k === 1 ) return true;
+	return $('#ret_active'+k).is(':checked');
+}
+
+// A jQuery Mobile select is a native select with a button drawn over it. Setting
+// the property alone greys nothing, and calling the widget method alone leaves
+// the underlying element usable by the keyboard - so both.
+function retDisable( id, off ) {
+	var $s = $(id);
+	$s.prop( 'disabled', off ? true : false );
+	try { $s.selectmenu( off ? 'disable' : 'enable' ); } catch(e) {}
+}
+
+// Draws the whole cascade from the current state of the form. Called after every
+// change, because every field in it depends on its neighbours.
+function retRender() {
+	if( !retCfg ) return;
+
+	var down = $('#ret_downsampling').is(':checked');
+	// Greyed out, not hidden. A table that disappears takes the explanation of
+	// what the switch above it does with it, and the reader is left guessing what
+	// they just switched off.
+	//
+	// Only the box with the table, not the whole row: jQuery Mobile's ui-disabled
+	// also sets pointer-events to none, which would make the link to the wiki in
+	// the help text beside it unclickable - the one place a reader who has just
+	// switched this off might want to go.
+	$('#ret_stagebox').toggleClass( 'ui-disabled', !down );
+
+	// The cascade has no gaps. The checkboxes only ever offer the next stage, but
+	// a stats4lox.json edited by hand can say anything, and a gap would mean a
+	// condensation feeding a policy that nothing reads.
+	//
+	// The ticks are NOT cleared when downsampling is switched off - the table
+	// stays on screen now, and wiping somebody's stages because they flicked a
+	// switch to look at something would be a poor trade. The server ignores the
+	// stages while downsampling is off anyway.
+	var last = 1;
+	if( down ) {
+		for( var k = 2; k <= retStages; k++ ) {
+			if( retActive(k) && last === k-1 ) last = k;
+			else $('#ret_active'+k).prop('checked', false);
+		}
+	}
+
+	for( var k = 2; k <= retStages; k++ ) {
+		var on = ( k <= last );
+		$('#ret_row'+k).toggleClass('stage-off', !on);
+		// Tickable only if the stage before is on and the stage after is off:
+		// that is "always only the next one" for switching on, and "always only
+		// the last one" for switching off.
+		var enable = ( k-1 <= last ) && ( k+1 > last );
+		$('#ret_active'+k).prop('disabled', !enable);
+		$('#ret_interval'+k).prop('disabled', !on);
+	}
+
+	// Intervals and retentions are bounded from BELOW only, by the stage before,
+	// and the pass runs from stage 2 upwards.
+	//
+	// Bounding from above as well was the obvious thing and it was wrong: with
+	// stage 2 at 1h and stage 3 at 6h, choosing 12h in stage 2 left an option
+	// list that had no 12h in it, so retFill fell back to the first entry and the
+	// user's click silently turned into 1h. Bounded from below, the same click
+	// makes stage 2 coarser and pushes stage 3 up with it - which is visible in
+	// the table and is what a cascade is supposed to do.
+	//
+	// The server checks all of this again. A select is a convenience, never a
+	// guarantee.
+	// The upper end is not a preference either, it is arithmetic. There are five
+	// stages and six intervals, so a stage must not take a value that leaves the
+	// stages after it with nowhere to go: stage k needs (last - k) coarser
+	// intervals still available above its own choice. Without that reserve,
+	// putting stage 2 on a week gave stages 3, 4 and 5 an empty list, they all
+	// fell back to a week as well, and the result was four stages condensing to
+	// the same interval - which the server then refuses. Measured, in the check
+	// below this file.
+	for( var k = 2; k <= retStages; k++ ) {
+		var lower = ( k === 2 ) ? null : $('#ret_interval'+(k-1)).val();
+		var room  = ( k <= last ) ? ( last - k ) : 0;
+		var opts = [];
+		for( var i = 0; i < retCfg.intervals.length - room; i++ ) {
+			var v = retCfg.intervals[i];
+			if( lower && retCmp(v, lower) <= 0 ) continue;
+			opts.push(v);
+		}
+		if( !opts.length ) opts = [ retCfg.intervals[ retCfg.intervals.length-1 ] ];
+		retFill( '#ret_interval'+k, opts, RET_IVLABEL, $('#ret_interval'+k).val(), true );
+	}
+
+	// The last active stage gets no field at all - it carries the total retention
+	// from the setting above, and two fields for the same number can only
+	// contradict each other.
+	// "Unlimited" is the LONGEST retention but the first entry of the list the
+	// server sends. Sorting it to the back is what lets everything below compare
+	// and clamp by position instead of by special case.
+	var finite = retCfg.durations.filter( function(v) { return v !== "0"; } );
+
+	var global = $('#ret_duration').val();
+	for( var k = 1; k <= retStages; k++ ) {
+		if( k === last ) {
+			// Still a dropdown, just a disabled one holding the single value it
+			// can have. A plain piece of text in a column of dropdowns looks like
+			// a rendering fault; a disabled dropdown says "this is the same kind
+			// of field, it just is not yours to set here". The title says why.
+			retFill( '#ret_duration'+k, [ global ], RET_DURLABEL, global );
+			retDisable( '#ret_duration'+k, true );
+			$('#ret_duration'+k).attr( 'title', "<TMPL_VAR RETENTION.FROM_ABOVE>" );
+			continue;
+		}
+		retDisable( '#ret_duration'+k, false );
+		$('#ret_duration'+k).removeAttr( 'title' );
+
+		// A stage before the last one may not keep for ever - the stage after it
+		// would then never receive anything to take over - so only the finite
+		// values, and the same reserve as for the intervals: (last - k) longer
+		// ones have to stay available for the stages after it AND for the total.
+		var lower = ( k === 1 ) ? null : $('#ret_duration'+(k-1)).val();
+		var room  = ( k <= last ) ? ( last - k ) : 0;
+		var opts = [];
+		for( var i = 0; i < finite.length - room; i++ ) {
+			var v = finite[i];
+			if( lower && retCmp(v, lower) <= 0 ) continue;
+			opts.push(v);
+		}
+		if( !opts.length ) opts = [ finite[ finite.length-1 ] ];
+		retFill( '#ret_duration'+k, opts, RET_DURLABEL, $('#ret_duration'+k).val(), true );
+	}
+
+	// The total is bounded from below by the chain and by nothing from above, and
+	// here pruning is right rather than annoying: a total shorter than what an
+	// earlier stage keeps is simply never offered, so it cannot be picked and
+	// nothing has to be corrected behind the user's back.
+	var below = ( last >= 2 ) ? $('#ret_duration'+(last-1)).val() : null;
+	var gopts = [];
+	for( var i = 0; i < finite.length; i++ ) {
+		if( below && retCmp(finite[i], below) <= 0 ) continue;
+		gopts.push(finite[i]);
+	}
+	gopts.push("0");   // unlimited is always allowed, and it belongs at the end
+	retFill( '#ret_duration', gopts, RET_DURLABEL, global, true );
+	// Redrawn afterwards: the pruning above may have moved the total, and the
+	// disabled field of the last stage has to follow it.
+	var g2 = $('#ret_duration').val();
+	if( g2 !== global ) retFill( '#ret_duration'+last, [ g2 ], RET_DURLABEL, g2 );
+
+	// Anything below the grabber interval makes the data larger, not smaller.
+	var g = retCfg.grabber_interval || 0;
+	var warn = "";
+	for( var k = 2; k <= last; k++ ) {
+		if( g && retSecs( $('#ret_interval'+k).val() ) <= g ) {
+			warn = "<TMPL_VAR RETENTION.HINT_GRABBER>".replace( /__MIN__/g, Math.round(g/60) );
+			break;
+		}
+	}
+	$('#ret_grabberhint').html( warn );
+}
+
+function getRetention() {
+	$.post( "ajax.cgi", { action: 'retention_get' } )
+	.fail( function( data ) { console.log( "retention_get failed", data ); } )
+	.done( function( data ) {
+		if( !data || !data.retention ) { console.log( "retention_get", data ); return; }
+		retCfg = data;
+		var r = data.retention;
+		retStages = r.stages.length;
+
+		// The flipswitch came out of the page in the right position already - it
+		// is not touched here, or it would visibly flip on every page load.
+		retFill( '#ret_duration', data.durations, RET_DURLABEL, r.duration );
+		for( var k = 1; k <= retStages; k++ ) {
+			var s = r.stages[k-1] || {};
+			if( k > 1 ) {
+				retFill( '#ret_interval'+k, data.intervals, RET_IVLABEL, s.interval );
+			}
+			retFill( '#ret_duration'+k, data.durations, RET_DURLABEL, s.duration );
+		}
+		retRender();
+	} );
+}
+
+function retCollect( action ) {
+	var stages = [];
+	for( var k = 1; k <= retStages; k++ ) {
+		stages.push( {
+			active:   ( k === 1 || retActive(k) ) ? "True" : "False",
+			interval: ( k === 1 ) ? "raw" : $('#ret_interval'+k).val(),
+			duration: $('#ret_duration'+k).val() || ""
+		} );
+	}
+	return {
+		action:       action || 'retention_save',
+		duration:     $('#ret_duration').val(),
+		downsampling: $('#ret_downsampling').is(':checked') ? 'True' : 'False',
+		stages:       JSON.stringify( stages )
+	};
+}
+
+// Whether the form differs from what is stored.
+//
+// Without this the page gave no sign at all that a change was still only on
+// screen - Michael changed the retention to ten years, nothing was saved, and
+// nothing said so. The hint names the button, because "save" is not obvious when
+// the button is called "Save and apply".
+var retDirty = false;
+
+function retMarkDirty() {
+	retDirty = true;
+	$("#hint_retention").attr("style","color:#a06000")
+		.html("<TMPL_VAR RETENTION.HINT_UNSAVED>");
+}
+
+function retMarkClean() {
+	// The orange line has to go even when the save was the quiet one behind
+	// "Save and apply" - otherwise the page keeps claiming to be unsaved while
+	// the run it just started is already using the saved settings.
+	if( retDirty ) $("#hint_retention").attr("style","").html("&nbsp;");
+	retDirty = false;
+}
+
+// $quiet: "Save and apply" reports through the dialogue it opens straight
+// afterwards, so it does not want a green "saved" line appearing behind it.
+function saveRetention( quiet, onok ) {
+	$(".retention").addClass('ui-disabled');
+	if( !quiet ) $("#hint_retention").html("");
+	$.post( "ajax.cgi", retCollect() )
+	.fail( function( data ) {
+		console.log( "retention_save failed", data );
+		$("#hint_retention").attr("style","color:red")
+			.html( data && data.responseJSON && data.responseJSON.error
+				? retEsc(data.responseJSON.error) : "<TMPL_VAR RETENTION.HINT_SAVING_FAIL>" );
+	} )
+	.done( function( data ) {
+		retMarkClean();
+		if( !quiet ) {
+			$("#hint_retention").attr("style","color:green").html("<TMPL_VAR RETENTION.HINT_SAVING_SUCCESS>");
+		}
+		if( onok ) onok();
+	} )
+	.always( function() { $(".retention").removeClass('ui-disabled'); } );
+}
+
+// The two buttons, and the difference between them is the whole point.
+//
+//   Preview             sends the form to the server, changes NOTHING, and shows
+//                       what these settings would do. Closes again.
+//   Save and apply      stores the settings, shows the same report, and offers
+//                       the buttons that carry it out.
+//
+// Preview used to save the form first, which made a button called "Preview" write
+// to the configuration - and left the honest question of what a saved but never
+// applied setting is. It is nothing: no code outside s4l_retention.pl reads it.
+// A button should not need that explanation, so now it really does not save.
+var retOfferApply = false;
+
+function previewRetention( offerApply ) {
+	retOfferApply = offerApply ? true : false;
+
+	var show = function() {
+		$("#preview_detail").html("<TMPL_VAR RETENTION.PREVIEW_LOADING>");
+		$("#preview_buttons").html("");
+		$("#popupRetPreview").popup("open");
+		// The form goes along, so the report describes what is on screen - not
+		// what happens to be stored.
+		$.post( "ajax.cgi", retCollect( 'retention_preview' ) )
+		.fail( function( data ) {
+			console.log( "retention_preview failed", data );
+			retPreviewFailed();
+		} )
+		.done( function( data ) {
+			if( !data || !data.ok ) { retPreviewFailed( data && data.error ); return; }
+			retShowPreview( data );
+		} );
+	};
+
+	// Only "Save and apply" writes, and it writes BEFORE the dialogue opens: the
+	// apply that the dialogue offers runs in the background from the saved
+	// settings, so the two must not be able to disagree.
+	if( retOfferApply ) { saveRetention( true, show ) }
+	else                { show() }
+}
+
+function retPreviewFailed( msg ) {
+	$("#preview_detail").html( '<div class="warnbox">' + "<TMPL_VAR RETENTION.PREVIEW_FAILED>"
+		+ ( msg ? " " + retEsc(msg) : "" ) + '</div>' );
+	$("#preview_buttons").html( retCancelButton() );
+	retRepos();
+}
+
+// "Abbrechen" only when there is something to cancel - that is, when buttons that
+// would change the database are about to appear next to it. On a dialogue that
+// only reports, the same button is "Schliessen".
+function retCancelButton( iscancel ) {
+	return '<a href="javascript:$(\'#popupRetPreview\').popup(\'close\');" '
+	     + 'class="ui-btn ui-corner-all ui-shadow ui-btn-b ui-btn-inline" data-inline="true">'
+	     + ( iscancel ? "<TMPL_VAR RETENTION.BUTTON_CANCEL>" : "<TMPL_VAR COMMON.BUTTON_CLOSE>" ) + '</a>';
+}
+
+// Centres the preview popup again after its content has changed.
+//
+// Two things went wrong here and this fixes the second one. The first was a
+// "width: 92%" on the popup itself: jQuery Mobile puts a popup in an absolutely
+// positioned container that shrinks to fit, so a percentage width has nothing to
+// measure against, the popup came out zero wide, and centring a box of width zero
+// put its top left corner in the middle of the window. A plain max-width in
+// pixels has no such problem - jQuery Mobile clamps the popup to the window on
+// its own.
+//
+// The second is that the dialogue opens with one line of "please wait" and is
+// then filled with the whole report. jQuery Mobile positions a popup when it
+// opens and never again, so it would stay centred for the small box and hang off
+// the bottom once the text arrived.
+function retRepos() {
+	try { $("#popupRetPreview").popup( "reposition", { positionTo: "window" } ); } catch(e) {}
+}
+
+// A warning from the script, in the language of the page.
+//
+// The script sends { code, ...parameters, text }. The code picks the translated
+// sentence, the parameters fill it, and "text" is the English fallback for a code
+// this page does not know yet - better an English warning than none.
+var RET_WIKI = 'https://wiki.loxberry.de/plugins/statistics_4_loxone/influx_downsampling_data';
+
+function retWarnText( w ) {
+	if( typeof w === 'string' ) return retEsc(w);   // older script, plain sentence
+	var s = null;
+	if( w.code === 'grabber' ) {
+		s = "<TMPL_VAR RETENTION.WARN_GRABBER>"
+			.replace( /__N__/g, w.stage ).replace( /__IV__/g, RET_IVLABEL[w.interval] || w.interval )
+			.replace( /__MIN__/g, w.minutes );
+	}
+	else if( w.code === "mixedres" ) {
+		s = "<TMPL_VAR RETENTION.WARN_MIXEDRES>"
+			.replace( /__N__/g, w.stage ).replace( /__IV__/g, RET_IVLABEL[w.interval] || w.interval );
+	}
+	else if( w.code === 'grafana' ) {
+		s = "<TMPL_VAR RETENTION.WARN_GRAFANA>".replace( /__DUR__/g, w.duration );
+	}
+	var h = retEsc( s !== null ? s : ( w.text || "" ) );
+	// "Details: Wiki" was plain text before, because the whole warning was escaped
+	// in one go. The link is added here instead of being smuggled into the string.
+	if( w.wiki ) {
+		h += ' <a href="' + RET_WIKI + '" target="_blank">' + "<TMPL_VAR RETENTION.WIKI>" + '</a>';
+	}
+	return h;
+}
+
+// Megabytes, and gigabytes once it gets silly. Same rounding as the script's own
+// text output, so the two cannot disagree in a bug report.
+function retMB( bytes ) {
+	if( bytes === undefined || bytes === null ) return "?";
+	if( bytes > 0 && bytes < 1048576 ) return "< 1 MB";
+	if( bytes >= 1073741824 ) return ( bytes / 1073741824 ).toFixed(1) + " GB";
+	return Math.round( bytes / 1048576 ) + " MB";
+}
+
+function retFmtDate( iso ) {
+	if( !iso ) return "?";
+	var d = new Date( iso );
+	return isNaN(d.getTime()) ? iso : d.toLocaleDateString();
+}
+
+function retNames( list, total ) {
+	if( !list || !list.length ) return "";
+	var h = '<ul>';
+	for( var i = 0; i < list.length; i++ ) h += '<li>' + retEsc(list[i]) + '</li>';
+	if( total > list.length ) {
+		h += '<li>' + "<TMPL_VAR RETENTION.PREVIEW_MORE>".replace( /__N__/g, total - list.length ) + '</li>';
+	}
+	return h + '</ul>';
+}
+
+function retShowPreview( d ) {
+	var h = "";
+
+	if( d.errors && d.errors.length ) {
+		h += '<div class="warnbox"><b>' + "<TMPL_VAR RETENTION.PREVIEW_ERRORS>" + '</b><ul>';
+		for( var i = 0; i < d.errors.length; i++ ) h += '<li>' + retEsc(d.errors[i]) + '</li>';
+		h += '</ul></div>';
+		$("#preview_detail").html(h);
+		$("#preview_buttons").html( retCancelButton() );
+		retRepos();
+		return;
+	}
+
+	// Warnings in yellow: they are worth reading and they are not losses.
+	//
+	// They come from the script, which speaks English only. Translating them here
+	// by their code is the reason the script sends a code and its parameters and
+	// not just a sentence - a German page showing an English warning was the one
+	// thing the language split leaked into the interface.
+	for( var i = 0; d.warnings && i < d.warnings.length; i++ ) {
+		h += '<div class="warnbox warnbox-warn">' + retWarnText( d.warnings[i] ) + '</div>';
+	}
+
+	if( !d.plan || !d.plan.length ) {
+		h += '<p>' + "<TMPL_VAR RETENTION.PREVIEW_NOCHANGE>" + '</p>';
+		$("#preview_detail").html(h);
+		$("#preview_buttons").html( retCancelButton() );
+		retRepos();
+		return;
+	}
+
+	// No list of statements here any more. It said CREATE RETENTION POLICY and
+	// named policies like "s4l_1h", and nothing outside the plugin's own code
+	// knows what either of those is - it read as a fault report rather than as an
+	// answer. What the user asked is how much data goes where and what it saves,
+	// so that is what this shows.
+	var loss = d.loss || {};
+	var sz   = loss.sizes || {};
+	var byStage = {};
+	$.each( loss.stages || [], function( i, r ) {
+		if( r.stage ) byStage[r.stage] = r;
+	} );
+
+	h += '<h3>' + "<TMPL_VAR RETENTION.PREVIEW_PLAN>" + '</h3>';
+	h += '<p>' + "<TMPL_VAR RETENTION.PREVIEW_OVERVIEW>"
+		.replace( /__MB__/g, retMB(sz.total_now) )
+		.replace( /__N__/g, loss.measurements || 0 )
+		.replace( /__DATE__/g, retFmtDate(loss.oldest) ) + '</p>';
+
+	$.each( d.stages || [], function( i, s ) {
+		var what = ( s.no === 1 )
+			? "<TMPL_VAR RETENTION.STAGE_RAW>"
+			: "<TMPL_VAR RETENTION.STAGE_MEAN>".replace( /__IV__/g, RET_IVLABEL[s.interval] || s.interval );
+		h += '<div class="pvstage"><div class="pvhead">'
+		   + "<TMPL_VAR RETENTION.COL_STAGE>" + ' ' + s.no + ': ' + retEsc(what)
+		   + ' &ndash; ' + retEsc(s.duration_human) + '</div>';
+
+		if( s.no === 1 ) {
+			h += '<div>' + "<TMPL_VAR RETENTION.STAGE_RAWLINE>"
+				.replace( /__MB__/g, retMB(s.bytes_now) )
+				.replace( /__DROP__/g, retMB(s.bytes_drop) )
+				.replace( /__KEEP__/g, retMB(s.bytes_after) ) + '</div>';
+		} else {
+			h += '<div>' + "<TMPL_VAR RETENTION.STAGE_CONDLINE>"
+				.replace( /__DUR__/g, retEsc(s.duration_human) )
+				.replace( /__RAW__/g, retMB(s.bytes_rawin) )
+				.replace( /__MB__/g, retMB(s.bytes_after) ) + '</div>';
+			if( s.grows ) {
+				h += '<div class="warnbox warnbox-warn">' + "<TMPL_VAR RETENTION.STAGE_GROWS>" + '</div>';
+			}
+		}
+
+		// What this stage hands on to the next one, and whether that has happened
+		var r = byStage[s.no];
+		if( r && r.kind === 'backfill' ) {
+			if( r.covered ) {
+				h += '<div>' + "<TMPL_VAR RETENTION.STAGE_READY>".replace( /__N__/g, r.covered ) + '</div>';
+			}
+			if( r.affected ) {
+				h += '<div class="warnbox">' + "<TMPL_VAR RETENTION.STAGE_MISSING>"
+					.replace( /__N__/g, r.affected )
+					.replace( /__DATE__/g, retFmtDate(r.oldest) )
+					+ retNames( r.names, r.affected ) + '</div>';
+			}
+		}
+		h += '</div>';
+	} );
+
+	$.each( loss.stages || [], function( i, r ) {
+		if( r.kind === 'final' ) {
+			h += '<div class="warnbox warnbox-danger">' + "<TMPL_VAR RETENTION.FINAL_LINE>"
+				.replace( /__DATE__/g, retFmtDate(r.cut) )
+				.replace( /__N__/g, r.affected )
+				.replace( /__MB__/g, retMB(r.bytes) ) + '</div>'
+				+ retNames( r.names, r.affected );
+		}
+		else if( r.kind === 'drop' ) {
+			h += '<div class="warnbox warnbox-danger">' + "<TMPL_VAR RETENTION.DROP_LINE>"
+				.replace( /__N__/g, r.affected )
+				.replace( /__DATE__/g, retFmtDate(r.oldest) )
+				.replace( /__MB__/g, retMB(r.bytes) ) + '</div>'
+				+ retNames( r.names, r.affected );
+		}
+	} );
+
+	if( !loss.final_loss && !loss.backfill_needed ) {
+		h += '<p>' + "<TMPL_VAR RETENTION.PREVIEW_NOLOSS>" + '</p>';
+	}
+
+	if( sz.total_after !== undefined ) {
+		var diff = ( sz.total_now || 0 ) - sz.total_after;
+		h += '<div class="pvsum"><div class="pvbig">' + "<TMPL_VAR RETENTION.SUM_TITLE>" + '</div><div>'
+		   + ( diff >= 0 ? "<TMPL_VAR RETENTION.SUM_SAVED>" : "<TMPL_VAR RETENTION.SUM_MORE>" )
+			.replace( /__NOW__/g, retMB(sz.total_now) )
+			.replace( /__AFTER__/g, retMB(sz.total_after) )
+			.replace( /__DIFF__/g, retMB( Math.abs(diff) ) )
+		   + '</div><div class="pvnote">' + "<TMPL_VAR RETENTION.SUM_NOTE>" + '</div></div>';
+	}
+
+	if( loss.backfill_needed && d.backfill ) {
+		h += '<p class="pvnote">' + "<TMPL_VAR RETENTION.PREVIEW_BACKFILL_COST>"
+			.replace( /__VALUES__/g, Number(d.backfill.values || 0).toLocaleString() )
+			.replace( /__MIN__/g, Math.max( 1, Math.round( (d.backfill.seconds || 0) / 60 ) ) ) + '</p>';
+	}
+
+	$("#preview_detail").html(h);
+
+	// The buttons ARE the confirmation. Which ones appear follows from what the
+	// text above says would be lost, so a user who has read it is pressing the
+	// answer to it.
+	if( !retOfferApply ) { $("#preview_buttons").html( retCancelButton() ); retRepos(); return; }
+	var b = retCancelButton( true );
+	var force = loss.final_loss ? 'true' : 'false';
+	// Green for the way through that keeps everything, red for the one that
+	// throws something away. Grey is left to Cancel, which is neither.
+	//
+	// There used to be a third button here, "apply without condensing", and it is
+	// gone on purpose. It contradicted the settings it was offered under: someone
+	// who switched downsampling on and built a cascade has said they want the
+	// history kept, and this button deleted exactly that history. It was also
+	// redundant - wanting the space and not the old data is a real wish, and the
+	// honest way to say it is to switch downsampling OFF and set a retention. The
+	// dialogue then names it as a final deletion and asks for it in red. Two ways
+	// to the same place, one of them contradicting the configuration it sits in,
+	// is one too many. The command line keeps --force for the maintainer.
+	if( loss.backfill_needed ) {
+		b += ' <a href="javascript:applyRetention(true,' + force + ');" '
+		   + 'class="ui-btn ui-corner-all ui-shadow ui-btn-inline s4l-btn-go" data-inline="true">'
+		   + "<TMPL_VAR RETENTION.BUTTON_APPLY_BACKFILL>" + '</a>';
+	}
+	else {
+		b += ' <a href="javascript:applyRetention(false,' + force + ');" '
+		   + 'class="ui-btn ui-corner-all ui-shadow ui-btn-inline '
+		   + ( loss.final_loss ? 's4l-btn-danger' : 's4l-btn-go' ) + '" data-inline="true">'
+		   + "<TMPL_VAR RETENTION.BUTTON_APPLY>" + '</a>';
+	}
+	$("#preview_buttons").html(b);
+	retRepos();
+}
+
+function applyRetention( backfill, force ) {
+	// jQuery Mobile allows exactly ONE popup at a time, and closing is animated.
+	// Opening the progress popup right after closing the preview did nothing at
+	// all: the close was still running, so the open was dropped without a word.
+	// The run itself started - it just looked as if the button had done nothing,
+	// and the button was still there to be pressed again.
+	//
+	// So: wait for the close to finish, and disable the section immediately so a
+	// second press cannot happen in the meantime.
+	$(".retention").addClass('ui-disabled');
+	$("#popupRetPreview").one( "popupafterclose", function() { retStartRun( backfill, force ) } );
+	$("#popupRetPreview").popup("close");
+	// If the popup was not open for some reason, popupafterclose never fires.
+	window.setTimeout( function() {
+		if( !retRunStarted ) retStartRun( backfill, force );
+	}, 600 );
+}
+
+var retRunStarted = false;
+
+// The progress window may be closed while the run carries on.
+//
+// It says so itself - "you can leave the page, it keeps running" - and until now
+// it would not let you. Closing it leaves the settings disabled, because changing
+// them under a running job is still a bad idea, and puts a line under the buttons
+// so the state is not a secret once the window is gone.
+$(function() {
+	$("#popupRetRun").on( "popupafterclose", function() {
+		if( retRunStarted ) retShowRunningHint();
+	} );
+} );
+
+function retShowRunningHint() {
+	$("#hint_retention").attr("style","color:#a06000").html(
+		"<TMPL_VAR RETENTION.HINT_STILL_RUNNING>"
+		+ ' <a href="javascript:retReopenRun();">' + "<TMPL_VAR RETENTION.BUTTON_SHOW_PROGRESS>" + '</a>' );
+}
+
+function retReopenRun() { try { $("#popupRetRun").popup("open") } catch(e) {} }
+
+function retStartRun( backfill, force, carryon ) {
+	if( retRunStarted ) return;
+	retRunStarted = true;
+
+	// The colour is reset, not only the text: a previous run may have left this
+	// line red or green, and a second attempt would start out looking finished.
+	$("#ret_progress").attr("style","").html("<TMPL_VAR RETENTION.RUN_STARTING>");
+	$("#ret_progress_detail").html("<TMPL_VAR RETENTION.RUN_LONG>");
+	$("#ret_progress_buttons").html( retBackgroundButton() );
+	// Written while it runs and meant to be read along with, so the link carries
+	// no only=once - unlike the healthcheck report, which is finished before
+	// anybody opens it.
+	$("#ret_progress_link").html( retLogLink() );
+	$("#popupRetRun").popup("open");
+
+	$.post( "ajax.cgi", {
+		action: 'retention_apply',
+		backfill: backfill ? "true" : "false",
+		force:    force    ? "true" : "false",
+		resume:   carryon  ? "true" : "false"
+	} )
+	.fail( function( data ) {
+		console.log( "retention_apply failed", data );
+		retRunFinished( { error: 'start' } );
+	} )
+	.done( function() {
+		retInterval = window.setInterval( checkRetentionStatus, 2000 );
+	} );
+}
+
+function checkRetentionStatus() {
+	$.post( "ajax.cgi", { action: 'retention_status' } )
+	.fail( function( data ) { console.log( "retention_status failed", data ); } )
+	.done( function( data ) {
+		if( !data || data.running === undefined ) return;
+
+		var txt = "<TMPL_VAR RETENTION.RUN_STARTING>";
+		if( data.step === 'backfill' ) {
+			txt = "<TMPL_VAR RETENTION.RUN_BACKFILL>"
+				.replace( /__DONE__/g, data.done || 0 ).replace( /__TOTAL__/g, data.total || 0 );
+		} else if( data.step === 'apply' ) {
+			txt = "<TMPL_VAR RETENTION.RUN_APPLY>"
+				.replace( /__DONE__/g, data.done || 0 ).replace( /__TOTAL__/g, data.total || 0 );
+		}
+		$("#ret_progress").html( retEsc(txt) );
+		$("#ret_progress_detail").html( data.current
+			? retEsc(data.current) : "<TMPL_VAR RETENTION.RUN_LONG>" );
+
+		if( data.running ) return;
+		retRunFinished( data );
+	} );
+}
+
+// What to DO about it, not just what happened.
+//
+// The run can end in a handful of ways, and the script names them with codes like
+// "backfill_incomplete". Michael read one of those on screen and the point landed:
+// a code tells a user nothing, and being told that something failed without being
+// told what to do next leaves them nowhere. Every code gets a sentence that names
+// the next step.
+function retErrorAdvice( code ) {
+	code = String( code || '' );
+	if( code === 'backfill_incomplete' ) return "<TMPL_VAR RETENTION.ADVICE_INCOMPLETE>";
+	if( code === 'backfill_needed' )     return "<TMPL_VAR RETENTION.ADVICE_BACKFILL>";
+	if( code === 'final_loss' || code === 'data_loss' ) return "<TMPL_VAR RETENTION.ADVICE_CONFIRM>";
+	if( code === 'start' )               return "<TMPL_VAR RETENTION.ADVICE_START>";
+	if( /answering|database/i.test(code) ) return "<TMPL_VAR RETENTION.ADVICE_DATABASE>";
+	return "<TMPL_VAR RETENTION.ADVICE_GENERIC>";
+}
+
+function retCloseRunButton() {
+	return '<a href="javascript:$(\'#popupRetRun\').popup(\'close\');" '
+	     + 'class="ui-btn ui-corner-all ui-shadow ui-btn-b ui-btn-inline" data-inline="true">'
+	     + "<TMPL_VAR COMMON.BUTTON_CLOSE>" + '</a>';
+}
+
+// The same button while the run is going, with a label that says what closing
+// means here - the job carries on, this only puts the window away.
+function retBackgroundButton() {
+	return '<a href="javascript:$(\'#popupRetRun\').popup(\'close\');" '
+	     + 'class="ui-btn ui-corner-all ui-shadow ui-btn-b ui-btn-inline" data-inline="true">'
+	     + "<TMPL_VAR RETENTION.BUTTON_RUN_BACKGROUND>" + '</a>';
+}
+
+function retRunFinished( data ) {
+	if( retInterval ) { window.clearInterval( retInterval ); retInterval = null; }
+	retRunStarted = false;
+	$(".retention").removeClass('ui-disabled');
+
+	if( data && data.error ) {
+		$("#ret_progress").attr("style","color:red").html("<TMPL_VAR RETENTION.RUN_FAILED>");
+		// The reassurance first - nothing is deleted before the condensing is
+		// complete, so a failure here has cost time and no data. Then the step.
+		$("#ret_progress_detail").html(
+			'<div class="warnbox warnbox-warn">' + retErrorAdvice( data.error ) + '</div>'
+			+ '<div class="pvnote">' + retEsc( data.error ) + '</div>' );
+		// The window may have been put away while it ran. The outcome then has to
+		// arrive somewhere the user can actually see it.
+		$("#hint_retention").attr("style","color:red").html("<TMPL_VAR RETENTION.RUN_FAILED>");
+	} else {
+		$("#ret_progress").attr("style","color:green").html("<TMPL_VAR RETENTION.RUN_DONE>");
+		$("#ret_progress_detail").html("<TMPL_VAR RETENTION.RUN_CLEANUP>");
+		$("#hint_retention").attr("style","color:green").html("<TMPL_VAR RETENTION.RUN_DONE>");
+	}
+	// Set again rather than relied upon. Every path into this popup sets the link
+	// on the way in, but the end of a run is where somebody actually wants it -
+	// it should not depend on which way they got here.
+	$("#ret_progress_link").html( retLogLink() );
+	$("#ret_progress_buttons").html( retCloseRunButton() );
+	// The advice box makes the window taller than it was while running, and
+	// jQuery Mobile positions a popup only when it opens.
+	try { $("#popupRetRun").popup( "reposition", { positionTo: "window" } ); } catch(e) {}
+}
+
+// A run that was cut short - power cut, reboot, crash.
+//
+// The status file says "running" for ever in that case, because nothing was left
+// alive to write the end into it. The server therefore checks the process as well
+// and reports "interrupted"; this offers the two ways on.
+//
+// Nothing is broken by either of them: condensing writes the same points again,
+// so carrying on and starting over differ in time and in nothing else.
+function retShowInterrupted( data ) {
+	$("#ret_progress").attr("style","color:#a06000").html("<TMPL_VAR RETENTION.RUN_INTERRUPTED>");
+	$("#ret_progress_detail").html(
+		'<div class="warnbox warnbox-warn">' + "<TMPL_VAR RETENTION.ADVICE_INTERRUPTED>" + '</div>'
+		+ ( data && data.total
+			? '<div class="pvnote">' + "<TMPL_VAR RETENTION.RUN_BACKFILL>"
+				.replace( /__DONE__/g, data.done || 0 ).replace( /__TOTAL__/g, data.total ) + '</div>'
+			: '' ) );
+	$("#ret_progress_link").html( retLogLink() );
+	$("#ret_progress_buttons").html(
+		retCloseRunButton()
+		+ ' <a href="javascript:retResume(true);" class="ui-btn ui-corner-all ui-shadow ui-btn-b ui-btn-inline" data-inline="true">'
+		+ "<TMPL_VAR RETENTION.BUTTON_RESUME>" + '</a>'
+		+ ' <a href="javascript:retResume(false);" class="ui-btn ui-corner-all ui-shadow ui-btn-b ui-btn-inline" data-inline="true">'
+		+ "<TMPL_VAR RETENTION.BUTTON_RESTART>" + '</a>' );
+	$("#popupRetRun").popup("open");
+}
+
+function retResume( carryon ) {
+	retRunStarted = false;
+	retStartRun( true, true, carryon );
+}
+
+function retLogLink() {
+	// Written while it runs and meant to be read along with, so the link carries
+	// no only=once - unlike the healthcheck report, which is finished before
+	// anybody opens it.
+	return '<a href="/admin/system/tools/logfile.cgi?package=<TMPL_VAR PLUGINDIR>&amp;name=Downsampling'
+	     + '&amp;header=html&amp;format=template" target="_blank">'
+	     + "<TMPL_VAR RETENTION.RUN_LOGLINK>" + '</a>';
+}
+
+// Called once the SecurePIN has been accepted.
+//
+// A run started here keeps going when the page is closed - it is a background
+// process, not something the browser drives. So the page has to be able to walk
+// back into one: reopen the progress window, block the settings behind it and
+// follow along, exactly as if the button had just been pressed.
+function retCheckOnLoad() {
+	$.post( "ajax.cgi", { action: 'retention_status' } )
+	.fail( function() { /* the page works without this */ } )
+	.done( function( data ) {
+		if( !data ) return;
+		if( data.running ) {
+			retRunStarted = true;
+			$(".retention").addClass('ui-disabled');
+			$("#ret_progress").attr("style","").html("<TMPL_VAR RETENTION.RUN_STARTING>");
+			$("#ret_progress_detail").html("<TMPL_VAR RETENTION.RUN_LONG>");
+			$("#ret_progress_buttons").html( retBackgroundButton() );
+			$("#ret_progress_link").html( retLogLink() );
+			$("#popupRetRun").popup("open");
+			retInterval = window.setInterval( checkRetentionStatus, 2000 );
+		}
+		else if( data.interrupted ) {
+			retShowInterrupted( data );
+		}
+	} );
+}
+
+// Every field of the cascade depends on its neighbours, so every change redraws
+// all of them.
+$(function() {
+	var onchange = function() { retRender(); retMarkDirty(); };
+	$("#ret_downsampling, #ret_duration").on( "change", onchange );
+	// As many rows as the template actually rendered - the number of stages is
+	// decided in Globals.pm and must not be repeated as a literal here.
+	var rows = $(".stagetable tbody tr").length;
+	for( var k = 1; k <= rows; k++ ) {
+		$("#ret_active"+k+", #ret_interval"+k+", #ret_duration"+k).on( "change", onchange );
+	}
+} );
 
 // Get Config
 function getconfig() {
