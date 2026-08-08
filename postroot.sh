@@ -327,22 +327,20 @@ if [ -d $LBHOMEDIR/data/plugins/$PTEMPDIR\_upgrade ]; then
 			echo "<INFO> Replaced the empty LoxBerry Telegraf drop-in by the current one."
 		fi
 
-		# And the file that has to arrive WITH it. The LoxBerry drop-in above used
-		# to carry an unscoped [[processors.converter]] that turned every *_errors
-		# and *_bytes field into a float, Telegraf's own statistics included.
-		# InfluxDB fixes a field's type per shard, so the moment that conversion
-		# goes away it refuses the integers - and it rejects the whole batch, not
-		# the one field. All of internal_gather, internal_agent and internal_write
-		# stop arriving, which is what the "Gathered Metrics per Hour" panel draws.
+		# And the file that has to arrive WITH it. The LoxBerry drop-in above
+		# carried the [[processors.converter]] that keeps *_bytes, *_errors and the
+		# other field types float; it lives in stats4lox_fieldtypes.conf now.
+		# Without it, a field that is float in the database arriving as an integer
+		# makes InfluxDB reject the whole batch and the measurement stops.
 		#
-		# The conversion now lives in stats4lox_internal.conf, scoped to those
-		# measurements. An installation that does not have it there yet needs it,
-		# or replacing the LoxBerry drop-in above would break its internals.
-		if ! grep -q 'processors.converter' \
-			"$PCONFIG/telegraf/telegraf.d/stats4lox_internal.conf" 2>/dev/null \
-			&& [ -f "$S4L_FRESH_TELEGRAFD/stats4lox_internal.conf" ]; then
-			cp -a "$S4L_FRESH_TELEGRAFD/stats4lox_internal.conf" "$PCONFIG/telegraf/telegraf.d/stats4lox_internal.conf"
-			echo "<INFO> Added the field type conversion for Telegraf's own statistics."
+		# The rsync above has no --delete, so a file that only the new version
+		# ships survives the restore. This is the guard for the day somebody adds
+		# --delete, and it names the dependency: replacing the LoxBerry drop-in
+		# without this file present breaks every installation that has one.
+		if [ ! -f "$PCONFIG/telegraf/telegraf.d/stats4lox_fieldtypes.conf" ] \
+			&& [ -f "$S4L_FRESH_TELEGRAFD/stats4lox_fieldtypes.conf" ]; then
+			cp -a "$S4L_FRESH_TELEGRAFD/stats4lox_fieldtypes.conf" "$PCONFIG/telegraf/telegraf.d/stats4lox_fieldtypes.conf"
+			echo "<INFO> Restored the field type rules for Telegraf."
 		fi
 		rm -rf "$S4L_FRESH_TELEGRAFD"
 
