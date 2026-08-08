@@ -31,9 +31,14 @@ $template->param('LOGLIST_HTML', LoxBerry::Web::loglist_html());
 # not turn up in loglist_html() - they are added here in the same style the MQTT
 # gateway uses for the Mosquitto log.
 #
-# Shown only when the file exists, which is exactly while the switch under
-# Settings is on. The paths come from ServiceLog, never written out literally:
-# the plugin folder is defined in plugin.cfg and is not fixed.
+# Shown when the file exists. For InfluxDB and Grafana that is exactly while the
+# switch under Settings is on - they say nothing otherwise. Telegraf writes its
+# own log into the same file whatever the switch does, so its row is always
+# there: that file holds the reason a measurement stopped arriving, and nobody
+# turns diagnostics on before they need them.
+#
+# The paths come from ServiceLog, never written out literally: the plugin folder
+# is defined in plugin.cfg and is not fixed.
 my @rows;
 foreach my $svc ( sort keys %ServiceLog::SERVICES ) {
 	my $file = ServiceLog::logfile($svc);

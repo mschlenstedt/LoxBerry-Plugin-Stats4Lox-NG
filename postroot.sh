@@ -266,6 +266,20 @@ s4l_migrate_telegraf_config() {
 		echo "<INFO>   $(basename "$f"): corrected logfile_rotation_interval from \"1d\" to \"24h\""
 	fi
 
+	# Telegraf's own log out of /var/log and into the plugin's log directory.
+	#
+	# /var/log is a 50 MB tmpfs on a LoxBerry and DietPi empties every file in it
+	# once an hour (/etc/cron.hourly/dietpi -> dietpi-logclear, find /var/log -type
+	# f). The log lived at most an hour, and it is the one place where "a
+	# measurement stopped arriving" is explained. In the plugin's directory it
+	# survives, it shows up under Logfiles, and it is the same file the diagnostic
+	# switch appends the service output to.
+	if [ "$(basename "$f")" = "telegraf.conf" ] \
+		&& grep -qE '^[[:space:]]*logfile[[:space:]]*=[[:space:]]*"/var/log/telegraf/telegraf\.log"' "$f"; then
+		sed -i -E "s#^([[:space:]]*logfile[[:space:]]*=[[:space:]]*)\"/var/log/telegraf/telegraf\.log\"#\1\"$PLOG/telegraf.log\"#" "$f"
+		echo "<INFO>   $(basename "$f"): Telegraf logs to $PLOG/telegraf.log now, not to /var/log"
+	fi
+
 	# Telegraf's statistics about itself do not belong in the main output any
 	# more. A second output in telegraf.d/stats4lox_internal.conf writes the two
 	# the dashboard needs into the "internal" retention policy, seven days;
@@ -863,6 +877,37 @@ if [ -d "$S4L_GRAFANA_DATA_DIR/plugins-bundled.stats4lox-bak" ]; then
 		echo "<INFO> Restored Grafana's plugins-bundled - the package was not reconfigured."
 	fi
 	chown -R grafana:grafana "$S4L_GRAFANA_DATA_DIR/plugins-bundled" > /dev/null 2>&1
+fi
+
+# Grafana logs to the console only
+#
+# The default is "console file", and the file is /var/log/grafana/grafana.log -
+# on a LoxBerry a tmpfs that DietPi empties every hour, and a file the plugin
+# never showed anywhere. Console means stderr, and stderr is what the diagnostic
+# switch under System captures into the plugin's log directory.
+#
+# Only when the setting is still the commented-out default. A mode somebody wrote
+# there deliberately is left alone, and the marker keeps this from running twice.
+S4L_GRAFANA_INI="$PCONFIG/grafana/grafana.ini"
+if [ -f "$S4L_GRAFANA_INI" ] \
+	&& ! grep -q 'Stats4Lox: console only' "$S4L_GRAFANA_INI" \
+	&& ! awk '/^\[log\]/{l=1;next} /^\[/{l=0} l && /^[[:space:]]*mode[[:space:]]*=/{found=1} END{exit !found}' "$S4L_GRAFANA_INI"; then
+	awk '
+		/^\[log\]/ { l=1 }
+		/^\[/ && !/^\[log\]/ { l=0 }
+		{ print }
+		l && /^[[:space:]]*;[[:space:]]*mode[[:space:]]*=/ && !done {
+			print "# Stats4Lox: console only - the file mode wrote into /var/log, which DietPi"
+			print "# empties every hour. stderr is captured by the diagnostic switch instead."
+			print "mode = console"
+			done=1
+		}
+	' "$S4L_GRAFANA_INI" > "$S4L_GRAFANA_INI.s4lnew" && {
+		chown --reference="$S4L_GRAFANA_INI" "$S4L_GRAFANA_INI.s4lnew" 2>/dev/null
+		chmod --reference="$S4L_GRAFANA_INI" "$S4L_GRAFANA_INI.s4lnew" 2>/dev/null
+		mv "$S4L_GRAFANA_INI.s4lnew" "$S4L_GRAFANA_INI"
+		echo "<INFO> Grafana logs to the console only ([log] mode = console)."
+	} || rm -f "$S4L_GRAFANA_INI.s4lnew"
 fi
 
 # Activate Grafana
