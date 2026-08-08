@@ -173,17 +173,20 @@ s4l_migrate_grafana_db() {
 #
 # Only the entry inside the [http] section is touched; influxdb.conf has a
 # second log-enabled further down that belongs to [subscriber]. Idempotent.
+#
+# Every rule below stands on its own. There used to be a "nothing to do here,
+# return" at the top for the first one, and the second rule added underneath it
+# was then never reached on any installation where the first had already run -
+# which is every installation that ever saw this function. Found on the test box
+# on 08.08.2026, where the monitor rule silently did nothing.
 s4l_migrate_influxdb_config() {
 	local f="$1"
 	[ -f "$f" ] || return 0
 
-	# Already set explicitly? Then leave the user's choice alone.
-	if awk '/^\[http\]/{h=1;next} /^\[/{h=0} h && /^[[:space:]]*log-enabled[[:space:]]*=/{found=1} END{exit !found}' "$f"; then
-		return 0
-	fi
-
-	# Insert after the commented default inside [http].
-	if awk '/^\[http\]/{h=1;next} /^\[/{h=0} h && /^[[:space:]]*#[[:space:]]*log-enabled[[:space:]]*=/{found=1} END{exit !found}' "$f"; then
+	# Insert after the commented default inside [http] - unless it is already
+	# there explicitly, in which case that is the user's choice.
+	if ! awk '/^\[http\]/{h=1;next} /^\[/{h=0} h && /^[[:space:]]*log-enabled[[:space:]]*=/{found=1} END{exit !found}' "$f" \
+		&& awk '/^\[http\]/{h=1;next} /^\[/{h=0} h && /^[[:space:]]*#[[:space:]]*log-enabled[[:space:]]*=/{found=1} END{exit !found}' "$f"; then
 		awk '
 			/^\[http\]/ { h=1 }
 			/^\[/ && !/^\[http\]/ { h=0 }
@@ -199,6 +202,38 @@ s4l_migrate_influxdb_config() {
 		chmod --reference="$f" "$f.s4lnew" 2>/dev/null
 		mv "$f.s4lnew" "$f"
 		echo "<INFO>   $(basename "$f"): disabled the HTTP request log ([http] log-enabled = false)"
+	fi
+
+	# InfluxDB stops writing statistics about itself.
+	#
+	# Measured on a live installation on 08.08.2026: the _internal database held
+	# 174.6 MB against 91.7 MB of actual measurements. Thirteen measurements every
+	# ten seconds, four of them one series per shard, so it grows with the shard
+	# count of the real database and every deleted shard leaves its series behind
+	# for another week. Nothing in the plugin reads it and there is no Grafana
+	# datasource for it; SHOW STATS answers from memory and keeps working.
+	#
+	# Done exactly once. The marker is what makes that true: somebody who turns it
+	# back on afterwards keeps it on, because the line is still there and this
+	# will not touch the file again.
+	if ! grep -q 'Stats4Lox: store-enabled' "$f" \
+		&& awk '/^\[monitor\]/{m=1;next} /^\[/{m=0} m && /^[[:space:]]*store-enabled[[:space:]]*=[[:space:]]*true/{found=1} END{exit !found}' "$f"; then
+		awk '
+			/^\[monitor\]/ { m=1 }
+			/^\[/ && !/^\[monitor\]/ { m=0 }
+			m && /^[[:space:]]*store-enabled[[:space:]]*=[[:space:]]*true/ && !done {
+				print "  # Stats4Lox: store-enabled auf false gesetzt - _internal wurde groesser"
+				print "  # als die Nutzdaten und niemand liest es. Wieder einschalten: true."
+				print "  store-enabled = false"
+				done=1
+				next
+			}
+			{ print }
+		' "$f" > "$f.s4lnew" || { rm -f "$f.s4lnew"; return 0; }
+		chown --reference="$f" "$f.s4lnew" 2>/dev/null
+		chmod --reference="$f" "$f.s4lnew" 2>/dev/null
+		mv "$f.s4lnew" "$f"
+		echo "<INFO>   $(basename "$f"): InfluxDB no longer records statistics about itself ([monitor] store-enabled = false)"
 	fi
 	return 0
 }
@@ -229,6 +264,32 @@ s4l_migrate_telegraf_config() {
 	if grep -qE '^[[:space:]]*logfile_rotation_interval[[:space:]]*=[[:space:]]*"1d"' "$f"; then
 		sed -i -E 's/^([[:space:]]*logfile_rotation_interval[[:space:]]*=[[:space:]]*)"1d"/\1"24h"/' "$f"
 		echo "<INFO>   $(basename "$f"): corrected logfile_rotation_interval from \"1d\" to \"24h\""
+	fi
+
+	# Telegraf's statistics about itself do not belong in the main output any
+	# more. A second output in telegraf.d/stats4lox_internal.conf writes the two
+	# the dashboard needs into the "internal" retention policy, seven days;
+	# without this namedrop they would arrive twice, and the copy here would be
+	# kept forever. A year of them was two thirds of the database.
+	if [ "$(basename "$f")" = "telegraf.conf" ] \
+		&& ! grep -q 'namedrop' "$f" \
+		&& grep -qE '^[[:space:]]*database[[:space:]]*=[[:space:]]*"stats4lox"' "$f"; then
+		awk '
+			{ print }
+			/^[[:space:]]*database[[:space:]]*=[[:space:]]*"stats4lox"/ && !done {
+				print ""
+				print "  ## Telegrafs Statistik ueber sich selbst geht in die Policy \"internal\","
+				print "  ## siehe telegraf.d/stats4lox_internal.conf (Stats4Lox)."
+				print "  namedrop = [\"internal_*\"]"
+				done=1
+			}
+		' "$f" > "$f.s4lnew" || { rm -f "$f.s4lnew"; return 0; }
+		# Owner and mode kept - writing a new file and moving it over the old one
+		# would leave it owned by root instead of telegraf.
+		chown --reference="$f" "$f.s4lnew" 2>/dev/null
+		chmod --reference="$f" "$f.s4lnew" 2>/dev/null
+		mv "$f.s4lnew" "$f"
+		echo "<INFO>   $(basename "$f"): Telegraf's own statistics are no longer written to autogen"
 	fi
 
 	# Not an option Telegraf rejects, but a limit that is now too tight. The
@@ -327,20 +388,31 @@ if [ -d $LBHOMEDIR/data/plugins/$PTEMPDIR\_upgrade ]; then
 			echo "<INFO> Replaced the empty LoxBerry Telegraf drop-in by the current one."
 		fi
 
-		# And the file that has to arrive WITH it. The LoxBerry drop-in above
-		# carried the [[processors.converter]] that keeps *_bytes, *_errors and the
-		# other field types float; it lives in stats4lox_fieldtypes.conf now.
-		# Without it, a field that is float in the database arriving as an integer
-		# makes InfluxDB reject the whole batch and the measurement stops.
+		# The same for the internal drop-in, and for the same kind of reason. It
+		# gained a second [[outputs.influxdb]] that writes Telegraf's statistics
+		# about itself into the "internal" retention policy - seven days, two
+		# measurements. The main output drops them now (see the namedrop
+		# migration), so without this file they are collected and thrown away, and
+		# the three graphs on Plugin Home stay empty.
 		#
-		# The rsync above has no --delete, so a file that only the new version
-		# ships survives the restore. This is the guard for the day somebody adds
-		# --delete, and it names the dependency: replacing the LoxBerry drop-in
-		# without this file present breaks every installation that has one.
-		if [ ! -f "$PCONFIG/telegraf/telegraf.d/stats4lox_fieldtypes.conf" ] \
-			&& [ -f "$S4L_FRESH_TELEGRAFD/stats4lox_fieldtypes.conf" ]; then
-			cp -a "$S4L_FRESH_TELEGRAFD/stats4lox_fieldtypes.conf" "$PCONFIG/telegraf/telegraf.d/stats4lox_fieldtypes.conf"
-			echo "<INFO> Restored the field type rules for Telegraf."
+		# Recognised by the output not being there. A file that has one is either
+		# the new one or something the user set up.
+		if ! grep -q 'outputs.influxdb' \
+			"$PCONFIG/telegraf/telegraf.d/stats4lox_internal.conf" 2>/dev/null \
+			&& [ -f "$S4L_FRESH_TELEGRAFD/stats4lox_internal.conf" ]; then
+			cp -a "$S4L_FRESH_TELEGRAFD/stats4lox_internal.conf" "$PCONFIG/telegraf/telegraf.d/stats4lox_internal.conf"
+			echo "<INFO> Replaced the internal Telegraf drop-in by the current one."
+		fi
+
+		# A drop-in the plugin does not ship any more has to be taken away, not
+		# just left out of the archive: the restore above has no --delete, so
+		# whatever is in the old configuration stays. stats4lox_fieldtypes.conf
+		# forced *_bytes and *_errors to float for every metric in Telegraf; the
+		# statistics it was propping up are written into their own policy now and
+		# no longer need it.
+		if [ -f "$PCONFIG/telegraf/telegraf.d/stats4lox_fieldtypes.conf" ]; then
+			rm -f "$PCONFIG/telegraf/telegraf.d/stats4lox_fieldtypes.conf"
+			echo "<INFO> Removed the obsolete Telegraf drop-in stats4lox_fieldtypes.conf."
 		fi
 		rm -rf "$S4L_FRESH_TELEGRAFD"
 
@@ -605,6 +677,27 @@ if [ $UPGRADE -ne "0" ]; then
 		echo "<WARNING> unless the logfile 'Migration' says otherwise. The plugin works either"
 		echo "<WARNING> way; new values are written under the new names from now on."
 	fi
+fi
+
+# Operating statistics out of the way of the measurements
+#
+# Creates the "internal" retention policy that Telegraf writes its own figures
+# into from now on - seven days, two measurements - drops the years of them that
+# were kept in autogen, and drops InfluxDB's _internal database, which the
+# [monitor] setting above no longer fills.
+#
+# On a fresh installation it creates the policy and finds nothing to drop, so
+# both kinds of installation take the same route. Here rather than on a page,
+# because it needs InfluxDB running and Telegraf not yet writing - which is
+# exactly this spot - and the policy has to exist before Telegraf starts, or its
+# second output has nowhere to write.
+echo "<INFO> Setting up the retention policy for the operating statistics..."
+sudo -u loxberry perl $PBIN/s4l_migrate_internals.pl
+if [ $? -ne 0 ]; then
+	echo "<WARNING> Setting up the operating statistics failed - see the logfile 'Migration'."
+	echo "<WARNING> If the retention policy 'internal' is missing, Telegraf cannot write its"
+	echo "<WARNING> own figures and the three graphs on Plugin Home stay empty. Everything"
+	echo "<WARNING> else is unaffected."
 fi
 
 # Activating own telegraf config which is delivered with the plugin

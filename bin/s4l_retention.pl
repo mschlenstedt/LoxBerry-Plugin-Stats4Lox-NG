@@ -661,14 +661,20 @@ sub check_config
 # data has to exist before it, otherwise a run that is interrupted in the middle
 # leaves the history gone and nothing to show for it.
 
-# Policies with our prefix that the configuration no longer asks for. Dropping
-# one takes its data with it, so assess_loss() needs the same list and it must be
-# the same list - hence one function instead of two loops that agree today.
+# Stage policies that the configuration no longer asks for. Dropping one takes
+# its data with it, so assess_loss() needs the same list and it must be the same
+# list - hence one function instead of two loops that agree today.
+#
+# Matched on the FULL name a stage can have, not on the s4l_ prefix. It used to
+# be the prefix, and that made every policy anybody ever named s4l_something a
+# candidate for deletion, data and all - which nearly cost the "internal" policy
+# its name on 08.08.2026. A policy this script did not create is none of its
+# business.
 sub obsolete_policies
 {
 	my ($stages, $policies) = @_;
 	my %keep = map { $_->{policy} => 1 } @$stages;
-	return [ grep { index( $_, $PREFIX ) == 0 and !$keep{$_} } sort keys %$policies ];
+	return [ grep { /^\Q$PREFIX\Estage\d+$/ and !$keep{$_} } sort keys %$policies ];
 }
 
 sub build_plan
