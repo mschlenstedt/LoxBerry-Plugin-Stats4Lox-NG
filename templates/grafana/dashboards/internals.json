@@ -215,7 +215,7 @@
           "measurement": "internal_write",
           "orderByTime": "ASC",
           "policy": "internal",
-          "query": "SELECT last(\"buffer_size\") / last(\"buffer_limit\")  * 100 FROM \"internal_write\" WHERE (\"output\" = 'influxdb') AND $timeFilter GROUP BY time($__interval) fill(null)",
+          "query": "SELECT last(\"buffer_size\") / last(\"buffer_limit\")  * 100 FROM \"internal\".\"internal_write\" WHERE (\"output\" = 'influxdb') AND $timeFilter GROUP BY time($__interval) fill(null)",
           "queryType": "randomWalk",
           "rawQuery": true,
           "refId": "A",
