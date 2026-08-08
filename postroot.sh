@@ -799,6 +799,29 @@ for s4l_dropin in "$PCONFIG"/telegraf/telegraf.d/*.conf; do
 	s4l_migrate_telegraf_config "$s4l_dropin"
 done
 
+# Telegraf has to be able to write its own log
+#
+# It writes into the plugin's log directory now, and it does so whatever the
+# diagnostic switch says. The installation sets that directory and everything in
+# it to loxberry:loxberry - so the file Telegraf created before the upgrade comes
+# out owned by loxberry, and Telegraf cannot open it:
+#
+#   E! [telegraf] Error running agent: setting up logging failed:
+#      open .../telegraf.log: permission denied
+#
+# It then exits with status 1 and the whole installation fails. Found by
+# installing, not by reading.
+#
+# The directory has to be group writable as well, not only the file: Telegraf's
+# rotation creates further files next to it.
+echo "<INFO> Preparing Telegraf's logfile in $PLOG."
+mkdir -p "$PLOG"
+chown loxberry:loxberry "$PLOG" > /dev/null 2>&1
+chmod 775 "$PLOG" > /dev/null 2>&1
+touch "$PLOG/telegraf.log" > /dev/null 2>&1
+chown telegraf:loxberry "$PLOG/telegraf.log" > /dev/null 2>&1
+chmod 664 "$PLOG/telegraf.log" > /dev/null 2>&1
+
 # Telegraf mit neuer Config starten
 echo "<INFO> Starting Telegraf..."
 systemctl unmask telegraf.service

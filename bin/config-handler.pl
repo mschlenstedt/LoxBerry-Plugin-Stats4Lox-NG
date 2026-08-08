@@ -194,7 +194,11 @@ sub servicelogconfig {
 	# The services run as their own users, so they need to be able to create
 	# their log file in a directory owned by loxberry. postroot.sh puts all
 	# three into the loxberry group for exactly this kind of reason.
-	if( $enabled and -d $logdir ) {
+	#
+	# Unconditionally, not only while the switch is on: Telegraf writes its own
+	# log into this directory whatever the switch says, and its rotation creates
+	# further files next to it.
+	if( -d $logdir ) {
 		chmod 0775, $logdir;
 	}
 
@@ -236,19 +240,31 @@ sub servicelogconfig {
 		$changed++;
 		LOGOK "$svc: drop-in updated";
 
-		next if( !$enabled );
-
 		# Create the file up front with the right owner. Without it systemd
 		# would have to create it as the service user, and it has to stay
 		# readable for loxberry so it can be shown under Logfiles.
+		#
+		# Also done when the switch is OFF but the file is already there: Telegraf
+		# writes its own log into it either way, and a file left owned by anybody
+		# else stops it from starting at all.
+		next if( !$enabled and ! -e $logfile );
+
 		if( ! -e $logfile ) {
 			if( open( my $lf, '>>', $logfile ) ) { close $lf; }
 		}
 		my $uid = getpwnam($user);
 		my $gid = getgrnam('loxberry');
 		chown( $uid, $gid, $logfile ) if( defined $uid and defined $gid );
-		chmod 0644, $logfile;
+		chmod 0664, $logfile;
 	}
+
+	# And how much Telegraf has to say in the first place.
+	#
+	# Redirecting its output is only half the switch: with quiet = true it says
+	# nothing but errors, so turning the logging on would have produced a file
+	# with the same two startup lines in it. The whole point of the switch is to
+	# see more than usual while looking for something.
+	$changed += telegraf_verbosity( $enabled );
 
 	if( !$changed ) {
 		LOGINF "Nothing to change.";
@@ -276,6 +292,100 @@ sub servicelogconfig {
 	&updatestatus("servicelog", "errors", $errors);
 	&updatestatus("servicelog", "message", "Finished.");
 	return ($errors);
+}
+
+##########################################################
+# How much Telegraf says: debug and quiet in [agent]
+##########################################################
+# on   debug = true,  quiet = false    everything, while somebody is looking
+# off  debug = false, quiet = true     errors only, which is the right default
+#                                      on a machine that logs to a ramdisk
+#
+# Returns 1 if the file was changed, so the caller knows to restart. Only the
+# [agent] section is touched - "debug" appears in other sections of a Telegraf
+# configuration and means something else there.
+#
+# Written in place rather than through a temporary file: telegraf.conf belongs to
+# loxberry, this runs as root, and a new file moved over it would end up owned by
+# root. Truncating the existing one keeps owner and mode.
+sub telegraf_verbosity
+{
+	my ($enabled) = @_;
+
+	my $file = $LoxBerry::System::lbpconfigdir . "/telegraf/telegraf.conf";
+	if( ! -f $file ) {
+		LOGWARN "telegraf.conf not found - verbosity unchanged";
+		return 0;
+	}
+
+	my $want_debug = $enabled ? 'true'  : 'false';
+	my $want_quiet = $enabled ? 'false' : 'true';
+
+	my @lines;
+	if( !open( my $fh, '<', $file ) ) {
+		LOGERR "Could not read $file: $!";
+		$errors++;
+		return 0;
+	}
+	else {
+		@lines = <$fh>;
+		close $fh;
+	}
+
+	my ($in_agent, $seen_debug, $seen_quiet, $changed) = (0, 0, 0, 0);
+	my @out;
+	foreach my $line ( @lines ) {
+		if( $line =~ /^\s*\[agent\]/ )      { $in_agent = 1 }
+		elsif( $line =~ /^\s*\[/ )          { $in_agent = 0 }
+
+		if( $in_agent and $line =~ /^(\s*)debug(\s*)=(\s*)\S+/ ) {
+			$seen_debug = 1;
+			my $new = "$1debug$2=$3$want_debug\n";
+			$changed = 1 if( $new ne $line );
+			push @out, $new;
+			next;
+		}
+		if( $in_agent and $line =~ /^(\s*)quiet(\s*)=(\s*)\S+/ ) {
+			$seen_quiet = 1;
+			my $new = "$1quiet$2=$3$want_quiet\n";
+			$changed = 1 if( $new ne $line );
+			push @out, $new;
+			next;
+		}
+		push @out, $line;
+	}
+
+	# Somebody removed them. Put them back rather than silently doing nothing -
+	# without them Telegraf uses its own defaults and the switch has no effect.
+	if( !$seen_debug or !$seen_quiet ) {
+		my @fixed;
+		my $done = 0;
+		foreach my $line ( @out ) {
+			push @fixed, $line;
+			next if( $done or $line !~ /^\s*\[agent\]/ );
+			push @fixed, "  debug = $want_debug\n" if( !$seen_debug );
+			push @fixed, "  quiet = $want_quiet\n" if( !$seen_quiet );
+			$done = 1;
+			$changed = 1;
+		}
+		@out = @fixed if( $done );
+		LOGWARN "debug/quiet were missing from [agent] in telegraf.conf - added" if( $done );
+	}
+
+	return 0 if( !$changed );
+
+	if( !open( my $out, '>', $file ) ) {
+		LOGERR "Could not write $file: $!";
+		$errors++;
+		return 0;
+	}
+	else {
+		print {$out} @out;
+		close $out;
+	}
+
+	LOGOK "Telegraf: debug = $want_debug, quiet = $want_quiet";
+	return 1;
 }
 
 ##########################################################
