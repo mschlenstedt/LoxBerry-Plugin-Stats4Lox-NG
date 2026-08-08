@@ -267,13 +267,13 @@ sub servicelogconfig {
 		chmod 0664, $logfile;
 	}
 
-	# And how much Telegraf has to say in the first place.
+	# And how much the three have to say in the first place.
 	#
-	# Redirecting its output is only half the switch: with quiet = true it says
-	# nothing but errors, so turning the logging on would have produced a file
-	# with the same two startup lines in it. The whole point of the switch is to
-	# see more than usual while looking for something.
-	$changed += telegraf_verbosity( $enabled );
+	# Redirecting the output is only half the switch: all three ship quiet, so
+	# turning the logging on would have produced files with two startup lines in
+	# them. The whole point of the switch is to see more than usual while looking
+	# for something.
+	$changed += service_verbosity( $enabled );
 
 	if( !$changed ) {
 		LOGINF "Nothing to change.";
@@ -413,31 +413,33 @@ sub grabberconfig {
 }
 
 ##########################################################
-# How much Telegraf says: debug and quiet in [agent]
+# One setting in one section of an ini-style file
 ##########################################################
-# on   debug = true,  quiet = false    everything, while somebody is looking
-# off  debug = false, quiet = true     errors only, which is the right default
-#                                      on a machine that logs to a ramdisk
+# Param: file, section (without brackets), key, value, and whether the value is
+# written in quotes. Returns 1 if the file was changed.
 #
-# Returns 1 if the file was changed, so the caller knows to restart. Only the
-# [agent] section is touched - "debug" appears in other sections of a Telegraf
-# configuration and means something else there.
+# Three files with three comment characters and the same job. The rules:
 #
-# Written in place rather than through a temporary file: telegraf.conf belongs to
-# loxberry, this runs as root, and a new file moved over it would end up owned by
-# root. Truncating the existing one keeps owner and mode.
-sub telegraf_verbosity
+#   - only inside the named section. "debug" and "level" mean different things
+#     in other sections of the same file
+#   - an existing entry keeps its indentation, so the file still looks like the
+#     one the user knows
+#   - no entry but a commented default: written after it, where a reader would
+#     look for it
+#   - neither: after the section header, because falling back to the program's
+#     own default would make the switch do nothing and say nothing
+#
+# Written in place. These files belong to influxdb, grafana and loxberry while
+# this runs as root, and a new file moved over the old one would end up owned by
+# root.
+sub s4l_set_ini_value
 {
-	my ($enabled) = @_;
+	my ($file, $section, $key, $value, $quoted) = @_;
 
-	my $file = $LoxBerry::System::lbpconfigdir . "/telegraf/telegraf.conf";
 	if( ! -f $file ) {
-		LOGWARN "telegraf.conf not found - verbosity unchanged";
+		LOGWARN "$file not found - $section/$key unchanged";
 		return 0;
 	}
-
-	my $want_debug = $enabled ? 'true'  : 'false';
-	my $want_quiet = $enabled ? 'false' : 'true';
 
 	my @lines;
 	if( !open( my $fh, '<', $file ) ) {
@@ -450,62 +452,123 @@ sub telegraf_verbosity
 		close $fh;
 	}
 
-	my ($in_agent, $seen_debug, $seen_quiet, $changed) = (0, 0, 0, 0);
+	my $want = $quoted ? "\"$value\"" : $value;
+	my ($in, $done, $changed) = (0, 0, 0);
 	my @out;
-	foreach my $line ( @lines ) {
-		if( $line =~ /^\s*\[agent\]/ )      { $in_agent = 1 }
-		elsif( $line =~ /^\s*\[/ )          { $in_agent = 0 }
+	my $commented;   # index in @out of a commented default, to insert after
 
-		if( $in_agent and $line =~ /^(\s*)debug(\s*)=(\s*)\S+/ ) {
-			$seen_debug = 1;
-			my $new = "$1debug$2=$3$want_debug\n";
+	foreach my $line ( @lines ) {
+		if   ( $line =~ /^\s*\[\Q$section\E\]/ ) { $in = 1 }
+		elsif( $line =~ /^\s*\[/ ) {
+			# Leaving the section without having found the entry
+			if( $in and !$done ) {
+				my $at = defined $commented ? $commented + 1 : scalar @out;
+				splice( @out, $at, 0, "  $key = $want\n" );
+				$done = 1;
+				$changed = 1;
+			}
+			$in = 0;
+		}
+
+		if( $in and !$done and $line =~ /^(\s*)\Q$key\E(\s*)=/ ) {
+			my $new = "$1$key$2= $want\n";
 			$changed = 1 if( $new ne $line );
 			push @out, $new;
+			$done = 1;
 			next;
 		}
-		if( $in_agent and $line =~ /^(\s*)quiet(\s*)=(\s*)\S+/ ) {
-			$seen_quiet = 1;
-			my $new = "$1quiet$2=$3$want_quiet\n";
-			$changed = 1 if( $new ne $line );
-			push @out, $new;
-			next;
+		if( $in and !$done and $line =~ /^\s*[#;]\s*\Q$key\E\s*=/ ) {
+			$commented = scalar @out;   # remember, the real entry may still come
 		}
 		push @out, $line;
 	}
 
-	# Somebody removed them. Put them back rather than silently doing nothing -
-	# without them Telegraf uses its own defaults and the switch has no effect.
-	if( !$seen_debug or !$seen_quiet ) {
-		my @fixed;
-		my $done = 0;
-		foreach my $line ( @out ) {
-			push @fixed, $line;
-			next if( $done or $line !~ /^\s*\[agent\]/ );
-			push @fixed, "  debug = $want_debug\n" if( !$seen_debug );
-			push @fixed, "  quiet = $want_quiet\n" if( !$seen_quiet );
-			$done = 1;
-			$changed = 1;
-		}
-		@out = @fixed if( $done );
-		LOGWARN "debug/quiet were missing from [agent] in telegraf.conf - added" if( $done );
+	# The section was the last one in the file
+	if( $in and !$done ) {
+		my $at = defined $commented ? $commented + 1 : scalar @out;
+		splice( @out, $at, 0, "  $key = $want\n" );
+		$changed = 1;
 	}
 
 	return 0 if( !$changed );
 
-	if( !open( my $out, '>', $file ) ) {
+	# open() in the condition of an if would scope $out to that if - the print
+	# below would then be against an undeclared variable and the whole script
+	# would not compile. It did not, and the config handler silently aborted at
+	# startup while everything downstream reported success.
+	my $out;
+	if( !open( $out, '>', $file ) ) {
 		LOGERR "Could not write $file: $!";
 		$errors++;
 		return 0;
 	}
-	else {
-		print {$out} @out;
-		close $out;
-	}
-
-	LOGOK "Telegraf: debug = $want_debug, quiet = $want_quiet";
+	print {$out} @out;
+	close $out;
 	return 1;
 }
 
+##########################################################
+# How much the three services say
+##########################################################
+# The switch under Settings decides WHERE the output goes - the drop-ins above.
+# This decides HOW MUCH there is to go anywhere. Without it, turning the logging
+# on produced a file with two startup lines in it: all three ship quiet, and
+# rightly so on a machine that logs to a ramdisk.
+#
+#   Telegraf   [agent] debug / quiet
+#   InfluxDB   [http] log-enabled      one line per HTTP request
+#              [data] query-log-enabled  the queries themselves
+#              [logging] level
+#   Grafana    [log] level
+#
+# Errors are logged in both states everywhere - what is switched on here is the
+# detail around them.
+#
+# Returns the number of files that changed, so the caller knows to restart.
+sub service_verbosity
+{
+	my ($enabled) = @_;
+
+	my $cfgdir = $LoxBerry::System::lbpconfigdir;
+	my $changed = 0;
+
+	# Telegraf
+	my $tg = "$cfgdir/telegraf/telegraf.conf";
+	my $t = 0;
+	$t += s4l_set_ini_value( $tg, 'agent', 'debug', ( $enabled ? 'true'  : 'false' ), 0 );
+	$t += s4l_set_ini_value( $tg, 'agent', 'quiet', ( $enabled ? 'false' : 'true'  ), 0 );
+	if( $t ) {
+		LOGOK "Telegraf: debug = " . ( $enabled ? 'true' : 'false' )
+			. ", quiet = " . ( $enabled ? 'false' : 'true' );
+		$changed++;
+	}
+
+	# InfluxDB
+	#
+	# The HTTP request log is one line per request and about 8600 a day on an
+	# idle installation - which is why it is off by default and why it belongs
+	# here rather than anywhere else. The query log is what answers "why is this
+	# dashboard slow".
+	my $ix = "$cfgdir/influxdb/influxdb.conf";
+	my $i = 0;
+	$i += s4l_set_ini_value( $ix, 'http',    'log-enabled',       ( $enabled ? 'true' : 'false' ), 0 );
+	$i += s4l_set_ini_value( $ix, 'data',    'query-log-enabled', ( $enabled ? 'true' : 'false' ), 0 );
+	$i += s4l_set_ini_value( $ix, 'logging', 'level',             ( $enabled ? 'debug' : 'info' ), 1 );
+	if( $i ) {
+		LOGOK "InfluxDB: request log and query log " . ( $enabled ? 'on' : 'off' )
+			. ", level " . ( $enabled ? 'debug' : 'info' );
+		$changed++;
+	}
+
+	# Grafana
+	my $gf = "$cfgdir/grafana/grafana.ini";
+	if( s4l_set_ini_value( $gf, 'log', 'level', ( $enabled ? 'debug' : 'info' ), 0 ) ) {
+		LOGOK "Grafana: level " . ( $enabled ? 'debug' : 'info' );
+		$changed++;
+	}
+
+	return $changed;
+}
 ##########################################################
 # Helper subroutines
 ##########################################################
