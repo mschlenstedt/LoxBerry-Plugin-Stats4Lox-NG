@@ -699,12 +699,21 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 					<td class="center LoxoneDetails_td">
 						<span class="grayed small" id="LoxoneDetails_s4lstatintervallabel"><TMPL_VAR SETTINGS.LABEL_INTERVAL_MINUTES></span><br>
 						<input type="number" data-clear-btn="true" name="LoxoneDetails_s4lstatinterval" id="LoxoneDetails_s4lstatinterval" pattern="[0-9]*" value="" class="s4lchange" min="0" max="9999">
-						<!-- Shown while the number is below the minimum set on the System
-						     tab. Nothing is saved in that state - see loxone.js. -->
-						<div class="small" id="LoxoneDetails_s4lstatintervalwarn" style="display:none;color:#c0392b;text-align:left"></div>
 					</td>
 				</tr>
-				
+
+				<!-- Shown while the number above is below the minimum set on the
+				     System tab. Nothing is saved in that state - see loxone.js.
+				     A row of its own across the whole table, because in the cell
+				     next to the input the four lines of it made the cell taller
+				     than the one beside it and pushed the checkbox and the field
+				     out of line. -->
+				<tr class="LoxoneDetails_tr" id="LoxoneDetails_s4lstatintervalwarnrow" style="display:none">
+					<td class="LoxoneDetails_td" colspan="3">
+						<div class="small" id="LoxoneDetails_s4lstatintervalwarn" style="color:#c0392b"></div>
+					</td>
+				</tr>
+
 				<tr class="LoxoneDetails_tr">
 					<td class="center LoxoneDetails_td" colspan="3">
 						<span class="grayed small" id="LoxoneDetails_s4lmeasurementnamelabel"><TMPL_VAR SETTINGS.LABEL_MEASUREMENT_NAME></span><br>

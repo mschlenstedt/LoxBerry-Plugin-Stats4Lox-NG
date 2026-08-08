@@ -90,22 +90,20 @@ $template->param( 'RETENTION_STAGES', \@stagerows );
 # Mobile turns the select into a button carrying the chosen label, and a value
 # set from JavaScript afterwards changes that label after it has been read.
 #
-# An installation that has never set this gets an entry of its own at the top,
-# selected. It is not the same as one minute: unset means Telegraf keeps the 45
-# seconds it has always had, while choosing one minute derives 57 from the
-# formula. Two different things must not look like one option.
+# Unset shows as one minute, because that is what it is - the shortest interval
+# the grabber has applied since before version 1.0. What differs is only what
+# follows from it: while the setting is unset Telegraf keeps its 45 seconds,
+# and saving that same minute derives 57 from the formula. The help text says
+# so; a separate entry in the list only made two names for one state.
 my $curmin = int( $Globals::loxone->{min_interval} // 0 );
+my $shown  = $curmin > 0 ? $curmin : 60;
 my $minopts = '';
-if( $curmin <= 0 ) {
-	$minopts .= '<option value="0" selected="selected">'
-		. ( $L{'MININTERVAL.OPTION_MINUTE'} // '1' ) . '</option>';
-}
 foreach my $s ( @Globals::LOXONE_MIN_INTERVALS ) {
 	my $lbl = ( $s == 60 )
 		? $L{'MININTERVAL.OPTION_MINUTE'}
 		: do { ( my $t = $L{'MININTERVAL.OPTION_MINUTES'} ) =~ s{__N__}{ int( $s / 60 ) }e; $t };
 	$minopts .= '<option value="' . $s . '"'
-		. ( $s == $curmin ? ' selected="selected"' : '' ) . '>' . $lbl . '</option>';
+		. ( $s == $shown ? ' selected="selected"' : '' ) . '>' . $lbl . '</option>';
 }
 $template->param( 'MININTERVAL_OPTIONS', $minopts );
 $template->param( 'MININTERVAL_UNSET', $curmin <= 0 ? 1 : 0 );

@@ -1726,6 +1726,7 @@ function updateReportTables(data) {
 function s4lIntervalOk() {
 	var field = $("#LoxoneDetails_s4lstatinterval");
 	var warn  = $("#LoxoneDetails_s4lstatintervalwarn");
+	var row   = $("#LoxoneDetails_s4lstatintervalwarnrow");
 	var min   = parseInt( $("#s4l_min_interval_minutes").text() );
 	if( isNaN( min ) || min < 1 ) min = 1;
 
@@ -1734,11 +1735,15 @@ function s4lIntervalOk() {
 
 	if( bad ) {
 		field.css({ "border-color": "#c0392b", "background-color": "#ffecec" });
-		warn.text( $("#lang_stat_too_fast").text().replace( "__N__", min ) ).show();
+		warn.text( $("#lang_stat_too_fast").text().replace( "__N__", min ) );
+		// The row, not the text: it spans the table and must not appear as an
+		// empty band while everything is in order.
+		row.show();
 	}
 	else {
 		field.css({ "border-color": "", "background-color": "" });
-		warn.hide().text("");
+		warn.text("");
+		row.hide();
 	}
 	return !bad;
 }

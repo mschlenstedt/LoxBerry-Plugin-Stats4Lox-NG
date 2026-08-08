@@ -1002,11 +1002,6 @@ $(function() {
 
 function saveMinInterval() {
 	var iv = $("#min_interval").val();
-	// The "not set yet" entry is a state, not a choice - it cannot be selected
-	// back into once something else has been saved, and saving it would mean
-	// nothing.
-	if( iv === "0" ) return;
-
 	$(".mininterval").addClass('ui-disabled');
 	$("#hint_mininterval").html("");
 	$.post( "ajax.cgi", { action: 'mininterval_save', interval: iv } )
