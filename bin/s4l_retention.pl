@@ -540,7 +540,14 @@ sub largest_grabber_interval
 			if( $j and ref($j->{loxone}) eq 'ARRAY' ) {
 				foreach my $e ( @{ $j->{loxone} } ) {
 					next if( !is_enabled( $e->{active} ) );
-					$max = $e->{interval} if( ( $e->{interval} // 0 ) > $max );
+					# Never faster than the shortest interval the System tab
+					# allows. An entry configured before that setting was raised
+					# still carries its old number until it is saved again, and it
+					# is not polled with it - so the warning must not be based on
+					# it either.
+					my $iv = $e->{interval} // 0;
+					$iv = Globals::loxone_min_interval() if( $iv < Globals::loxone_min_interval() );
+					$max = $iv if( $iv > $max );
 				}
 			}
 		}

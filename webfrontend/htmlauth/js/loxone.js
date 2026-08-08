@@ -123,6 +123,18 @@ $(function() {
 				$("#LoxoneDetails_s4lstatinterval").val( "5" ).textinput("refresh");
 			}
 		}
+
+		// Below the shortest interval the System tab allows.
+		//
+		// Marked and NOT saved. Saving it would put a value into stats.json that
+		// the grabber may not poll with, and the next time the minimum is applied
+		// it would silently be raised again - so the field says so instead and
+		// waits. Everything else in the popup waits with it: this leaves before
+		// the values are collected further down.
+		if( !s4lIntervalOk() ) {
+			console.log( "interval below the configured minimum - not saved" );
+			return;
+		}
 		else if ( target.name == "LoxoneDetails_s4loutput" ) {
 			// Checkboxes of outputs were changed
 			console.log( "LoxoneDetails_s4loutput changed" );
@@ -1350,6 +1362,10 @@ function popupLoxoneDetails( uid, msno ) {
 	else {
 		$("#LoxoneDetails_s4lstatinterval").val("");
 	}
+	// The field cannot go below the minimum, and it says so when it does. Checked
+	// when the popup opens too, not only on a change: a statistic configured
+	// before the minimum was raised opens with a value that is no longer allowed.
+	s4lIntervalOk();
 	
 	// Import now button
 	if( statmatch ) {
@@ -1701,6 +1717,32 @@ function updateReportTables(data) {
 // Validates a measurementname and returns a suggestion if not valid
 // measurementname is the string to verify
 // selfIndex is the index key in statsconfigLoxone of itself (otherwise it may find itself)
+// Is the interval in the details popup at least the minimum from the System tab?
+//
+// Marks the field and shows the reason when it is not, and returns false so the
+// caller can leave the value unsaved. An empty or disabled field is not a
+// complaint - it means the statistic is off, and the checkbox handler fills a
+// number in as soon as it is switched on.
+function s4lIntervalOk() {
+	var field = $("#LoxoneDetails_s4lstatinterval");
+	var warn  = $("#LoxoneDetails_s4lstatintervalwarn");
+	var min   = parseInt( $("#s4l_min_interval_minutes").text() );
+	if( isNaN( min ) || min < 1 ) min = 1;
+
+	var val = parseInt( field.val() );
+	var bad = !field.prop("disabled") && !isNaN( val ) && val < min;
+
+	if( bad ) {
+		field.css({ "border-color": "#c0392b", "background-color": "#ffecec" });
+		warn.text( $("#lang_stat_too_fast").text().replace( "__N__", min ) ).show();
+	}
+	else {
+		field.css({ "border-color": "", "background-color": "" });
+		warn.hide().text("");
+	}
+	return !bad;
+}
+
 function validateMeasurementname( measurementname, msno, uid ) {
 	
 	// Find own array index in statsconfigLoxone

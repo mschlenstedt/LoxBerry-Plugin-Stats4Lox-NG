@@ -84,6 +84,32 @@ for( my $i = 1; $i < scalar @{ $Globals::retention->{stages} }; $i++ ) {
 }
 $template->param( 'RETENTION_STAGES', \@stagerows );
 
+# Shortest polling interval of the Loxone statistics.
+#
+# Rendered here for the same reason as everything else on this page: jQuery
+# Mobile turns the select into a button carrying the chosen label, and a value
+# set from JavaScript afterwards changes that label after it has been read.
+#
+# An installation that has never set this gets an entry of its own at the top,
+# selected. It is not the same as one minute: unset means Telegraf keeps the 45
+# seconds it has always had, while choosing one minute derives 57 from the
+# formula. Two different things must not look like one option.
+my $curmin = int( $Globals::loxone->{min_interval} // 0 );
+my $minopts = '';
+if( $curmin <= 0 ) {
+	$minopts .= '<option value="0" selected="selected">'
+		. ( $L{'MININTERVAL.OPTION_MINUTE'} // '1' ) . '</option>';
+}
+foreach my $s ( @Globals::LOXONE_MIN_INTERVALS ) {
+	my $lbl = ( $s == 60 )
+		? $L{'MININTERVAL.OPTION_MINUTE'}
+		: do { ( my $t = $L{'MININTERVAL.OPTION_MINUTES'} ) =~ s{__N__}{ int( $s / 60 ) }e; $t };
+	$minopts .= '<option value="' . $s . '"'
+		. ( $s == $curmin ? ' selected="selected"' : '' ) . '>' . $lbl . '</option>';
+}
+$template->param( 'MININTERVAL_OPTIONS', $minopts );
+$template->param( 'MININTERVAL_UNSET', $curmin <= 0 ? 1 : 0 );
+
 # For the link into the Downsampling logfile, which is addressed by package and
 # name rather than by path - logfile.cgi looks the newest run up in the log
 # database, so the link survives every new run.

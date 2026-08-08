@@ -631,6 +631,41 @@
 		</div>
 	</div>
 
+	<!-- The shortest polling interval of the Loxone statistics. On this page and
+	     not on the Loxone tab: it is a property of the machine, not of one
+	     statistic, and everything it decides - Telegraf's interval, its timeout,
+	     the grabber's budget - is plumbing. -->
+	<h2><TMPL_VAR MININTERVAL.TITLE></h2>
+
+	<div class="lb_flex-container s4lrow mininterval">
+		<div	class="lb_flex-item-label"><TMPL_VAR MININTERVAL.LABEL></div>
+		<div	class="lb_flex-item">
+			<select name="min_interval" id="min_interval" data-mini="true"><TMPL_VAR MININTERVAL_OPTIONS></select>
+		</div>
+		<div	class="lb_flex-item-help hint">
+		<TMPL_VAR MININTERVAL.HINT>
+		<TMPL_IF MININTERVAL_UNSET><br><br><TMPL_VAR MININTERVAL.HINT_UNSET></TMPL_IF>
+		</div>
+	</div>
+
+	<div style="padding: 0px 0px 20px 0px;"></div>
+
+	<div class="lb_flex-container mininterval">
+		<div	class="buttonrow">
+			<a href="javascript:saveMinInterval();" name="btnsavemininterval" id="btnsavemininterval" class="ui-btn ui-corner-all ui-shadow ui-btn-b ui-btn-icon-left ui-icon-check ui-btn-inline"
+				data-inline="true"><TMPL_VAR MININTERVAL.BUTTON_SAVE></a>
+		</div>
+	</div>
+
+	<!-- A whole sentence, so it starts where the fields start rather than at the
+	     left edge - the same reason as in the retention section. -->
+	<div class="lb_flex-container s4lrow mininterval">
+		<div	class="lb_flex-item-label">&nbsp;</div>
+		<div	class="lb_flex-item">
+			<div id="hint_mininterval">&nbsp;</div>
+		</div>
+	</div>
+
 	<h2><TMPL_VAR INPUTSOUTPUTS.TITLE_SERVICELOG></h2>
 
 	<div class="lb_flex-container s4lrow servicelog">
@@ -951,6 +986,48 @@ function saveServiceLog() {
 		$( "#popupSave" ).popup( "open" )
 		interval = window.setInterval( function(){ checkconfighandlerstatus(section); }, 3000);
 	});
+}
+
+// --- Shortest polling interval of the Loxone statistics --------------------
+//
+// One save with three consequences, and the user learns about the third one
+// afterwards: statistics that were faster than the new minimum are raised, and
+// the answer says how many. A minimum that leaves exceptions in place is not a
+// minimum, so this is not offered as a choice - it is reported.
+$(function() {
+	$("#min_interval").on( "change", function() {
+		$("#hint_mininterval").attr("style","color:#a06000").html("<TMPL_VAR MININTERVAL.HINT_UNSAVED>");
+	} );
+} );
+
+function saveMinInterval() {
+	var iv = $("#min_interval").val();
+	// The "not set yet" entry is a state, not a choice - it cannot be selected
+	// back into once something else has been saved, and saving it would mean
+	// nothing.
+	if( iv === "0" ) return;
+
+	$(".mininterval").addClass('ui-disabled');
+	$("#hint_mininterval").html("");
+	$.post( "ajax.cgi", { action: 'mininterval_save', interval: iv } )
+	.fail( function( data ) {
+		console.log( "mininterval_save failed", data );
+		$("#hint_mininterval").attr("style","color:red")
+			.html( data && data.responseJSON && data.responseJSON.error
+				? retEsc(data.responseJSON.error) : "<TMPL_VAR MININTERVAL.HINT_FAIL>" );
+	} )
+	.done( function( data ) {
+		var min = Math.round( ( data && data.interval ? data.interval : 60 ) / 60 );
+		if( data && data.raised > 0 ) {
+			$("#hint_mininterval").attr("style","color:#a06000")
+				.html( "<TMPL_VAR MININTERVAL.HINT_SAVED_RAISED>"
+					.replace( "__N__", data.raised ).replace( "__IV__", min ) );
+		}
+		else {
+			$("#hint_mininterval").attr("style","color:green").html("<TMPL_VAR MININTERVAL.HINT_SAVED>");
+		}
+	} )
+	.always( function() { $(".mininterval").removeClass('ui-disabled'); } );
 }
 
 function checkconfighandlerstatus( section ) {

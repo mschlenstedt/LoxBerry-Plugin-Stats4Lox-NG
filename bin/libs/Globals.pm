@@ -205,7 +205,47 @@ our $loxone = {
 	# "manual" uses a file the user uploaded (issue #101).
 	loxplansource => "auto",
 	mqttlive_basetopic => "s4l/mqttlive",
+	# The shortest interval a Loxone statistic may be polled with, in seconds.
+	#
+	# 0 means "never set", and that is not the same as 60. An installation that
+	# has never touched this setting keeps the values it has always had - see
+	# loxone_timeouts() - because those are written in stats4lox_loxone.conf and
+	# nothing may change them behind the user's back.
+	min_interval => 0,
 };
+
+# What the System tab may offer as the shortest interval, in seconds. One to five
+# minutes: Telegraf asks the grabber every minute, so a minute is the floor, and
+# beyond five the wait for a value gets long enough that nobody would call it a
+# statistic any more.
+our @LOXONE_MIN_INTERVALS = ( 60, 120, 180, 240, 300 );
+
+# The shortest interval in force. 60 seconds while the setting is unset - that is
+# what the grabber has always applied.
+sub loxone_min_interval
+{
+	my $m = int( $Globals::loxone->{min_interval} // 0 );
+	return 60 if( $m <= 0 );
+	return $m;
+}
+
+# ( Telegraf request timeout, grabber time budget ), both in seconds.
+#
+# Derived from the interval: Telegraf has to give up before the next round is
+# due, and the grabber has to be finished before Telegraf gives up. Three and
+# five seconds of margin, which is what Michael settled on.
+#
+# UNSET is a case of its own and not "the same as 60". Until 08.08.2026 these
+# were fixed at 45 and 43 in stats4lox_loxone.conf, and an upgrade must not
+# silently move them: an installation whose grabber has been finishing inside 43
+# seconds keeps exactly that. The formula applies from the moment somebody
+# chooses a value - including 1 minute, which then means 57 and 55.
+sub loxone_timeouts
+{
+	my $m = int( $Globals::loxone->{min_interval} // 0 );
+	return ( 45, 43 ) if( $m <= 0 );
+	return ( $m - 3, $m - 5 );
+}
 
 # The Miniserver's own vital signs - CPU load, memory, temperature, bus and LAN
 # counters, the state of the PLC. Not a Loxone block, so nothing on the Loxone tab

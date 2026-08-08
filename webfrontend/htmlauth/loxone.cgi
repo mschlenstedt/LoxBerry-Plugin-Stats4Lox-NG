@@ -30,6 +30,11 @@ $template->param( 'LOXONE_ELEMENTS', LoxBerry::System::read_file( "$lbptemplated
 my %miniservers = LoxBerry::System::get_miniservers();
 $template->param( 'LOXONE_MINISERVERS', to_json( \%miniservers ) );
 
+# The shortest interval a statistic may be given, in minutes - the field in the
+# details popup is in minutes. Set on the System tab; while it is unset this is
+# one, which is what the grabber has always applied.
+$template->param( 'MIN_INTERVAL_MINUTES', int( Globals::loxone_min_interval() / 60 ) );
+
 print $template->output();
 
 LoxBerry::Web::lbfooter();

@@ -77,10 +77,19 @@ if ($command eq 'servicelog' || $command eq 'all') {
 
 }
 
-if ($command ne 'influx' && $command ne 'servicelog' && $command ne 'all') {
+# Shortest polling interval of the Loxone statistics
+if ($command eq 'grabber' || $command eq 'all') {
+
+	LOGINF "--> Parsing GRABBER <--";
+	&updatestatus("global", "current_section", "grabber");
+	&grabberconfig();
+
+}
+
+if ($command ne 'influx' && $command ne 'servicelog' && $command ne 'grabber' && $command ne 'all') {
 	print "Usage: $0 config\n";
 	print "Available configs:\n";
-	print "all | influx | servicelog\n";
+	print "all | influx | servicelog | grabber\n";
 	exit (1);
 }
 
@@ -291,6 +300,115 @@ sub servicelogconfig {
 
 	&updatestatus("servicelog", "errors", $errors);
 	&updatestatus("servicelog", "message", "Finished.");
+	return ($errors);
+}
+
+##########################################################
+# The Loxone grabber: how often Telegraf asks, and for how long
+##########################################################
+# Both numbers follow the shortest polling interval set on the System tab:
+#
+#   interval = the minimum itself      Telegraf calls the grabber that often
+#   timeout  = the minimum less 3 s    it has to give up before the next round
+#
+# The grabber's own budget - the minimum less 5 s - is not written anywhere. It
+# reads the setting itself now, through Globals::loxone_timeouts(). It used to
+# parse this very file to find out, which meant the plugin read back a number it
+# had written itself.
+#
+# While the setting is unset the file keeps the 60 s and 45 s it has always had.
+# Nothing is written then, and an installation that never touches the setting
+# never sees this function do anything.
+sub grabberconfig {
+
+	&updatestatus("grabber", "errors", 0);
+	&updatestatus("grabber", "message", "Applying the polling interval.");
+
+	&reads4lconfig();
+
+	my $min = int( $s4lcfg->{loxone}->{min_interval} // 0 );
+	if( $min <= 0 ) {
+		LOGINF "No shortest interval configured - Telegraf keeps its current settings.";
+		&updatestatus("grabber", "errors", $errors);
+		&updatestatus("grabber", "message", "Finished.");
+		return ($errors);
+	}
+
+	my $timeout = $min - 3;
+	my $file = $LoxBerry::System::lbpconfigdir . "/telegraf/telegraf.d/stats4lox_loxone.conf";
+
+	if( ! -f $file ) {
+		LOGERR "$file not found";
+		$errors++;
+		&updatestatus("grabber", "errors", $errors);
+		&updatestatus("grabber", "message", "Finished with errors.");
+		return ($errors);
+	}
+
+	my @lines;
+	if( !open( my $fh, '<', $file ) ) {
+		LOGERR "Could not read $file: $!";
+		$errors++;
+		&updatestatus("grabber", "errors", $errors);
+		&updatestatus("grabber", "message", "Finished with errors.");
+		return ($errors);
+	}
+	else {
+		@lines = <$fh>;
+		close $fh;
+	}
+
+	# Written in place so the file keeps its owner - this runs as root and the
+	# file belongs to loxberry.
+	my $changed = 0;
+	foreach my $line ( @lines ) {
+		if( $line =~ /^(\s*)timeout(\s*)=(\s*)"[^"]*"/ ) {
+			my $new = "$1timeout$2=$3\"${timeout}s\"\n";
+			$changed = 1 if( $new ne $line );
+			$line = $new;
+		}
+		elsif( $line =~ /^(\s*)interval(\s*)=(\s*)"[^"]*"/ ) {
+			my $new = "$1interval$2=$3\"${min}s\"\n";
+			$changed = 1 if( $new ne $line );
+			$line = $new;
+		}
+	}
+
+	if( !$changed ) {
+		LOGINF "Telegraf already asks every ${min}s with a ${timeout}s timeout.";
+		&updatestatus("grabber", "errors", $errors);
+		&updatestatus("grabber", "message", "Finished.");
+		return ($errors);
+	}
+
+	if( !open( my $out, '>', $file ) ) {
+		LOGERR "Could not write $file: $!";
+		$errors++;
+	}
+	else {
+		print {$out} @lines;
+		close $out;
+		LOGOK "Telegraf asks every ${min}s now, timeout ${timeout}s (grabber budget "
+			. ( $min - 5 ) . "s)";
+
+		LOGINF "Restarting Telegraf so the change takes effect...";
+		&updatestatus("grabber", "message", "Restarting Telegraf.");
+		if( system("systemctl is-active --quiet telegraf") == 0 ) {
+			if( system("systemctl restart telegraf > /dev/null 2>&1") != 0 ) {
+				LOGERR "Telegraf could not be restarted";
+				$errors++;
+			}
+			else {
+				LOGOK "Telegraf restarted";
+			}
+		}
+		else {
+			LOGINF "Telegraf is not running - left alone";
+		}
+	}
+
+	&updatestatus("grabber", "errors", $errors);
+	&updatestatus("grabber", "message", "Finished.");
 	return ($errors);
 }
 

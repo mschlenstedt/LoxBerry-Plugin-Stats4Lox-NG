@@ -560,6 +560,8 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 <div class="datahidden" id="lang_label_s4l_statistic"><TMPL_VAR SETTINGS.LABEL_S4L_STATISTIC></div>
 <div class="datahidden" id="lang_label_s4l_activate"><TMPL_VAR SETTINGS.LABEL_S4L_ACTIVATE></div>
 <div class="datahidden" id="lang_label_interval_minutes"><TMPL_VAR SETTINGS.LABEL_INTERVAL_MINUTES></div>
+<div class="datahidden" id="lang_stat_too_fast"><TMPL_VAR MININTERVAL.STAT_TOO_FAST></div>
+<div class="datahidden" id="s4l_min_interval_minutes"><TMPL_VAR MIN_INTERVAL_MINUTES></div>
 <div class="datahidden" id="lang_label_measurement_name"><TMPL_VAR SETTINGS.LABEL_MEASUREMENT_NAME></div>
 <div class="datahidden" id="lang_hint_measurement_name"><TMPL_VAR SETTINGS.HINT_MEASUREMENT_NAME></div>
 <div class="datahidden" id="lang_label_import_outputs"><TMPL_VAR SETTINGS.LABEL_IMPORT_OUTPUTS></div>
@@ -697,6 +699,9 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 					<td class="center LoxoneDetails_td">
 						<span class="grayed small" id="LoxoneDetails_s4lstatintervallabel"><TMPL_VAR SETTINGS.LABEL_INTERVAL_MINUTES></span><br>
 						<input type="number" data-clear-btn="true" name="LoxoneDetails_s4lstatinterval" id="LoxoneDetails_s4lstatinterval" pattern="[0-9]*" value="" class="s4lchange" min="0" max="9999">
+						<!-- Shown while the number is below the minimum set on the System
+						     tab. Nothing is saved in that state - see loxone.js. -->
+						<div class="small" id="LoxoneDetails_s4lstatintervalwarn" style="display:none;color:#c0392b;text-align:left"></div>
 					</td>
 				</tr>
 				

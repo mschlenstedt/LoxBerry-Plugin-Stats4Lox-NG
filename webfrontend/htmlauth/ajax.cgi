@@ -402,6 +402,17 @@ if( $q->{action} eq "getstatsconfig" ) {
 }
 
 ## updatestat
+# An interval for a Loxone statistic, never shorter than the minimum from the
+# System tab. 0 stays 0 - that is how a statistic that is switched off is stored.
+sub s4l_clamp_interval
+{
+	my ($v) = @_;
+	return 0 if( !defined $v or $v !~ /^\d+$/ );
+	return 0 if( $v + 0 == 0 );
+	my $min = Globals::loxone_min_interval();
+	return ( $v + 0 < $min ) ? $min : $v + 0;
+}
+
 if( $q->{action} eq "updatestat" ) {
 	require LoxBerry::JSON;
 	my $jsonobjcfg = LoxBerry::JSON->new();
@@ -453,7 +464,11 @@ if( $q->{action} eq "updatestat" ) {
 		type => $q->{type},
 		category => $q->{category},
 		room => $q->{room},
-		interval => int($q->{interval}) ne "NaN" ? $q->{interval} : 0,
+		# Never below the minimum from the System tab. The page marks the field
+		# red and refuses to send it, so this only catches a page that was open
+		# before the minimum was raised - but that page would otherwise write an
+		# interval the grabber may not poll with.
+		interval => s4l_clamp_interval( $q->{interval} ),
 		active => defined $q->{active} ? $q->{active} : "false",
 		msno => $q->{msno},
 		measurementname => $measurementname,
@@ -977,6 +992,101 @@ if( $q->{action} eq "savepluginconfig" ) {
 	} # End Child process
 
 	$response = '{ "error":' . $errors . '}';
+}
+
+##
+## The shortest polling interval of the Loxone statistics (System tab)
+##
+## One setting with three consequences: Telegraf asks the grabber that often, the
+## grabber gets three seconds less than Telegraf's timeout to answer, and no
+## statistic may be polled more often than this.
+##
+## The statistics that are already faster are RAISED, not refused. A minimum that
+## leaves the exceptions in place is not a minimum, and the user is told how many
+## were changed.
+if( $q->{action} eq "mininterval_save" ) {
+	my $iv = $q->{interval} // '';
+	my %ok = map { $_ => 1 } @Globals::LOXONE_MIN_INTERVALS;
+
+	if( $iv !~ /^\d+$/ or !$ok{ $iv + 0 } ) {
+		$error = "Interval '$iv' was not offered";
+	}
+	else {
+		$iv += 0;
+		require LoxBerry::JSON;
+		my $raised = 0;
+
+		# Both files are written inside their own block, and the block matters.
+		#
+		# LoxBerry::JSON keeps the file handle - and with it the exclusive lock -
+		# for as long as the object lives. The config handler is started with a
+		# fork further down, the child inherits every open descriptor, and a lock
+		# inherited that way is still held after the parent is gone. The child
+		# then waited for a lock it was holding itself: two root processes stuck
+		# for good, and stats.json and stats4lox.json locked against everybody
+		# else. Measured on the test box, and the only way out of it was a reboot.
+		{
+			my $obj = LoxBerry::JSON->new();
+			my $cfg = $obj->open( filename => $stats4loxconfig, lockexclusive => 1, locktimeout => 10 );
+			if( !$cfg ) {
+				$error = "Could not open the configuration";
+			}
+			else {
+				$cfg->{loxone}->{min_interval} = $iv;
+				$obj->write();
+				LOGOK "Shortest polling interval set to ${iv}s";
+			}
+		}
+
+		# The statistics that are faster than that. Inactive ones too: they would
+		# otherwise come back with an interval nobody may set any more the moment
+		# somebody switches them on.
+		#
+		# An interval of 0 counts as too fast - it means "every cycle", which is as
+		# fast as Telegraf asks.
+		if( !$error ) {
+			my $sobj = LoxBerry::JSON->new();
+			my $st = $sobj->open( filename => $statsconfig, lockexclusive => 1, locktimeout => 10 );
+			if( !$st ) {
+				LOGWARN "stats.json could not be opened - the statistics were not adjusted";
+			}
+			elsif( ref($st->{loxone}) eq 'ARRAY' ) {
+				foreach my $e ( @{ $st->{loxone} } ) {
+					my $cur = $e->{interval};
+					next if( defined $cur and $cur =~ /^\d+$/ and $cur + 0 >= $iv );
+					# Written back as a string, which is how every other interval
+					# in this file is stored - a number here and a string there
+					# would be a difference nothing else in the plugin expects.
+					$e->{interval} = "$iv";
+					$raised++;
+				}
+				$sobj->write() if( $raised );
+				LOGOK "$raised statistics raised to ${iv}s" if( $raised );
+			}
+		}
+
+		if( !$error ) {
+			# Telegraf's interval and timeout, and a restart. In the background:
+			# the restart takes a moment and the page should not wait for it. Both
+			# JSON objects are gone by now - see above.
+			my $pid = fork();
+			if( defined $pid and $pid == 0 ) {
+				open STDIN,  "< /dev/null";
+				open STDOUT, "> /dev/null";
+				open STDERR, "> /dev/null";
+				system( "sudo $lbpbindir/config-handler.pl grabber >/dev/null 2>&1" );
+				exit 0;
+			}
+
+			$response = JSON::encode_json( {
+				saved    => 1,
+				interval => $iv + 0,
+				raised   => $raised + 0,
+				telegraf => $iv - 3,
+				grabber  => $iv - 5,
+			} );
+		}
+	}
 }
 
 ##
