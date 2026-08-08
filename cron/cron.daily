@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# Keeps the block names, rooms and categories in stats.json in step with the
+# Loxone configuration, and rebuilds the Grafana panels whose titles are built
+# from them (issue #33).
+#
+# Cheap: one HTTP request per Miniserver asks for the timestamp of the LoxPLAN,
+# and only a changed one is fetched.
+#
+# The redirect is not the log. s4l_refresh_config.pl writes its own, visible
+# under Logfiles; this file only catches what fails before that log exists.
+REPLACELBPBINDIR/s4l_refresh_config.pl --plan >> REPLACELBPLOGDIR/cron_refresh.log 2>&1

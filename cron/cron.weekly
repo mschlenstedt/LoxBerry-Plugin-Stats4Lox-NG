@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# Refreshes outputkeys/outputlabels of the active statistics (issue #33).
+#
+# Weekly and not daily: this one asks every active block for its outputs, so it
+# costs one HTTP request per statistic. The names it corrects only change when
+# Loxone renames an output, which happens with a firmware release, not daily.
+#
+# See the header of s4l_refresh_config.pl for why only active entries are asked.
+REPLACELBPBINDIR/s4l_refresh_config.pl --outputs >> REPLACELBPLOGDIR/cron_refresh.log 2>&1
