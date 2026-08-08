@@ -622,6 +622,48 @@ $ImportMapping->{Default} = [
 ];
 
 
+# STATISTICS GROUPS - column name to output
+#
+# The newer meter blocks store their statistics per group, and those files name
+# their own columns in the Outputs attribute. Those names are the ones the
+# statistics use - they are NOT the names the same block reports live over
+# /jdev/sps/io/<uuid>/all. Measured on a live installation, same moment:
+#
+#   Batteriespeicher (MeterAbsSt)  total = 5438.817  <->  live Mrd = 5438.817
+#                                  totalNeg = 5698.273    live Mrc = 5698.273
+#                                  storageLevel = 100     live Slvl = 100
+#
+# Without translating, an import would fill a field "total" next to the field
+# "Mrd" the grabber writes every cycle - the same meter reading under two names,
+# and a graph that stops where the import ended.
+#
+# The table maps a column to the OUTPUT of the block, not to its abbreviation:
+# the abbreviation is what Loxone renames from time to time (AQ -> Ct), the
+# output name is not. The abbreviation is then looked up per block type in
+# loxelements_en.json, which is why one entry covers all types - and why the
+# same column translates differently where the type demands it:
+#
+#   MeterAbsSt   total -> OMr1 -> Mrd (discharge),  totalNeg -> OMr2 -> Mrc
+#   MeterAbsBi   total -> OMr1 -> Mrc (consumption), totalNeg -> OMr2 -> Mrd
+#
+# outputs is tried in order; the first output the type actually has wins.
+# fallback is used when the element catalogue knows the output but carries no
+# abbreviation for it - which is the case for OPf on every meter type, while
+# the Miniserver does report it live as "Pf".
+#
+# Columns not listed here keep the name the file gave them. That is deliberate
+# for the two EFM columns: measured on a live EFM, the Miniserver does not
+# report Sc or Yt live at all, so there is nothing they could collide with.
+
+our %StatGroupMapping = (
+	actual       => { outputs => [ 'OPf', 'outPower' ],                 fallback => 'Pf' },
+	total        => { outputs => [ 'OMr1', 'OMr', 'outMeterReading' ] },
+	totalNeg     => { outputs => [ 'OMr2' ] },
+	storageLevel => { outputs => [ 'OSlvl' ] },
+	OYt          => { outputs => [ 'OYT' ] },
+);
+
+
 
 # BLACKLIST of controls not to add to controls section in json
 #

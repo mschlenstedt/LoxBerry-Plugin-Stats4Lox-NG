@@ -600,6 +600,89 @@ sub getLoxoneLabels {
 	
 }
 
+# Output name -> abbreviation, for one block type, from the element catalogue.
+#
+# The catalogue holds both: name is the output as the LoxPLAN names it (AQ, OMr1),
+# shortname the abbreviation a current Miniserver reports live (Ct, Mrd). Entries
+# without an abbreviation are kept in the hash with their empty value - the
+# callers decide what to do with them, and they differ: deriveMapping() falls
+# back to the output name, translateGroupOutputs() to a value from the table.
+#
+# Cached per type, because a single import calls this once per month file.
+sub outputShortnames
+{
+	my ($self, $type) = @_;
+	return {} if( !defined $type or $type eq '' );
+
+	$self->{_shortnames} = {} if( ref($self->{_shortnames}) ne 'HASH' );
+	return $self->{_shortnames}->{ uc($type) }
+		if( defined $self->{_shortnames}->{ uc($type) } );
+
+	my %byname;
+	eval {
+		my $elemfile = "$LoxBerry::System::lbptemplatedir/lang/loxelements_en.json";
+		my $obj = LoxBerry::JSON->new();
+		my $elems = $obj->open( filename => $elemfile, readonly => 1 );
+		my $e = $elems ? $elems->{ uc($type) } : undef;
+		foreach my $o ( @{ $e->{outputs} || [] } ) {
+			next if( !defined $o->{name} );
+			$byname{ $o->{name} } = $o->{shortname};
+		}
+	};
+	$self->{_shortnames}->{ uc($type) } = \%byname;
+	return \%byname;
+}
+
+# Column names of a statistics group file -> the field names the live grabber
+# writes for the same outputs.
+#
+# A group file names its own columns (actual, total, totalNeg, storageLevel),
+# and those names are not the ones the block reports live. Importing them
+# unchanged puts the history into a field of its own, right next to the field
+# the grabber fills every cycle with the very same meter reading.
+#
+# %Globals::StatGroupMapping says which OUTPUT a column belongs to; the
+# abbreviation for that output comes from the element catalogue of this block
+# type. A column nobody listed keeps its own name.
+sub translateGroupOutputs
+{
+	my ($self, $columns) = @_;
+	my $me = Globals::whoami();
+	my $log = $self->{log};
+
+	my $type = $self->{statobj} ? $self->{statobj}->{type} : undef;
+	my $short = $self->outputShortnames( $type );
+
+	my @fields;
+	foreach my $col ( @{$columns} ) {
+
+		my $rule = $Globals::StatGroupMapping{$col};
+		my $field;
+
+		foreach my $out ( @{ $rule->{outputs} || [] } ) {
+			# The first output this type actually has decides. That is what
+			# makes one table work for all of them - MeterAbsSt has OMr1 and
+			# OMr2, MeterPUni only OMr, a Wallbox neither.
+			next if( !exists $short->{$out} );
+			my $sn = $short->{$out};
+			$field = ( defined $sn and $sn ne '' ) ? $sn : $rule->{fallback};
+			last if( defined $field );
+		}
+
+		if( !defined $field ) {
+			$log->WARN("$me Column '$col' has no live counterpart on type '"
+			           . ($type // '?') . "' - imported under its own name");
+			push @fields, $col;
+			next;
+		}
+
+		$log->INF("$me Column '$col' -> field '$field'") if( $field ne $col );
+		push @fields, $field;
+	}
+
+	return \@fields;
+}
+
 # Derives the import mapping from the Miniserver instead of a hard coded table.
 #
 # LoxAPP3.json describes for every block with statistics which column holds
@@ -648,20 +731,11 @@ sub deriveMapping
 	# and live data would end up in two different fields of the same
 	# measurement. The element definitions hold both: Name is the old label,
 	# ShortName the current one.
-	my %tolive;
-	if( defined $ctype ) {
-		eval {
-			my $elemfile = "$LoxBerry::System::lbptemplatedir/lang/loxelements_en.json";
-			my $obj = LoxBerry::JSON->new();
-			my $elems = $obj->open( filename => $elemfile, readonly => 1 );
-			my $e = $elems ? $elems->{ uc($ctype) } : undef;
-			foreach my $o ( @{ $e->{outputs} || [] } ) {
-				next if( !defined $o->{name} or !defined $o->{shortname} or $o->{shortname} eq '' );
-				$tolive{ $o->{name} } = $o->{shortname};
-			}
-		};
-		$log->DEB("$me Label translation for $ctype: " . scalar(keys %tolive) . " outputs");
-	}
+	my $short = $self->outputShortnames( $ctype );
+	my %tolive = map { $_ => $short->{$_} }
+	             grep { defined $short->{$_} and $short->{$_} ne '' } keys %{$short};
+	$log->DEB("$me Label translation for " . ($ctype // '?') . ": "
+	          . scalar(keys %tolive) . " outputs") if( defined $ctype );
 
 	# Statistics definition from the Miniserver
 	my $app;
@@ -689,9 +763,16 @@ sub deriveMapping
 	#   0 blocks   statisticV2 WITH a classic file - the only combination that
 	#                               would need a V2 mapping does not occur
 	#
-	# Should Loxone ever ship that combination, this is the place to extend:
-	# statisticV2.groups[].dataPoints[].output already holds the connector key
-	# directly, so no resolution via connector uuids would be required.
+	# Should Loxone ever ship that combination, this is the place to extend -
+	# but not by reading statisticV2. Measured on a live Miniserver, a group
+	# there carries nothing but the same column name the file already holds:
+	#
+	#   groups: [ { dataPoints: [ { output: "actual" } ] },
+	#             { dataPoints: [ { output: "total" }, { output: "totalNeg" } ] } ]
+	#
+	# No uuid, no connector - so LoxAPP3 offers no way from a group column to an
+	# output of the block. %Globals::StatGroupMapping is that way, and
+	# translateGroupOutputs() would be the place to reuse.
 	#
 	# LoxAPP3 keys are the control uuids, but not necessarily in the same case
 	my $stat;
@@ -838,19 +919,29 @@ sub submitData
 	# Where do the field names come from?
 	#
 	# For a statistics group there is no hard coded mapping and none is needed:
-	# the file names its own columns in the Outputs attribute, already as
-	# technical identifiers. We use those directly, which also means a block
-	# with several groups ends up with several fields in one measurement.
+	# the file names its own columns in the Outputs attribute. Those names are
+	# translated to the abbreviations the live grabber uses for the same
+	# outputs, so that history and live values share one field instead of
+	# ending up as two adjacent curves - see translateGroupOutputs().
 	#
-	# The classic path keeps using the mapping so that existing measurements
-	# and the dashboards built on them are not renamed underneath the user.
+	# The classic path keeps using the mapping, which does the same job through
+	# deriveMapping().
 	my @fileoutputs;
 	if( defined $data->{StatMetadata}->{OutputNames} ) {
 		@fileoutputs = @{ $data->{StatMetadata}->{OutputNames} };
 	}
 	my $usefileoutputs = ( $self->{usefileoutputs} and @fileoutputs ) ? 1 : 0;
 	if( $usefileoutputs ) {
-		$log->INF("$me Using the output names from the statistics file: " . join(", ", @fileoutputs));
+		# Translated once per set of columns: submitData runs per month file,
+		# and every month of a series carries the same header.
+		my $cachekey = join( ",", @fileoutputs );
+		$self->{_grouptrans} = {} if( ref($self->{_grouptrans}) ne 'HASH' );
+		if( !$self->{_grouptrans}->{$cachekey} ) {
+			$log->INF("$me Columns of the statistics file: $cachekey");
+			$self->{_grouptrans}->{$cachekey} = $self->translateGroupOutputs( \@fileoutputs );
+			$log->INF("$me Importing into the fields: " . join(", ", @{ $self->{_grouptrans}->{$cachekey} }));
+		}
+		@fileoutputs = @{ $self->{_grouptrans}->{$cachekey} };
 	}
 	
 	# Loop all timestamps
