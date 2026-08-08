@@ -326,6 +326,24 @@ if [ -d $LBHOMEDIR/data/plugins/$PTEMPDIR\_upgrade ]; then
 			cp -a "$S4L_FRESH_TELEGRAFD/stats4lox_loxberry.conf" "$PCONFIG/telegraf/telegraf.d/stats4lox_loxberry.conf"
 			echo "<INFO> Replaced the empty LoxBerry Telegraf drop-in by the current one."
 		fi
+
+		# And the file that has to arrive WITH it. The LoxBerry drop-in above used
+		# to carry an unscoped [[processors.converter]] that turned every *_errors
+		# and *_bytes field into a float, Telegraf's own statistics included.
+		# InfluxDB fixes a field's type per shard, so the moment that conversion
+		# goes away it refuses the integers - and it rejects the whole batch, not
+		# the one field. All of internal_gather, internal_agent and internal_write
+		# stop arriving, which is what the "Gathered Metrics per Hour" panel draws.
+		#
+		# The conversion now lives in stats4lox_internal.conf, scoped to those
+		# measurements. An installation that does not have it there yet needs it,
+		# or replacing the LoxBerry drop-in above would break its internals.
+		if ! grep -q 'processors.converter' \
+			"$PCONFIG/telegraf/telegraf.d/stats4lox_internal.conf" 2>/dev/null \
+			&& [ -f "$S4L_FRESH_TELEGRAFD/stats4lox_internal.conf" ]; then
+			cp -a "$S4L_FRESH_TELEGRAFD/stats4lox_internal.conf" "$PCONFIG/telegraf/telegraf.d/stats4lox_internal.conf"
+			echo "<INFO> Added the field type conversion for Telegraf's own statistics."
+		fi
 		rm -rf "$S4L_FRESH_TELEGRAFD"
 
 		if [ $S4L_RSYNC_RC -ne 0 ]; then
