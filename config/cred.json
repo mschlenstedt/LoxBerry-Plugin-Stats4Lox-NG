@@ -2,11 +2,5 @@
    "influx" : {
       "influxdbuser" : "stats4lox",
       "influxdbpass" : "loxberry"
-   },
-   "loxberry": {
-      "localhost": {
-         "user": "",
-         "pass": ""
-      }
    }
 }

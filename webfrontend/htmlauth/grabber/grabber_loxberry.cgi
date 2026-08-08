@@ -4,7 +4,7 @@ use LoxBerry::System;
 use LoxBerry::JSON;
 use LoxBerry::Log;
 use FindBin qw($Bin);
-use lib "$Bin/../../../../../bin/plugins/stats4lox/libs";
+use lib "$Bin/../../../../../bin/plugins/REPLACELBPPLUGINDIR/libs";
 use Globals;
 use Stats4Lox;
 use strict;

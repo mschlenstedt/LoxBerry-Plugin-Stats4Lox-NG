@@ -404,17 +404,42 @@ if [ -d $LBHOMEDIR/data/plugins/$PTEMPDIR\_upgrade ]; then
 			echo "<INFO> Replaced the internal Telegraf drop-in by the current one."
 		fi
 
-		# A drop-in the plugin does not ship any more has to be taken away, not
+		# Drop-ins the plugin does not ship any more have to be taken away, not
 		# just left out of the archive: the restore above has no --delete, so
-		# whatever is in the old configuration stays. stats4lox_fieldtypes.conf
-		# forced *_bytes and *_errors to float for every metric in Telegraf; the
-		# statistics it was propping up are written into their own policy now and
-		# no longer need it.
-		if [ -f "$PCONFIG/telegraf/telegraf.d/stats4lox_fieldtypes.conf" ]; then
-			rm -f "$PCONFIG/telegraf/telegraf.d/stats4lox_fieldtypes.conf"
-			echo "<INFO> Removed the obsolete Telegraf drop-in stats4lox_fieldtypes.conf."
-		fi
+		# whatever is in the old configuration stays.
+		#
+		#   stats4lox_fieldtypes.conf   forced *_bytes and *_errors to float for
+		#                               every metric in Telegraf. The statistics it
+		#                               was propping up are in their own policy now.
+		#   stats4lox_debug.conf        a file output to /tmp, every line commented
+		#   ..._socketlistener_udp.conf a listener on 8094, every line commented
+		#
+		# The last two never did anything - not one active line, and nothing in the
+		# plugin ever referred to them. They were templates from the development
+		# days that outlived their purpose.
+		for s4l_gone in stats4lox_fieldtypes.conf stats4lox_debug.conf stats4lox_socketlistener_udp.conf; do
+			if [ -f "$PCONFIG/telegraf/telegraf.d/$s4l_gone" ]; then
+				rm -f "$PCONFIG/telegraf/telegraf.d/$s4l_gone"
+				echo "<INFO> Removed the obsolete Telegraf drop-in $s4l_gone."
+			fi
+		done
 		rm -rf "$S4L_FRESH_TELEGRAFD"
+
+		# The credentials file only ever held InfluxDB's user and password. It also
+		# carried an empty loxberry/localhost/user+pass block that no line of this
+		# plugin has ever read - checked against every reader: the Grafana
+		# datasource, the backup, the password change, ajax.cgi and postroot.sh
+		# itself all take .influx and nothing else.
+		if [ -f "$PCONFIG/cred.json" ] && jq -e 'has("loxberry")' "$PCONFIG/cred.json" > /dev/null 2>&1; then
+			if jq 'del(.loxberry)' "$PCONFIG/cred.json" > "$PCONFIG/cred.json.new" 2>/dev/null; then
+				chown --reference="$PCONFIG/cred.json" "$PCONFIG/cred.json.new" 2>/dev/null
+				chmod --reference="$PCONFIG/cred.json" "$PCONFIG/cred.json.new" 2>/dev/null
+				mv "$PCONFIG/cred.json.new" "$PCONFIG/cred.json"
+				echo "<INFO> Removed the unused loxberry entry from cred.json."
+			else
+				rm -f "$PCONFIG/cred.json.new"
+			fi
+		fi
 
 		if [ $S4L_RSYNC_RC -ne 0 ]; then
 			echo "<FAIL> Restoring config files failed. Giving up."

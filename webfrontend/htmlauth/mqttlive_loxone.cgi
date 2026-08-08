@@ -6,7 +6,7 @@ use LoxBerry::Web;
 use LoxBerry::IO;
 use JSON;
 use FindBin qw($Bin);
-use lib "$Bin/../../../../bin/plugins/stats4lox/libs/";
+use lib "$Bin/../../../../bin/plugins/REPLACELBPPLUGINDIR/libs/";
 use Globals;
 
 our $htmlhead="";

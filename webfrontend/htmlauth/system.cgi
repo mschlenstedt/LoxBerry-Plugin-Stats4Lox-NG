@@ -8,7 +8,7 @@ use LoxBerry::JSON;
 use CGI;
 use JSON;
 use FindBin qw($Bin);
-use lib "$Bin/../../../../bin/plugins/stats4lox/libs/";
+use lib "$Bin/../../../../bin/plugins/REPLACELBPPLUGINDIR/libs/";
 use Globals;
 
 # SecurePIN check, answered before anything else is printed.

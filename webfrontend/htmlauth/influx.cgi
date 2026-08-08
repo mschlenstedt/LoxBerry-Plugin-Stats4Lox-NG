@@ -5,7 +5,7 @@ use LoxBerry::System;
 use LoxBerry::Web;
 use LoxBerry::JSON;
 use FindBin qw($Bin);
-use lib "$Bin/../../../../bin/plugins/stats4lox/libs/";
+use lib "$Bin/../../../../bin/plugins/REPLACELBPPLUGINDIR/libs/";
 use Globals;
 
 # Moved out of influx.html: a template cannot ask for the file's mtime, and
