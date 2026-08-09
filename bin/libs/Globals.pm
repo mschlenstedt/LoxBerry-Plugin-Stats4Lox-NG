@@ -19,7 +19,7 @@ our %navbar = (
 	},
 	20 => {
 			Name => "Data Sources",
-			URL => "data_inputs.cgi"
+			URL => "mqttcollector.cgi"
 	},
 	25 => {
 			Name => "InfluxDB",

@@ -11,7 +11,11 @@ PVERSION=$4   # Forth argument is Plugin version
 PTEMPPATH=$6  # Sixth argument is full temp path during install (see also $1)
 
 # Combine them with /etc/environment
-PCGI=$LBPCGI/$PDIR
+#
+# LBPCGI does not exist - LoxBerry calls that directory LBPHTMLAUTH. The line
+# came from the plugin template and stayed wrong because nothing ever used
+# $PCGI; it expanded to "/<plugin>" and no one noticed.
+PCGI=$LBPHTMLAUTH/$PDIR
 PHTML=$LBPHTML/$PDIR
 PTEMPL=$LBPTEMPL/$PDIR
 PDATA=$LBPDATA/$PDIR

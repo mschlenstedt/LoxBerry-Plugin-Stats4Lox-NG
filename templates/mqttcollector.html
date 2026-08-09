@@ -202,8 +202,12 @@
 		</div>
 	</div>
 	<div style="height:12px;padding:3px" v-html="statusLine"></div>
-	<button data-inline="true" v-on:click="subscriptions.push( {  } )">{{addLineLabel}}</button>
-	<button data-inline="true" v-on:click="saveApply();">{{saveApplyLabel}}</button>
+	<!-- The two buttons sat right against the last table row, close enough to be
+	     read as part of it. -->
+	<div style="margin-top:18px;">
+		<button data-inline="true" v-on:click="subscriptions.push( {  } )">{{addLineLabel}}</button>
+		<button data-inline="true" v-on:click="saveApply();">{{saveApplyLabel}}</button>
+	</div>
 	</div>
 	
 
