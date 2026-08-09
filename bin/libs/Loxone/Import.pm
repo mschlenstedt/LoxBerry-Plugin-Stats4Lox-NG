@@ -831,9 +831,8 @@ sub importFields
 		foreach my $o ( @{ $stat->{statistic}->{outputs} } ) {
 			my $key = defined $o->{uuid} ? $ctrl->{connectors}->{ lc($o->{uuid}) } : undef;
 			next if( !defined $key );
-			my $sn = $short->{$key};
 			push @classic, { statpos => ($o->{id} // 0),
-			                 lxlabel => ( defined $sn and $sn ne '' ) ? $sn : $key };
+			                 lxlabel => connector_field( $ctype, $key, $short ) };
 		}
 		push @fields, map { $_->{lxlabel} }
 		              @{ default_only_mapping( \@classic, $livenames, $log ) } if( @classic );
@@ -905,10 +904,9 @@ sub deriveMapping
 	# measurement. The element definitions hold both: Name is the old label,
 	# ShortName the current one.
 	my $short = $self->outputShortnames( $ctype );
-	my %tolive = map { $_ => $short->{$_} }
-	             grep { defined $short->{$_} and $short->{$_} ne '' } keys %{$short};
 	$log->DEB("$me Label translation for " . ($ctype // '?') . ": "
-	          . scalar(keys %tolive) . " outputs") if( defined $ctype );
+	          . scalar( grep { defined $short->{$_} and $short->{$_} ne '' } keys %{$short} )
+	          . " outputs") if( defined $ctype );
 
 	# Statistics definition from the Miniserver
 	my $app = loxapp3( $msno, $log );
@@ -964,7 +962,7 @@ sub deriveMapping
 		}
 		# Use the label the Miniserver reports today, so that the imported
 		# history lands in the same field as the live values.
-		my $label = defined $tolive{$key} ? $tolive{$key} : $key;
+		my $label = connector_field( $ctype, $key, $short );
 		$log->DEB("$me Column $o->{id}: connector '$key' -> field '$label'")
 			if( $label ne $key );
 		push @mapping, { statpos => $o->{id}, lxlabel => $label };
@@ -982,6 +980,28 @@ sub deriveMapping
 	         . join("  ", map { "«$_->{statpos}»→«$_->{lxlabel}»" } @mapping));
 	return \@mapping;
 }
+
+# Connector of a classic statistics column -> the field name to write
+#####################################################
+# Two steps, and both have to happen in the import and in the block list alike -
+# hence one function for both.
+#
+# First %Globals::StatConnectorAlias, for a connector the Miniserver does not
+# report live at all. Then the element catalogue, which turns the output name
+# into the abbreviation a current Miniserver uses (AQ -> Ct).
+#####################################################
+sub connector_field
+{
+	my ($type, $key, $short) = @_;
+	return $key if( !defined $key );
+
+	my $alias = defined $type ? $Globals::StatConnectorAlias{ uc($type) }->{ $key } : undef;
+	$key = $alias if( defined $alias );
+
+	my $sn = ref($short) eq 'HASH' ? $short->{$key} : undef;
+	return ( defined $sn and $sn ne '' ) ? $sn : $key;
+}
+
 
 # A block that answers with nothing but its LL.value
 #####################################################
@@ -1086,9 +1106,8 @@ sub referenceMapping
 			next if( !defined $o->{id} );
 			my $key = defined $o->{uuid} ? $c->{connectors}->{ lc($o->{uuid}) } : undef;
 			if( !defined $key ) { $incomplete = 1; last; }
-			my $sn = $short->{$key};
 			push @mapping, { statpos => $o->{id},
-			                 lxlabel => ( defined $sn and $sn ne '' ) ? $sn : $key };
+			                 lxlabel => connector_field( $type, $key, $short ) };
 			push @columns, ( $o->{name} // '' );
 		}
 		next if( $incomplete or !@mapping );

@@ -669,6 +669,32 @@ our %StatGroupMapping = (
 );
 
 
+# STATISTICS CONNECTORS THAT ARE NOT REPORTED LIVE
+#
+# The classic statistics of a block hang on one of its connectors, and normally
+# that connector is an output the Miniserver also reports over /all. Not always:
+# an Hourcounter records through a connector the catalogue calls AQs, "Statistic
+# output" - and /all never mentions it. The import would write a field AQs that
+# the grabber never fills.
+#
+# Where another output carries the same value, it is named here. Like
+# %StatGroupMapping this maps to the OUTPUT of the block, not to its
+# abbreviation, so the abbreviation is looked up per type in the element
+# catalogue and survives Loxone renaming it.
+#
+# Measured, not assumed. Statistics were switched on for an Hourcounter, the
+# first file compared against the live query of the same minute:
+#
+#   Betriebsstunden = 50678746.000   <->   live To = 50678747
+#
+# Same reading, and both in seconds despite what the column is called. AQ is the
+# catalogue name of that output; its abbreviation is To.
+
+our %StatConnectorAlias = (
+	HOURCOUNTER => { AQs => 'AQ' },
+);
+
+
 
 # BLACKLIST of controls not to add to controls section in json
 #
