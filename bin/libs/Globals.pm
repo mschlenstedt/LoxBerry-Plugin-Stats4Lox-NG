@@ -661,6 +661,11 @@ our %StatGroupMapping = (
 	totalNeg     => { outputs => [ 'OMr2' ] },
 	storageLevel => { outputs => [ 'OSlvl' ] },
 	OYt          => { outputs => [ 'OYT' ] },
+	# The one entry not established by comparing values: the Spot Price
+	# Optimizer of the test installation records but has not written a single
+	# file yet, so there is nothing to compare against. Confirmed by the user,
+	# and the catalogue agrees - Uc is "Current Price", reported live as Cv.
+	current      => { outputs => [ 'Uc' ] },
 );
 
 

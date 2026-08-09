@@ -37,6 +37,23 @@ $(function() {
 	miniservers = JSON.parse( $("#miniservers_json").text() );
 	loxone_elements = JSON.parse( $("#loxone_elements_json").text() );
 
+	// Keep the details popup inside the screen.
+	//
+	// A block with many outputs made the popup taller than the viewport. jQuery
+	// Mobile centres it on open and does not care that it sticks out, so the
+	// bottom rows could only be reached by scrolling the PAGE - which drags the
+	// popup along and takes the close button out of sight.
+	//
+	// Measured here rather than left to the CSS: 100vh is the layout viewport
+	// and counts the area behind a mobile address bar, and it does not react to
+	// a resized window. popupbeforeposition fires on every open AND on resize
+	// while the popup is open, which is exactly when this has to be right - jQM
+	// measures a popup only when it opens.
+	$(document).on( "popupbeforeposition", "#popupLoxoneDetails", function() {
+		$(this).find(".LoxoneDetails_popupbody")
+		       .css( "max-height", ( $(window).height() - 60 ) + "px" );
+	});
+
 	// Where the Loxone configuration comes from has to be known before the
 	// configuration is asked for - in manual mode nothing is fetched from the
 	// Miniserver, and the upload field decides whether there is anything to read.
@@ -1412,9 +1429,18 @@ function popupLoxoneDetails( uid, msno ) {
 		if( data.error == null && data?.code == "200" ) {
 			$("#valuesLoxoneDetailsLive_title").html(`${$('#lang_label_live_data').text()} ${miniservers[control.msno].Name}`);
 			
-			// Get mapping for this control type
-			var typeMappings = typeof data.mappings[control.Type.toUpperCase()] != "undefined" ? data.mappings[control.Type.toUpperCase()] : data.mappings["Default"];
-			console.log("Mappings for "+control.Type, typeMappings); 
+			// Which outputs an import would fill (issue #74).
+			//
+			// The backend answers this now. It used to send the hard coded
+			// $ImportMapping table and this loop worked out a column number
+			// from it - a number that described nothing that was going to
+			// happen, and that appeared on every block because the Default
+			// entry of that table matches the output called "Default".
+			var importFields = Array.isArray(data.importfields) ? data.importfields : [];
+			var hasStatistics = data.hasstatistics ? true : false;
+			var isRecording = data.isrecording ? true : false;
+			var markedFields = {};
+			console.log("Import fields for "+control.Type, importFields, "statistics:", hasStatistics);
 			
 			
 			for( var key in data.response ) {
@@ -1422,10 +1448,13 @@ function popupLoxoneDetails( uid, msno ) {
 				var outputKey = data.response[key].Key;
 				var outputName = data.response[key].Name;
 				
-				// Find mapping for outputKey
-				var mapKey = typeMappings.findIndex( element => element.lxlabel == outputName );
-				data.response[key].mapString = mapKey != -1 ? (parseInt(typeMappings[mapKey].statpos)+1) : "";
-				data.response[key].mapImg = data.response[key].mapString != "" ? icon( "import", data.response[key].mapString ) : "";
+				// Marked when an import writes this output - icon only, the
+				// wording goes into the tooltip, so the column stays one icon
+				// wide.
+				var isImported = importFields.indexOf( outputName ) != -1;
+				if( isImported ) { markedFields[outputName] = true; }
+				data.response[key].mapImg = isImported
+					? icon( "import", $('#lang_hint_import_output').text() ) : "";
 				
 				// Special string for Default output
 				if( outputKey == "Default" ) {
@@ -1455,7 +1484,7 @@ function popupLoxoneDetails( uid, msno ) {
 				var dataStr = `
 					<tr>
 						<td class="LoxoneDetails_td small" style="width:25px;">
-							${data.response[key].mapString}${data.response[key].mapImg}
+							${data.response[key].mapImg}
 						</td>
 						<td class="LoxoneDetails_td" style="width:120px;">
 							<input type="checkbox" name="LoxoneDetails_s4loutput" data-role="none" class="s4lchange" value="${LoxOutputs[key].Key}" ${LoxOutputs[key].statChecked} ${LoxOutputs[key].statDisabled}>
@@ -1473,8 +1502,49 @@ function popupLoxoneDetails( uid, msno ) {
 			}
 			
 			// Table is finished
-			
-			// Finally, activate the active checkbox 
+
+			// Two things the rows themselves cannot say.
+			//
+			// A block whose statistics are switched off in the Miniserver looks
+			// exactly like one that records: the outputs exist either way and
+			// can be read live. Without saying so, the difference is invisible.
+			//
+			// And an import can write fields that have no live output at all -
+			// measured on a live installation, 4 of 33 recording blocks do that.
+			// A Betriebszeitzähler records AQs, an EFM totalSelfConsumption and
+			// Yt, and the Miniserver does not report any of them over /all. A
+			// mark on a row cannot show those, so they are named below the table.
+			if( !hasStatistics ) {
+				// The LoxPLAN can say the block records while the Miniserver
+				// describes nothing - measured, 2 of 33 recording blocks on a
+				// live installation, both with years of files. Saying "no
+				// statistics switched on" would be wrong for those.
+				var noStatsText = isRecording
+					? $('#lang_hint_statistics_undescribed').text()
+					: $('#lang_hint_no_statistics').text();
+				liveTable.append(`<tr class="LoxoneDetails_tr"><td class="LoxoneDetails_td small" colspan="4">${noStatsText}</td></tr>`);
+			}
+			else {
+				var extraFields = importFields.filter( function(f) { return !markedFields[f]; } );
+				if( extraFields.length ) {
+					// Red: what the import would write has no live output. When
+					// that is true of EVERY field, importing gains nothing at
+					// all - history that nothing continues - and it says so.
+					var extraText = `${$('#lang_hint_import_extra').text()} ${escHtml(extraFields.join(", "))}`;
+					if( extraFields.length == importFields.length ) {
+						extraText += ` ${$('#lang_hint_import_pointless').text()}`;
+					}
+					liveTable.append(`<tr class="LoxoneDetails_tr"><td class="LoxoneDetails_td small LoxoneDetails_note_error" colspan="4">${extraText}</td></tr>`);
+				}
+				// Yellow: this block has no statistics description of its own,
+				// the assignment comes from a block of the same kind. The user
+				// knows their installation and can judge that.
+				if( data.borrowedfrom ) {
+					liveTable.append(`<tr class="LoxoneDetails_tr"><td class="LoxoneDetails_td small LoxoneDetails_note_warn" colspan="4">${$('#lang_hint_import_borrowed').text()} ${escHtml(data.borrowedfrom)}</td></tr>`);
+				}
+			}
+
+			// Finally, activate the active checkbox
 			// Background: If active=true, you always can disable the fetching
 			//             But if active=false, we need to wait for the Loxone Outputs, otherwise we get empty outputs on save
 			if( statmatch?.active != "true" && statmatch?.active != true ) {

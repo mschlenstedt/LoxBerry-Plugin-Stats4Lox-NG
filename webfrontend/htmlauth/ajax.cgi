@@ -536,14 +536,41 @@ if( $q->{action} eq "updatestat" ) {
 if( $q->{action} eq "lxlquery" ) {
 	require "$lbpbindir/libs/Stats4Lox.pm";
 	my ($code, $data) = Stats4Lox::msget_value( $q->{msno}, $q->{uuid} );
-	
+
+	# What an import would actually write for this block (issue #74).
+	#
+	# This used to hand out $Globals::ImportMapping and let the browser work it
+	# out. That table knows ENERGY, FRONIUS and a Default entry matching the
+	# output called "Default" - which every block has - so the list marked a
+	# column 1 on every block in the house, whether or not any statistics are
+	# switched on in the Miniserver. Meanwhile the import derives its mapping per
+	# block and the statistics groups name their columns themselves, so the
+	# numbers described nothing that was going to happen.
+	my $import = { statistics => 0, recording => 0, fields => [] };
+	eval {
+		require Loxone::Import;
+		$import = Loxone::Import::importFields(
+			msno => $q->{msno}, uuid => $q->{uuid}, log => $log,
+			# Already fetched above - a block that answers with nothing but
+			# Default needs them to be read correctly.
+			livenames => [ map { $_->{Name} } @{ $data // [] } ] );
+	};
+	LOGWARN "lxlquery: could not determine the import fields: $@" if( $@ );
+
 	my %response = (
 		msno => $q->{msno},
 		uuid => $q->{uuid},
 		code => $code,
 		response => $data,
-		mappings => $Globals::ImportMapping,
-		# error => $jsonerror
+		# Whether the Miniserver records anything for this block at all, and the
+		# fields an import would fill. Empty list with statistics=1 is possible:
+		# the block records, but nothing could be resolved to an output.
+		hasstatistics => $import->{statistics} ? 1 : 0,
+		isrecording => $import->{recording} ? 1 : 0,
+		# Named when the mapping had to be taken from another block of the same
+		# kind - an assumption the user is in a position to check.
+		borrowedfrom => $import->{borrowedfrom},
+		importfields => $import->{fields},
 	);
 	$response = encode_json( \%response );
 }

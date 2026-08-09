@@ -683,6 +683,179 @@ sub translateGroupOutputs
 	return \@fields;
 }
 
+# LoxAPP3.json of one Miniserver, cached
+#####################################################
+# 285 kB and a quarter of a second on the test installation, and everything that
+# wants to know something about statistics needs it: the import once per block,
+# the detail view of the web interface on every open. Cached like the statistics
+# list next to it, in the same ramdisk and with the same lifetime.
+#
+# A stale cache costs nothing worth fearing: it describes which outputs a block
+# records, and that changes when somebody edits the Loxone configuration - never
+# between two clicks.
+#####################################################
+sub loxapp3
+{
+	my ($msno, $log) = @_;
+	my $me = Globals::whoami();
+
+	my $cachefile = $Globals::stats4lox->{s4ltmp} . "/msloxapp3_ms$msno.tmp";
+	my $raw;
+
+	if( -e $cachefile ) {
+		my $modtime = (stat($cachefile))[9];
+		if( defined $modtime and (time()-$modtime) < 900 ) {
+			$raw = LoxBerry::System::read_file($cachefile);
+		}
+	}
+
+	if( !$raw ) {
+		require LoxBerry::IO;
+		my $status;
+		($raw, $status) = LoxBerry::IO::mshttp_call2( $msno, "/data/LoxAPP3.json" );
+		if( !$raw ) {
+			$log->WARN("$me MS$msno: Could not read LoxAPP3.json ("
+			           . ($status->{code} // '?') . ")") if( $log );
+			return;
+		}
+		eval {
+			open( my $fh, '>', $cachefile );
+			print $fh $raw;
+			close $fh;
+		};
+	}
+
+	my $app;
+	eval { require JSON; $app = JSON::decode_json( $raw ); };
+	if( $@ or !$app ) {
+		$log->WARN("$me MS$msno: LoxAPP3.json could not be parsed: $@") if( $log );
+		# A broken cache file must not survive the request that found it broken.
+		unlink $cachefile;
+		return;
+	}
+	return $app;
+}
+
+
+# Which fields would an import write for this block?
+#####################################################
+# For the web interface, which until now built this out of $Globals::ImportMapping
+# - a table holding ENERGY, FRONIUS and a Default entry that matches the output
+# called "Default" on EVERY block. So the block list promised an import for every
+# block in the house, including those where no statistics are switched on in the
+# Miniserver at all (issue #74).
+#
+# The answer belongs here, next to the code that performs the import, so that the
+# two cannot drift apart again - which is exactly how the display got wrong.
+#
+# Takes msno and uuid, no entry in stats.json required: the detail view is open
+# before a block is added. Returns a hashref:
+#
+#   { statistics   => 0|1,      an import knows what to write for this block
+#     recording    => 0|1,      the LoxPLAN says statistics are switched on
+#     borrowedfrom => "name",   set when the mapping comes from another block
+#     fields       => [ ... ] } the field names an import would write
+#
+# The two flags disagree in a case that really occurs: on the test installation
+# two Energy blocks carry StatsType 11 and have 48 months of files on the
+# Miniserver, while LoxAPP3 holds neither statistic nor statisticV2 for them.
+# Those are answered from a block of the same kind - see referenceMapping().
+# recording without statistics is what is left: it records, and not even a
+# neighbour could say what.
+#####################################################
+sub importFields
+{
+	my %p = @_;
+	my $me = Globals::whoami();
+	my ($msno, $uuid, $log) = ( $p{msno}, $p{uuid}, $p{log} );
+
+	# The caller may pass the live output names it has just fetched anyway -
+	# see default_only_mapping(), which needs them and which this must apply
+	# too, or the list would name a field the import does not write.
+	my $livenames = ( ref($p{livenames}) eq 'ARRAY' ) ? $p{livenames} : undef;
+
+	my $result = { statistics => 0, recording => 0, fields => [] };
+	return $result if( !defined $msno or !defined $uuid );
+
+	# The block from our parsed LoxPLAN - for its type and its connectors
+	my ($ctrl, $ctype);
+	eval {
+		my $obj = LoxBerry::JSON->new();
+		my $plan = $obj->open(
+			filename => $Globals::stats4lox->{loxplanjsondir} . "/ms$msno.json",
+			readonly => 1 );
+		if( $plan ) {
+			$ctrl  = $plan->{controls}->{$uuid};
+			$ctype = $ctrl->{Type} if( $ctrl );
+		}
+	};
+	return $result if( !$ctrl );
+	$result->{recording} = ( $ctrl->{StatsType} and $ctrl->{StatsType} ne '0' ) ? 1 : 0;
+
+	my $app = loxapp3( $msno, $log ) or return $result;
+
+	# LoxAPP3 keys are the control uuids, but not necessarily in the same case
+	my $stat;
+	foreach my $k ( keys %{ $app->{controls} || {} } ) {
+		next if( lc($k) ne lc($uuid) );
+		$stat = $app->{controls}->{$k};
+		last;
+	}
+	# translateGroupOutputs, outputShortnames and referenceMapping work on an
+	# object; msno, uuid and the type are all they take from it.
+	my $self = Loxone::Import->new_empty( log => $log );
+	$self->{statobj} = { type => $ctype };
+	$self->{msno} = $msno;
+	$self->{uuid} = $uuid;
+	my $short = $self->outputShortnames( $ctype );
+
+	# No definition of its own - the same fallback the import uses, so that the
+	# list shows what an import would really do.
+	if( !$stat or ( !$stat->{statistic} and !$stat->{statisticV2} ) ) {
+		return $result if( !$result->{recording} );
+		my $ref = $self->referenceMapping( $app );
+		return $result if( !$ref or !@{$ref} );
+		$ref = default_only_mapping( $ref, $livenames, $log );
+		$result->{statistics} = 1;
+		$result->{borrowedfrom} = $self->{refname};
+		$result->{fields} = [ map { $_->{lxlabel} } @{$ref} ];
+		return $result;
+	}
+	$result->{statistics} = 1;
+
+	my @fields;
+
+	# Classic statistics: the column names its output by connector uuid
+	if( ref($stat->{statistic}->{outputs}) eq 'ARRAY' ) {
+		my @classic;
+		foreach my $o ( @{ $stat->{statistic}->{outputs} } ) {
+			my $key = defined $o->{uuid} ? $ctrl->{connectors}->{ lc($o->{uuid}) } : undef;
+			next if( !defined $key );
+			my $sn = $short->{$key};
+			push @classic, { statpos => ($o->{id} // 0),
+			                 lxlabel => ( defined $sn and $sn ne '' ) ? $sn : $key };
+		}
+		push @fields, map { $_->{lxlabel} }
+		              @{ default_only_mapping( \@classic, $livenames, $log ) } if( @classic );
+	}
+
+	# Statistics groups: the column names itself, and the name is translated
+	my @cols;
+	foreach my $g ( @{ $stat->{statisticV2}->{groups} || [] } ) {
+		foreach my $dp ( @{ $g->{dataPoints} || [] } ) {
+			push @cols, $dp->{output} if( defined $dp->{output} );
+		}
+	}
+	push @fields, @{ $self->translateGroupOutputs( \@cols ) } if( @cols );
+
+	# Same field from two groups would make two identical marks in the table
+	my %seen;
+	$result->{fields} = [ grep { !$seen{$_}++ } @fields ];
+
+	return $result;
+}
+
+
 # Derives the import mapping from the Miniserver instead of a hard coded table.
 #
 # LoxAPP3.json describes for every block with statistics which column holds
@@ -738,15 +911,9 @@ sub deriveMapping
 	          . scalar(keys %tolive) . " outputs") if( defined $ctype );
 
 	# Statistics definition from the Miniserver
-	my $app;
-	eval {
-		require JSON;
-		my ($raw, $status) = LoxBerry::IO::mshttp_call2( $msno, "/data/LoxAPP3.json" );
-		die "HTTP $status->{code}\n" if( !$raw );
-		$app = JSON::decode_json( $raw );
-	};
-	if( $@ or !$app ) {
-		$log->WARN("$me Could not read LoxAPP3.json from MS$msno: $@");
+	my $app = loxapp3( $msno, $log );
+	if( !$app ) {
+		$log->WARN("$me Could not read LoxAPP3.json from MS$msno");
 		return;
 	}
 
@@ -782,8 +949,9 @@ sub deriveMapping
 		last;
 	}
 	if( !$stat or ref($stat->{outputs}) ne 'ARRAY' ) {
-		$log->DEB("$me LoxAPP3.json has no statistics definition for $uuid");
-		return;
+		$log->INF("$me LoxAPP3.json has no statistics definition for $uuid"
+		          . " - looking for a block of the same kind that has one");
+		return $self->referenceMapping( $app );
 	}
 
 	my @mapping;
@@ -807,9 +975,137 @@ sub deriveMapping
 		return;
 	}
 
+	@mapping = @{ default_only_mapping( \@mapping,
+	               [ map { $_->{Name} } @{ $self->{LoxoneLabels} || [] } ], $log ) };
+
 	$log->OK("$me Mapping derived from the Miniserver: "
 	         . join("  ", map { "«$_->{statpos}»→«$_->{lxlabel}»" } @mapping));
 	return \@mapping;
+}
+
+# A block that answers with nothing but its LL.value
+#####################################################
+# Some types have no numbered outputs at all - a StateV ("Virtueller Status") is
+# the common one, 43 of them on the test installation. The Miniserver answers
+# such a block with LL.value only, and msget_value calls that "Default". Its
+# statistics, meanwhile, hang on the connector the catalogue calls AQ.
+#
+# So the import would write a field AQ that the grabber never fills, right next
+# to the Default it fills every cycle - the same value under two names, which is
+# the very split this whole translation exists to avoid.
+#
+# The condition is deliberately narrow: exactly one statistics column, and live
+# nothing but Default. Then there is only one way to read it. Measured on
+# "P: Alkalinität": statistics 47.248, live Default 47 - the same reading, the
+# catalogue giving this type exactly one output.
+#####################################################
+sub default_only_mapping
+{
+	my ($mapping, $livenames, $log) = @_;
+	my $me = Globals::whoami();
+
+	return $mapping if( ref($mapping) ne 'ARRAY' or scalar @{$mapping} != 1 );
+	return $mapping if( ref($livenames) ne 'ARRAY' or !@{$livenames} );
+	foreach my $n ( @{$livenames} ) {
+		return $mapping if( defined $n and $n ne 'Default' );
+	}
+
+	return $mapping if( $mapping->[0]->{lxlabel} eq 'Default' );
+
+	$log->INF("$me Block answers with a single Default output - its statistics"
+	          . " column '$mapping->[0]->{lxlabel}' is that output") if( $log );
+	return [ { statpos => $mapping->[0]->{statpos}, lxlabel => 'Default' } ];
+}
+
+
+# The mapping of a block of the same kind, when this one has none of its own
+#####################################################
+# A Miniserver can record a block for years and still not describe it in
+# LoxAPP3. Measured on a live installation: two Energy blocks with StatsType 11
+# and 48 months of files each, and no statistics definition for either. Nothing
+# could import them - the hard coded ENERGY mapping names AQ and AQp while the
+# same outputs are called Ct and Pf today, so it filtered down to nothing, and
+# deriveMapping() gave up right here.
+#
+# But the neighbours know. Two more Energy blocks of the same StatsType sit in
+# the same configuration, they DO have a definition, and every one of the four
+# files carries the identical header:
+#
+#   <Statistics Name="..." NumOutputs="2" Outputs="Gesamtverbrauch,Leistung">
+#
+# Type plus StatsType decides the structure - checked across all 13 type/StatsType
+# combinations of that installation, every one of them with exactly one file
+# signature. So the mapping of a neighbour is this block's mapping.
+#
+# Not a guess that stays unchecked: the column names of the reference are kept in
+# $self->{refcolumns}, and submitData() compares them against what the file it is
+# about to import actually declares. If they differ, nothing is written.
+#####################################################
+sub referenceMapping
+{
+	my ($self, $app) = @_;
+	my $me = Globals::whoami();
+	my $log = $self->{log};
+	my $msno = $self->{msno};
+	my $uuid = $self->{uuid};
+
+	# Type and StatsType of this block, and of every candidate, come from the
+	# LoxPLAN - LoxAPP3 uses a coarser naming ("Meter" covers Energy as well).
+	my ($plan, $me_ctrl);
+	eval {
+		my $obj = LoxBerry::JSON->new();
+		$plan = $obj->open(
+			filename => $Globals::stats4lox->{loxplanjsondir} . "/ms$msno.json",
+			readonly => 1 );
+		$me_ctrl = $plan->{controls}->{$uuid} if( $plan );
+	};
+	if( !$me_ctrl or !$me_ctrl->{Type} ) {
+		$log->DEB("$me $uuid is not in ms$msno.json - no reference possible");
+		return;
+	}
+	my $type  = $me_ctrl->{Type};
+	my $stype = $me_ctrl->{StatsType} // '';
+
+	my %appc = map { lc($_) => $app->{controls}->{$_} } keys %{ $app->{controls} || {} };
+
+	foreach my $cand ( sort keys %{ $plan->{controls} } ) {
+		next if( lc($cand) eq lc($uuid) );
+		my $c = $plan->{controls}->{$cand};
+		next if( ($c->{Type} // '') ne $type );
+		next if( ($c->{StatsType} // '') ne $stype );
+		next if( !$c->{connectors} );
+
+		my $cstat = $appc{ lc($cand) } ? $appc{ lc($cand) }->{statistic} : undef;
+		next if( !$cstat or ref($cstat->{outputs}) ne 'ARRAY' or !@{$cstat->{outputs}} );
+
+		# Build the mapping from the reference, exactly as it would be built for
+		# the block itself - through its own connectors.
+		my $short = $self->outputShortnames( $type );
+		my (@mapping, @columns, $incomplete);
+		foreach my $o ( sort { ($a->{id}//0) <=> ($b->{id}//0) } @{ $cstat->{outputs} } ) {
+			next if( !defined $o->{id} );
+			my $key = defined $o->{uuid} ? $c->{connectors}->{ lc($o->{uuid}) } : undef;
+			if( !defined $key ) { $incomplete = 1; last; }
+			my $sn = $short->{$key};
+			push @mapping, { statpos => $o->{id},
+			                 lxlabel => ( defined $sn and $sn ne '' ) ? $sn : $key };
+			push @columns, ( $o->{name} // '' );
+		}
+		next if( $incomplete or !@mapping );
+
+		$self->{refcolumns} = \@columns;
+		$self->{refname}    = $c->{Title};
+		$log->OK("$me Mapping taken from '" . ($c->{Title} // $cand) . "' (same $type,"
+		         . " StatsType $stype): "
+		         . join("  ", map { "«$_->{statpos}»→«$_->{lxlabel}»" } @mapping));
+		$log->INF("$me Its columns are '" . join(",", @columns)
+		          . "' - the file to import has to declare the same");
+		return \@mapping;
+	}
+
+	$log->WARN("$me No other $type with StatsType $stype has a statistics"
+	           . " definition - this block cannot be mapped");
+	return;
 }
 
 sub setMappings {
@@ -930,6 +1226,22 @@ sub submitData
 	if( defined $data->{StatMetadata}->{OutputNames} ) {
 		@fileoutputs = @{ $data->{StatMetadata}->{OutputNames} };
 	}
+	# A mapping borrowed from another block is only valid while the file agrees.
+	# referenceMapping() concluded from type and StatsType that the two record
+	# the same thing; here the file says what it really holds, so this is the
+	# place to insist. Writing the wrong column into a field would be worse than
+	# importing nothing.
+	if( $self->{refcolumns} and !$self->{usefileoutputs} and @fileoutputs ) {
+		my $want = join( ",", @{ $self->{refcolumns} } );
+		my $got  = join( ",", @fileoutputs );
+		if( $want ne $got ) {
+			$log->ERR("$me Columns of this file are '$got', but the mapping borrowed"
+			          . " from '" . ($self->{refname} // '?') . "' expects '$want'"
+			          . " - nothing imported for this month");
+			return 0;
+		}
+	}
+
 	my $usefileoutputs = ( $self->{usefileoutputs} and @fileoutputs ) ? 1 : 0;
 	if( $usefileoutputs ) {
 		# Translated once per set of columns: submitData runs per month file,

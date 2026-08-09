@@ -247,6 +247,50 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 	border: 1px solid gray;
 }
 
+/* The details popup must never grow past the screen.
+
+   A block with many outputs made it taller than the viewport. jQuery Mobile
+   centres a popup on open and does not care that it sticks out, so the only way
+   to reach the bottom rows was to scroll the PAGE - which moves the popup with
+   it and takes the close button, sitting above the popup's top edge, out of
+   sight altogether.
+
+   So the body scrolls instead of the page. The close button is a sibling of this
+   element, not a child, and therefore stays where it is. The subtracted pixels
+   are the room that button needs above the popup.
+
+   The height is also set from JavaScript on popupbeforeposition: 100vh is the
+   layout viewport, which on a mobile browser includes the area behind the
+   address bar, and it does not follow a resized window either. The CSS value is
+   what applies before that handler has run once. */
+.LoxoneDetails_popupbody {
+	max-height: calc(100vh - 60px);
+	overflow-y: auto;
+	overflow-x: hidden;
+}
+
+/* The notes below the live values of a block.
+
+   They carry the two things the rows themselves cannot say, and they say very
+   different things - so they are not allowed to look alike:
+
+   yellow  the assignment of the statistics columns had to be taken from another
+           block of the same kind, because the Miniserver describes this one not
+           at all. That is a conclusion, and the user is the one who can judge it.
+
+   red     the statistics have no live output to go with them. Importing writes a
+           field that nothing ever continues. */
+.LoxoneDetails_note_warn {
+	background-color: #ffff73;
+	border-top: 1px solid #b8860b;
+	padding: 6px;
+}
+.LoxoneDetails_note_error {
+	background-color: #ffd7d7;
+	border-top: 1px solid #c0392b;
+	padding: 6px;
+}
+
 /* A warning inside a popup - narrower than .hintbox, which is built for the
    full-width boxes at the top of the page.
 
@@ -580,6 +624,12 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 <div class="datahidden" id="lang_label_type"><TMPL_VAR SETTINGS.LABEL_TYPE></div>
 <div class="datahidden" id="lang_label_live_data"><TMPL_VAR SETTINGS.LABEL_LIVE_DATA></div>
 <div class="datahidden" id="lang_hint_decimal_accuracy"><TMPL_VAR SETTINGS.HINT_DECIMAL_ACCURACY></div>
+<div class="datahidden" id="lang_hint_import_output"><TMPL_VAR SETTINGS.HINT_IMPORT_OUTPUT></div>
+<div class="datahidden" id="lang_hint_import_extra"><TMPL_VAR SETTINGS.HINT_IMPORT_EXTRA></div>
+<div class="datahidden" id="lang_hint_import_pointless"><TMPL_VAR SETTINGS.HINT_IMPORT_POINTLESS></div>
+<div class="datahidden" id="lang_hint_no_statistics"><TMPL_VAR SETTINGS.HINT_NO_STATISTICS></div>
+<div class="datahidden" id="lang_hint_statistics_undescribed"><TMPL_VAR SETTINGS.HINT_STATISTICS_UNDESCRIBED></div>
+<div class="datahidden" id="lang_hint_import_borrowed"><TMPL_VAR SETTINGS.HINT_IMPORT_BORROWED></div>
 <div class="datahidden" id="lang_error_live_data_title"><TMPL_VAR SETTINGS.ERROR_LIVE_DATA_TITLE></div>
 <div class="datahidden" id="lang_label_information"><TMPL_VAR SETTINGS.LABEL_INFORMATION></div>
 <div class="datahidden" id="lang_error_live_query"><TMPL_VAR SETTINGS.ERROR_LIVE_QUERY></div>
@@ -627,7 +677,7 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 <!-- Loxone Details popup -->
 <div data-role="popup" id="popupLoxoneDetails" data-dismissible="true" >
 	<a href="#" data-rel="back" class="ui-btn ui-corner-all ui-shadow ui-btn-a ui-icon-delete ui-btn-icon-notext ui-btn-right"><TMPL_VAR COMMON.BUTTON_CLOSE></a>
-	<div style="padding: 10px 10px; display:flex;flex-wrap:wrap;justify-content:center;width:900px;">
+	<div class="LoxoneDetails_popupbody" style="padding: 10px 10px; display:flex;flex-wrap:wrap;justify-content:center;width:900px;">
 		<h4 class="ui-title popuptitle" id="titleLoxoneDetails" style="flex-basis:100%;margin:10px">
 			<span id="LoxoneDetails_titletitle">&nbsp;</span><br>
 			<i><span id="LoxoneDetails_titledesc"></span></i>
