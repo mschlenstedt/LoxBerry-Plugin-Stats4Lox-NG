@@ -111,6 +111,96 @@
     .mqttlivestate {
         padding: 4px;
     }
+
+    /* Square buttons of our own, taken from the InfluxDB tab - jQuery Mobile
+       puts an icon-only glyph on a round grey disc, which reads as a decoration
+       rather than as "delete this line". */
+    .s4l-tbtn {
+        display:inline-block;
+        width:26px; height:26px;
+        border-radius:3px;
+        border:1px solid #7e7e7e;
+        background:#e6e6e6;
+        position:relative;
+        vertical-align:middle;
+        margin:0 0 0 4px;
+        box-sizing:border-box;
+        cursor:pointer;
+        font-size:0;
+        line-height:0;
+    }
+    .s4l-tbtn:hover { background:#d5d5d5; }
+    .s4l-tbtn-danger { background:#c0392b; border-color:#a93226; }
+    .s4l-tbtn-danger:hover { background:#a93226; }
+    .s4l-tbtn-cross::before, .s4l-tbtn-cross::after {
+        content:""; position:absolute; left:11px; top:5px;
+        width:2px; height:14px; background:#ffffff;
+    }
+    .s4l-tbtn-cross::before { transform:rotate(45deg); }
+    .s4l-tbtn-cross::after  { transform:rotate(-45deg); }
+
+    /* The topic tree below a subscription.
+
+       Every colour and measurement is taken from the LoxBerry design tokens, but
+       with a fallback in the var() itself. On LoxBerry 4 the real tokens apply,
+       including whichever theme the user picked; on LoxBerry 3, where
+       design-tokens.css does not exist, the fallbacks do. That is why this
+       plugin does not pull in components.css the way the MQTT Gateway page does -
+       it has to run on both. */
+
+    .s4l-tree {
+        margin: 6px 0 10px 0;
+        padding: 8px;
+        border: 1px solid var(--lb-gray-300, #d4d4d4);
+        border-radius: var(--lb-radius, 4px);
+        background-color: var(--lb-gray-50, #fafafa);
+        max-height: 420px;
+        overflow: auto;
+    }
+    .s4l-tree-head {
+        font-size: var(--lb-font-sm, 0.875rem);
+        color: var(--lb-gray-600, #525252);
+        padding-bottom: 6px;
+        margin-bottom: 6px;
+        border-bottom: 1px solid var(--lb-gray-200, #e5e5e5);
+    }
+    .s4l-tree-msg { font-size: var(--lb-font-sm, 0.875rem); color: var(--lb-gray-600, #525252); }
+    .s4l-tree-err { color: var(--lb-danger, #c0392b); }
+
+    /* Indent per level: the nesting comes from the nested markup itself, so one
+       rule on the child container is enough however deep it goes. */
+    .s4l-tn-children { margin-left: 18px; }
+
+    .s4l-tn-branch, .s4l-tn-leaf {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 2px 0;
+        line-height: 1.5;
+    }
+    .s4l-tn-arrow {
+        cursor: pointer;
+        user-select: none;
+        font-size: var(--lb-font-sm, 0.875rem);
+        color: var(--lb-gray-500, #737373);
+        min-width: 1em;
+    }
+    .s4l-tn-cb { margin: 0; }
+    .s4l-tn-name {
+        font-family: var(--lb-font-mono, monospace);
+        font-size: var(--lb-font-sm, 0.875rem);
+        cursor: default;
+    }
+    .s4l-tn-branch .s4l-tn-name { cursor: pointer; font-weight: 600; }
+    .s4l-tn-value {
+        font-size: var(--lb-font-sm, 0.875rem);
+        color: var(--lb-gray-500, #737373);
+        overflow-wrap: anywhere;
+    }
+    .s4l-tn-meta {
+        font-size: var(--lb-font-sm, 0.875rem);
+        color: var(--lb-gray-400, #a3a3a3);
+    }
     
     /* Clipboard icon, drawn with CSS. The rule here used to point at
        images/clipboard_18.svg - a file this plugin never shipped, so the
@@ -147,16 +237,22 @@
 <p><TMPL_VAR MQTTCOLLECTOR.HINT_TEXT_OPTIONS></p>
 <p><TMPL_VAR MQTTCOLLECTOR.HINT_TEXT_DIFFERENCE></p>
 
-	<div style="display:none" id="isFinderAvailable"><TMPL_VAR FINDERAVAILABLE></div>
 
 	<!-- Language strings for JavaScript -->
 	<div class="datahidden" id="lang_placeholder_new"><TMPL_VAR MQTTCOLLECTOR.PLACEHOLDER_NEW></div>
 	<div class="datahidden" id="lang_extract_numbers"><TMPL_VAR MQTTCOLLECTOR.LABEL_EXTRACT_NUMBERS></div>
 	<div class="datahidden" id="lang_collect_strings"><TMPL_VAR MQTTCOLLECTOR.LABEL_COLLECT_STRINGS></div>
+	<div class="datahidden" id="lang_json_expand"><TMPL_VAR MQTTCOLLECTOR.LABEL_JSON_EXPAND></div>
 	<div class="datahidden" id="lang_button_add_line"><TMPL_VAR MQTTCOLLECTOR.BUTTON_ADD_LINE></div>
 	<div class="datahidden" id="lang_button_save_apply"><TMPL_VAR COMMON.BUTTON_SAVE_APPLY></div>
 	<div class="datahidden" id="lang_button_delete"><TMPL_VAR COMMON.BUTTON_DELETE></div>
 	<div class="datahidden" id="lang_button_show"><TMPL_VAR MQTTCOLLECTOR.BUTTON_SHOW></div>
+	<div class="datahidden" id="lang_error_nofinder"><TMPL_VAR MQTTCOLLECTOR.ERROR_NOFINDER></div>
+	<div class="datahidden" id="lang_status_loading"><TMPL_VAR MQTTCOLLECTOR.STATUS_LOADING></div>
+	<div class="datahidden" id="lang_no_topics"><TMPL_VAR MQTTCOLLECTOR.LABEL_NO_TOPICS></div>
+	<div class="datahidden" id="lang_topics_found"><TMPL_VAR MQTTCOLLECTOR.LABEL_TOPICS_FOUND></div>
+	<div class="datahidden" id="lang_selected"><TMPL_VAR MQTTCOLLECTOR.LABEL_SELECTED></div>
+	<div class="datahidden" id="lang_all_imported"><TMPL_VAR MQTTCOLLECTOR.LABEL_ALL_IMPORTED></div>
 	<div class="datahidden" id="lang_error_invalid_topic"><TMPL_VAR MQTTCOLLECTOR.ERROR_INVALID_TOPIC></div>
 	<div class="datahidden" id="lang_status_unsaved"><TMPL_VAR MQTTCOLLECTOR.STATUS_UNSAVED></div>
 	<div class="datahidden" id="lang_status_saved"><TMPL_VAR MQTTCOLLECTOR.STATUS_SAVED></div>
@@ -171,19 +267,27 @@
 	<div style="display:flex;flex-wrap:wrap">
 		<div v-for="(subscription, index) in subscriptions" class="topicline" style="flex-basis:100%;width:100%" >
 			
-			<div style="display:flex;flex-wrap:wrap;">
+			<!-- align-items:center, because the three cells are of different
+			     heights: jQuery Mobile gives its button a vertical margin of its
+			     own, so with the default "stretch" the 26px square sat at the top
+			     of a taller row while the button sat in the middle. -->
+			<div style="display:flex;flex-wrap:wrap;align-items:center;">
 				<div style="flex:10 1 0;">
 					<input v-model="subscription.id" v-bind:placeholder="placeholderNew" v-on:input="validate(index, $event)">
 				</div>
-				<div style="padding:3px;flex:0 0;"> 
-					<button data-mini="true" data-inline="true" v-on:click="this.subscriptions.splice(index, 1);this.errors.splice(index,1);changedMsg();">{{deleteLabel}}</button>
+				<!-- The plugin's own red square with a cross, as on the InfluxDB
+				     tab. The wording goes into the tooltip. -->
+				<div style="padding:3px;flex:0 0;">
+					<a href="#" v-on:click.prevent="this.subscriptions.splice(index, 1);this.errors.splice(index,1);changedMsg();"
+					   class="s4l-tbtn s4l-tbtn-danger s4l-tbtn-cross"
+					   data-role="none" v-bind:title="deleteLabel"></a>
 				</div>
-				<div v-show="finderAvailable" style="padding:3px;flex:0 0;"> 
-					<button data-mini="true" data-inline="true" v-on:click="openFinder(index)">{{showLabel}}</button>
+				<div style="padding:3px;flex:0 0;">
+					<button data-mini="true" data-inline="true" v-on:click="toggleTree(index)">{{showLabel}}</button>
 				</div>
-				
+
 			</div>
-			
+
 			<div class="topicerror">{{errors[index]}}</div>
 			
 			<div style="display:flex;flex-wrap:wrap;">
@@ -195,6 +299,34 @@
 				<div style="padding:3px;">
 					<input type="checkbox" data-role="none"
 					v-on:change="changedMsg();" v-model="subscription.collectStrings"> {{collectStringsLabel}}
+				</div>
+
+				<!-- Applies to the whole subscription, not to a single topic:
+				     every JSON payload below it is broken open. -->
+				<div style="padding:3px;">
+					<input type="checkbox" data-role="none"
+					v-on:change="jsonExpandChanged(subscription)" v-model="subscription.jsonExpand"> {{jsonExpandLabel}}
+				</div>
+			</div>
+
+			<!-- What is arriving under this subscription, and what of it to keep.
+			     Nothing ticked means everything is imported - that is how it has
+			     always worked and the count below says so. -->
+			<div v-if="subscription.treeOpen" class="s4l-tree">
+				<!-- While reloading, the tree that is already there stays visible -
+				     the loading line only replaces it when there is nothing yet. -->
+				<div v-if="subscription.treeLoading && !subscription.tree" class="s4l-tree-msg">{{loadingLabel}}</div>
+				<div v-else-if="subscription.treeError" class="s4l-tree-msg s4l-tree-err">{{subscription.treeError}}</div>
+				<div v-else-if="!subscription.tree || !subscription.tree.length" class="s4l-tree-msg">{{noDataLabel}}</div>
+				<div v-else>
+					<div class="s4l-tree-head">
+						<span v-if="subscription.treeLoading">{{loadingLabel}}</span>
+						<span v-else>{{subscription.topicCount}} {{topicsFoundLabel}}</span> &middot;
+						<span v-if="selectionCount(subscription)">{{selectionCount(subscription)}} {{selectedLabel}}</span>
+						<span v-else>{{allImportedLabel}}</span>
+					</div>
+					<topic-node v-for="n in subscription.tree" :key="n.path"
+					            :node="n" :sub="subscription" :root="this"></topic-node>
 				</div>
 			</div>
 			

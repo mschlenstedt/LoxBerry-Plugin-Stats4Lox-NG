@@ -28,7 +28,10 @@ my %L = LoxBerry::System::readlanguage($template, "language.ini");
 
 my $lang = LoxBerry::System::lblanguage();
 
-$template->param("FINDERAVAILABLE", -e '/dev/shm/mqttfinder.json' ? "true" : "" );
+# FINDERAVAILABLE used to decide whether to offer a button into the MQTT
+# Gateway's finder page. The topics are shown on this page now, and whether the
+# finder has data is answered when they are fetched - a page that was opened
+# before the finder started would otherwise keep claiming there is nothing.
 
 print $template->output();
 

@@ -401,6 +401,66 @@ if( $q->{action} eq "getstatsconfig" ) {
 	}
 }
 
+# An MQTT subscription pattern as a regular expression
+#
+# The two wildcards MQTT defines: "+" stands for exactly one level, "#" for this
+# level and everything below it, and only ever at the end. A subscription matches
+# a topic in full - "sensor/+" is not a subscription to "sensor/a/b".
+#
+# Anchored on purpose. The collector builds its own expression unanchored, so
+# "sensor/temp" there also matches "other/sensor/temp/raw"; that is a bug of its
+# own and is corrected in mqttlive.php along with this. Were only one of the two
+# fixed, the tree would show a different set of topics than the collector records
+# - which is worse than either behaviour on its own.
+# Decoded strings, turned back into the bytes they stand for
+#
+# Everything this CGI writes goes through LoxBerry::JSON, and that hands the
+# file back the way it lies on disk. A JSON serialiser switches to UTF-8 for the
+# WHOLE document as soon as one string carries a character above U+00FF - and
+# then every value that was already encoded gets encoded a second time. One
+# request would leave "Küche" in the file as "KÃ¼che", and not only in the field
+# that was being changed: writing rewrites the file.
+#
+# It has happened once, in s4l_refresh_config.pl, and cost 66 values including
+# the measurement names the grabbers write to. Measured afterwards, with the
+# real writer:
+#
+#   ü  U+00FC     -> file unchanged
+#   ↓  U+2193     -> file double encoded
+#   😀 U+1F600    -> file double encoded
+#
+# That boundary is why nothing was noticed for years: German text survives, and
+# an arrow in an MQTT topic does not. decode_json and from_json both produce
+# such strings, so anything parsed out of a request is brought back to bytes
+# before it goes anywhere near a configuration file.
+sub s4l_to_bytes
+{
+	my ($data) = @_;
+
+	if( ref($data) eq 'HASH' ) {
+		$data->{$_} = s4l_to_bytes( $data->{$_} ) foreach ( keys %{$data} );
+		return $data;
+	}
+	if( ref($data) eq 'ARRAY' ) {
+		$_ = s4l_to_bytes( $_ ) foreach ( @{$data} );
+		return $data;
+	}
+	return $data if( ref($data) or !defined $data );
+
+	utf8::encode($data) if( utf8::is_utf8($data) );
+	return $data;
+}
+
+sub s4l_topic_regex
+{
+	my $topic = shift;
+	my $re = quotemeta( $topic );
+	$re =~ s{\\\+}{[^/]+}g;          # + : exactly one level
+	$re =~ s{\\/\\\#$}{(?:/.*)?};    # /# : this level and below
+	$re =~ s{^\\\#$}{.*};            # #  : everything
+	return qr/^$re$/;
+}
+
 ## updatestat
 # An interval for a Loxone statistic, never shorter than the minimum from the
 # System tab. 0 stays 0 - that is how a statistic that is switched off is stored.
@@ -1133,7 +1193,7 @@ if( $q->{action} eq "miniserver_save" ) {
 	# grabber cannot tell it apart from "never chosen" and would collect the
 	# default set, so saving it would quietly do the opposite of what it says.
 	my %known = map { $_->{key} => 1 } @Globals::MINISERVER_METRICS;
-	my $metrics = eval { JSON::decode_json( $q->{metrics} // '[]' ) };
+	my $metrics = eval { s4l_to_bytes( JSON::decode_json( $q->{metrics} // "[]" ) ) };
 	my @clean;
 	if( ref($metrics) eq 'ARRAY' ) {
 		@clean = grep { $known{$_} } @$metrics;
@@ -1216,7 +1276,7 @@ if( $q->{action} eq "loxberry_save" ) {
 		( @Globals::GRABBER_INTERVALS, int( $Globals::loxberry->{interval} || 900 ) );
 
 	my %known = map { $_->{key} => 1 } @Globals::LOXBERRY_METRICS;
-	my $metrics = eval { JSON::decode_json( $q->{metrics} // '[]' ) };
+	my $metrics = eval { s4l_to_bytes( JSON::decode_json( $q->{metrics} // "[]" ) ) };
 	my @cleanm;
 	@cleanm = grep { $known{$_} } @$metrics if( ref($metrics) eq 'ARRAY' );
 
@@ -1224,7 +1284,7 @@ if( $q->{action} eq "loxberry_save" ) {
 	# hyphens and an optional port - because this string is put into a URL that
 	# the plugin then fetches. Duplicates and empty entries are dropped rather
 	# than refused; the page has already dropped them, this is the second line.
-	my $hosts = eval { JSON::decode_json( $q->{hosts} // '[]' ) };
+	my $hosts = eval { s4l_to_bytes( JSON::decode_json( $q->{hosts} // "[]" ) ) };
 	my (@cleanh, %seenh, $badhost);
 	if( ref($hosts) eq 'ARRAY' ) {
 		foreach my $a ( @$hosts ) {
@@ -1850,12 +1910,81 @@ if( $q->{action} eq "config-handler-status" ) {
 	}
 }
 
+## mqtt_topicdata
+#
+# What is currently arriving under one subscription, for the tree below it.
+#
+# The source is the MQTT Gateway's finder snapshot in /dev/shm - the same one its
+# own subscription page reads. It holds every topic the broker has seen, with the
+# last payload and when it arrived: 2844 topics and zero seconds old on the test
+# installation. The collector's own view would only ever show topics it has
+# already received, which is of no help while somebody is still setting a
+# subscription up.
+#
+# Without the finder there is nothing to show, and that has to reach the user
+# rather than looking like an empty broker - hence the distinct "nofinder" flag.
+if( $q->{action} eq "mqtt_topicdata" ) {
+
+	my $finderfile = "/dev/shm/mqttfinder.json";
+	my $topic = $q->{topic};
+
+	if( !defined $topic or $topic eq '' ) {
+		$error = "topic parameter missing";
+	}
+	elsif( ! -e $finderfile ) {
+		$response = encode_json( { nofinder => 1, topics => [] } );
+	}
+	else {
+		my $finder;
+		eval { $finder = decode_json( LoxBerry::System::read_file($finderfile) ); };
+		if( $@ or ref($finder->{incoming}) ne 'HASH' ) {
+			$error = "The MQTT finder data could not be read";
+		}
+		else {
+			my $re = s4l_topic_regex( $topic );
+			my @hits;
+			foreach my $t ( sort keys %{ $finder->{incoming} } ) {
+				next if( $t !~ $re );
+				my $e = $finder->{incoming}->{$t};
+				# The payload is handed over as it arrived. Whether it is JSON is
+				# decided in the browser, which has to parse it anyway to build
+				# the tree - deciding it twice invites the two to disagree.
+				push @hits, { topic => $t,
+				              payload => $e->{p},
+				              seen => $e->{t} };
+			}
+			$response = encode_json( { nofinder => 0, topics => \@hits } );
+		}
+	}
+}
+
 ## update_mqttsubscriptions
 if( $q->{action} eq "update_mqttsubscriptions" ) {
 	# The subscriptions are received via POST in form field 'subscriptions' as json
 	
-	my $subscriptions = from_json( $q->{subscriptions} );
-	
+	# decode_json and not from_json, which is what stood here.
+	#
+	# The two differ in exactly the way that matters for s4l_to_bytes below:
+	# decode_json turns the UTF-8 bytes of the request into characters, from_json
+	# leaves the bytes alone but marks the string as if they were characters.
+	# Measured on a topic containing an arrow:
+	#
+	#   from_json    11 characters, bytes 73…51e28693   already correct
+	#   decode_json   9 characters, bytes 73…5193       one character per sign
+	#
+	# Encoding the first one again would produce c3a2c286c293 - the arrow written
+	# three times over. So the parsing is made honest first, and the encoding
+	# afterwards is then the exact inverse.
+	#
+	# In an eval because decode_json dies on malformed UTF-8, and a request from
+	# somewhere else must not take the whole CGI with it.
+	my $subscriptions = eval { s4l_to_bytes( JSON::decode_json( $q->{subscriptions} // '[]' ) ) };
+	if( $@ or ref($subscriptions) ne 'ARRAY' ) {
+		LOGERR "update_mqttsubscriptions: subscriptions could not be read: $@";
+		$error = "The subscriptions could not be read";
+		$subscriptions = [];
+	}
+
 	use Data::Dumper;
 	LOGDEB "ajax subscriptions: " . $q->{subscriptions};
 	# LOGDEB Dumper(\$subscriptions);
@@ -1878,7 +2007,8 @@ if( $q->{action} eq "update_mqttsubscriptions" ) {
 	if( !$cfg ) {
 		$error = "Could not open stats.json";
 	}
-	else {
+	# Not on a read error: the empty list above would wipe every subscription.
+	elsif( !$error ) {
 		$cfg->{mqtt}->{subscriptions} = $subscriptions;
 		$jsonobjcfg->write();
 		$response = '{ }';
@@ -1950,7 +2080,7 @@ sub s4l_retention_from_request
 	my %interval_ok = map { $_ => 1 } @Globals::RETENTION_INTERVALS;
 	my %duration_ok = map { $_ => 1 } ( @Globals::RETENTION_DURATIONS, '' );
 
-	my $stages = eval { JSON::decode_json( $q->{stages} // '[]' ) };
+	my $stages = eval { s4l_to_bytes( JSON::decode_json( $q->{stages} // "[]" ) ) };
 	return ( undef, "The stage list is missing or has the wrong length" )
 		if( ref($stages) ne 'ARRAY' or scalar @$stages != scalar @{ $Globals::retention->{stages} } );
 	return ( undef, "Unknown retention duration" )

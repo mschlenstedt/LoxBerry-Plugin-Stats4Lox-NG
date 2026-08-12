@@ -353,7 +353,10 @@ function createStatsjsonTable()
 				valconstant = `&lt;v.3&gt;`;
 				html += `<div style="white-space: nowrap;">`
 				html += `<b>${label}</b>: publish ${livetopic} <i>${valconstant}</i>`;
-				html += `<a href="#" class="ui-mini ui-btn ui-shadow ui-icon-clipboard ui-btn-inline copyClipboard" style="padding:1px;font-size:86%;height:15px;width:32px;">${$('#lang_label_copy').text()}</a>`;
+				// No fixed width and height any more: 32px cut every label short,
+				// "Kopieren" arrived as "Ko...". The button sizes to its text now
+				// and keeps it on one line, which also survives translation.
+				html += `<a href="#" class="ui-mini ui-btn ui-shadow ui-icon-clipboard ui-btn-inline copyClipboard" style="padding:1px 8px;font-size:86%;white-space:nowrap;">${$('#lang_label_copy').text()}</a>`;
 				html += `<input type="text" value="publish ${livetopic} ${valconstant}" class="datahidden topicholder">`;
 				
 				// html += `&nbsp;<a href="#" data-inline="true" class="ui-btn ui-shadow ui-mini ui-btn-inline">Clipboard</a>`;

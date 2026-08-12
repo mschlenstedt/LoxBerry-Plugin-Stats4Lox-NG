@@ -272,27 +272,26 @@ function mqtt_genericmsg($topic, $msg){
 	LOGOK("mqtt_genericmsg ----> {$topic} : $msg");
 
 	// Get settings for this subscription
+	$subscription_settings = null;
 	foreach( $mqtt_subscriptions_ordered as $subscription ) {
-		$subsregex = preg_quote( $subscription );
-		
-		$subsregex = str_replace( '\+', '[^/]+', $subsregex );
-		if($subsregex == '\#') {
-			$subsregex = '.+';
-		}
-		elseif( substr($subsregex, -2) == '\#' ) {
-			$subsregex = substr($subsregex, 0, -2) . '.*';
-		}
-		
-		$subsregex = '#'.$subsregex.'#';
-
-		// Compare current $topic to created regex in $subscription
-		// LOGDEB("Created Regex: $subsregex");
-		
-		if( preg_match( $subsregex, $topic ) ) {
+		if( preg_match( topic_regex( $subscription ), $topic ) ) {
 			LOGINF( "Incoming topic $topic MATCHES subscription $subscription" );
 			$subscription_settings = $mqtt_subscriptions[$subscription];
 			break;
 		}
+	}
+	if( !$subscription_settings ) {
+		// The broker only sends what we subscribed to, so this means the
+		// subscription list and the connection have drifted apart.
+		LOGWARN( "Incoming topic $topic matches no subscription - ignored" );
+		return;
+	}
+
+	// Which values of this topic may be written (JSON Expand / topic selection)
+	$allowed_fields = selection_for_topic( $subscription_settings, $topic );
+	if( is_array( $allowed_fields ) and count( $allowed_fields ) == 0 ) {
+		LOGDEB( "Topic $topic is not selected in this subscription - ignored" );
+		return;
 	}
 
 
@@ -364,14 +363,22 @@ function mqtt_genericmsg($topic, $msg){
 		// Payload was json
 		$item->measurementname = ltrim( $topic, '/' );
 		foreach( $payload as $name => $value ) {
-			
+
+			// JSON Expand: only the values the user ticked. A null $allowed_fields
+			// means no selection was made at all, which keeps the old behaviour
+			// of importing everything inside the payload.
+			if( is_array( $allowed_fields ) and !in_array( $name, $allowed_fields, true ) ) {
+				LOGDEB("Json attribute $name not selected - skipped");
+				continue;
+			}
+
 			$value = process_msg_logic( $value, $subscription_settings );
-			
+
 			if( is_null( $value ) ) {
 				LOGDEB("Json attribute value ignored by settings");
 				continue;
 			}
-			
+
 			$values[] = array( 
 				'key' => $name, 
 				'value' => $value
@@ -393,6 +400,76 @@ function mqtt_genericmsg($topic, $msg){
 }
 
 
+
+//
+// An MQTT subscription pattern as a regular expression
+//
+// The two wildcards MQTT defines: "+" is exactly one level, "#" is this level
+// and everything below it, and only ever at the end. A subscription matches a
+// topic in full.
+//
+// Anchored, which it was not before: "sensor/temp" used to match an incoming
+// "other/sensor/temp/raw" as well, because the expression was applied without
+// ^ and $. Nobody noticed because the broker only sends what was subscribed to -
+// but with several subscriptions the wrong one could win, and the settings of
+// that other subscription would then decide what is written.
+//
+// ajax.cgi builds the same expression for the topic tree. The two have to agree,
+// or the tree shows something other than what is recorded.
+//
+function topic_regex( $subscription ) {
+	$re = preg_quote( $subscription, '#' );
+	$re = str_replace( '\+', '[^/]+', $re );
+	if( $re === '\#' ) {
+		$re = '.*';
+	}
+	elseif( substr( $re, -3 ) === '/\#' ) {
+		$re = substr( $re, 0, -3 ) . '(?:/.*)?';
+	}
+	return '#^'.$re.'$#';
+}
+
+//
+// Which values of a topic may be written
+//
+// Returns null when everything is allowed - that is the case when the user made
+// no selection at all, and it keeps the behaviour every existing installation
+// has today.
+//
+// An empty array means this topic is not selected, so nothing of it is written.
+// A filled array lists the JSON field names that were ticked.
+//
+// Single fields only count while JSON Expand is on for the subscription. The web
+// interface drops them when it is switched off, but a configuration edited by
+// hand would otherwise keep filtering invisibly.
+//
+function selection_for_topic( $settings, $topic ) {
+
+	if( !isset($settings->selection) or !is_array($settings->selection) or count($settings->selection) == 0 ) {
+		return null;
+	}
+
+	$expand = isset($settings->jsonExpand) ? is_enabled($settings->jsonExpand) : false;
+
+	$fields = array();
+	$topic_found = false;
+
+	foreach( $settings->selection as $sel ) {
+		if( !isset($sel->topic) or $sel->topic !== $topic ) {
+			continue;
+		}
+		$topic_found = true;
+		if( $expand and isset($sel->field) and $sel->field !== "" ) {
+			$fields[] = $sel->field;
+		}
+		else {
+			// The topic itself is ticked, without naming single fields: take it whole
+			return null;
+		}
+	}
+
+	return $topic_found ? $fields : array();
+}
 
 // Validate for number in string
 function process_msg_logic( $input, $subscription_settings ) {
@@ -809,17 +886,37 @@ function mqttConnect() {
 /* Flat a multidimensional array to flat key_subkey_subkey=value pairs */
 /* Christian Fenzl for S4L */
 
-function flatten($arr, $parent = ""){
+/*
+   Two things this used to get wrong, both measured against the real function:
+
+     {"a":{"b":{"c":1}}}      ->  {"b_c":1}
+     {"rooms":[{"id":1,...},
+               {"id":2,...}]} ->  {"id":1,...,"1_id":2,...}
+
+   It passed only the CURRENT key down instead of the path built so far, so from
+   three levels on the outer ones fell away. And it tested the prefix with
+   if($parent), which is false for the string "0" - so the first element of every
+   array lost its index and wrote into a field named after the bare key. On this
+   installation that would have put a topic's "rooms[0].id" into a field called
+   plainly "id".
+
+   Both matter beyond tidiness now: with JSON Expand the user ticks a path in the
+   tree, and the name derived here has to be the one they ticked.
+
+   Fields written before this correction keep their old names in InfluxDB; new
+   values arrive under the corrected ones. Only payloads with arrays or at least
+   three levels are affected at all.
+*/
+
+function flatten($arr, $prefix = ""){
   $result = array();
   foreach ($arr as $key => $val) {
+    // Not if($prefix) - "0" is a perfectly good prefix and a falsy string.
+    $path = ( $prefix === "" ) ? (string)$key : $prefix."_".$key;
     if (is_array($val)) {
-      $result = array_merge( $result, flatten($val, $key) );
-
+      $result = array_merge( $result, flatten($val, $path) );
     } else {
-       if($parent) {
-           $key = $parent."_".$key;
-       }
-       $result[$key] = $val; 
+       $result[$path] = $val;
     }
   }
   return $result;
