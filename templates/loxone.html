@@ -190,6 +190,75 @@
 	border-radius	:50%;
 	border-top-color:transparent;
 }
+
+/* The reset button of the filter row.
+
+   Its own element in the layout, and deliberately not wrapped in a fieldset the
+   way the filter groups are. The row is a flex container with
+   align-items:flex-end, so everything hangs from the bottom edge - which is
+   right for controls that share a baseline, and wrong for this one: as soon as a
+   filter group wraps into two lines on a narrow screen, the button ended up at
+   the very bottom next to the last line. align-self:center keeps it in the
+   middle of however tall the row becomes, which is also what it means: it
+   applies to every group, not to the one it happens to stand next to.
+
+   Twice the usual gap to the left for the same reason.
+
+   Square, and as tall as the filter controls of this page (measured: 40px). The glyph is drawn from the centre, so the size can change
+   without touching it. */
+.s4l-resetfilterwrap {
+	padding: 5px;
+	margin-left: 10px;
+	/* No align-self of its own: it takes flex-end from the row, exactly like
+	   every filter group, and so its bottom edge sits on the same line as the
+	   dropdowns.
+
+	   Centring was tried and looked wrong. A group is a caption plus its
+	   controls, and centring counts the caption in - the button came out about
+	   half a caption too high. Correcting that with a fixed offset does not work
+	   either: those captions are one or two lines tall depending on how the row
+	   breaks.
+
+	   The wrapped case needs nothing extra. Once the row breaks, the button is
+	   alone on its line, and a line is exactly as tall as what stands in it -
+	   bottom, middle and top are then the same place.
+
+	   The button sits in the same controlgroup its neighbours use, only without
+	   a legend. That is not decoration: jQuery Mobile gives a controlgroup a
+	   bottom margin of its own, and a bare div came out seven pixels lower than
+	   every dropdown. Copying the container is more durable than copying the
+	   seven pixels. */
+}
+.s4l-resetbtn {
+	display: block;
+	position: relative;
+	box-sizing: border-box;
+	/* Square, and as tall as the filter controls beside it. The height is
+	   written down rather than derived: with the theme's padding removed -
+	   which it has to be, or the box comes out oblong - there is nothing
+	   left for it to derive from. Leaves the button a rounding step below
+	   its neighbours, whose 39.75 rounds up to the same 40. */
+	width: 40px;
+	height: 40px;
+	padding: 0 !important;
+	margin: 0 !important;
+}
+.s4l-resetbtn::before {
+	content:""; position:absolute;
+	left:50%; top:50%; width:12px; height:12px; margin:-8px 0 0 -8px;
+	border:2px solid #3a3a3a; border-radius:50%;
+	border-top-color:transparent;
+}
+.s4l-resetbtn::after {
+	content:""; position:absolute;
+	left:50%; top:50%; width:0; height:0; margin:-9px 0 0 2px;
+	border-left:4px solid transparent;
+	border-right:4px solid transparent;
+	border-bottom:5px solid #3a3a3a;
+}
+/* Same line box the dropdowns of this page use (see .s4l-filterselects above),
+   otherwise the button comes out five pixels shorter than its neighbours. */
+.s4l-resetbtn.ui-btn { line-height:21px; min-height:21px; }
 .s4l-tbtn-reset::after
 {
 	content		:"";
@@ -351,6 +420,84 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 	background-color:#ffff99 !important;
 }
 
+/* The search field: magnifier, text position and the clear button
+   =============================================================================
+   jQuery Mobile builds this field in the browser: a wrapper <div
+   class="ui-input-search"> that carries the border, draws the magnifier as its
+   :after and holds an <a class="ui-input-clear"> for emptying it.
+
+   On LoxBerry 4 that falls apart, and the reason is the load order in
+   templates/system/head.html: the design system CSS comes AFTER jQuery Mobile.
+   components.css then styles every bare input, including ours:
+
+       .lb-content input[type="search"] { padding: 8px 12px;
+                                          border: 1px solid ...;
+                                          background: var(--lb-input-bg); }
+
+   while jQuery Mobile expects exactly the opposite for this input:
+
+       .ui-input-search input { border: 0; background: transparent none; }
+
+   So the input turns into an opaque box filling the wrapper: it covers the
+   magnifier, its text starts at 12px right at the edge, and the clear button
+   loses the ground it was drawn on.
+
+   Deliberately NOT solved by making the input transparent again. The yellow
+   highlight for an active search sits on the input itself
+   (influx.js: $('#filter_search').addClass('filter-highlight')), and a
+   transparent background would take it with it. Instead the two decorations are
+   lifted above the input and the text is given room.
+
+   The cross is drawn here rather than taken from the icon font: the disc that
+   jQuery Mobile's icons need comes from its theme, which LoxBerry 4 does not
+   supply - that is why the button appeared as a white square or not at all.
+   Same reason the clipboard icon further down is drawn by hand. */
+
+.ui-input-search:after { z-index: 2; }
+
+/* No [type="search"] in this selector: jQuery Mobile rewrites the attribute to
+   type="text" while enhancing the widget - measured in the browser, the input
+   ends up as <input type="text"> inside .ui-input-search. That is also why the
+   rule that bites is components.css's one for input[type="text"], and why an
+   override written against [type="search"] never applies. */
+.lb-content .ui-input-search input,
+.ui-input-search input { padding-left: 26px !important; }
+
+.ui-input-search .ui-btn.ui-input-clear {
+	z-index: 2;
+	width: 22px;
+	height: 22px;
+	margin: -11px .3125em 0 !important;
+	background: transparent !important;
+	border: 0 !important;
+	box-shadow: none !important;
+}
+/* One glyph instead of two rotated bars. The bars depended on the pseudo
+   elements keeping their size, position AND transform against whatever jQuery
+   Mobile and the design system declare for the same selectors; a plain "✕" only
+   has to be a character. font-size and text-indent have to be restored
+   explicitly - .ui-btn-icon-notext sets them to hide the button's own label
+   ("clear text"), and a pseudo element inherits both. */
+.ui-input-search .ui-btn.ui-input-clear:before { content: none !important; }
+.ui-input-search .ui-btn.ui-input-clear:after {
+	content: "\2715" !important;
+	position: absolute;
+	left: 0 !important;
+	top: 0 !important;
+	width: 22px !important;
+	height: 22px !important;
+	margin: 0 !important;
+	background: none !important;
+	background-image: none !important;
+	font-family: sans-serif;
+	font-size: 14px !important;
+	line-height: 22px !important;
+	text-align: center;
+	text-indent: 0 !important;
+	color: #555555;
+	opacity: .7;
+}
+
 /* Upload of a Loxone configuration (issue #101) */
 .loxplanrow
 {
@@ -373,11 +520,48 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 {
 	display		:flex;
 	flex-wrap	:wrap;
-	align-items	:center;
+	/* Bottom edges, like the radio group beside it. It was centred, and the
+	   three controls floated inside a box taller than themselves.
+
+	   The margin is the one jQuery Mobile puts under a controlgroup - .5em of
+	   its 12.5px mini font. The radio group next to this row has it, this row
+	   does not, and without it the controls ended six pixels lower. */
+	align-items	:flex-end;
+	margin-bottom	:6.25px;
 	gap		:8px;
 }
+
+/* The line between the search field and the table. It belongs to the search
+   above it, not to the table below - hence the clear gap underneath. */
+.s4l-summary {
+	padding:5px;
+	margin-bottom:14px;
+}
 .uploadrow input[type="file"] { max-width:260px; }
+/* Their own margins have to go, or "bottom" means different things for them.
+   jQuery Mobile wraps each of the three in a box of its own and gives those
+   boxes different vertical margins - 5.575px around a select and a button,
+   8px around the file field. flex-end lines up margin boxes, so the file field
+   came out two and a half pixels higher than the rest. Without the margins all
+   four controls of the row, radio buttons included, end on the same line. */
+.uploadrow > * { margin-top:0 !important; margin-bottom:0 !important; }
 .uploadrow select { min-width:120px; }
+
+/* Everything on this row is as tall as the radio buttons beside it.
+
+   They get their height from .s4l-filtergroup further up - a 21px line box
+   instead of the theme's 16.25 - and the dropdown, the file field and the
+   upload button did not, so the group looked like two rows of different sizes.
+   The file input is a native control and needs its box spelled out; the other
+   two follow the same line box as everything else in the filter rows. */
+.uploadrow .ui-select .ui-btn,
+.uploadrow #btnuploadloxplan { line-height:21px; min-height:21px; }
+.uploadrow input[type="file"] {
+	box-sizing:border-box;
+	height:40px;
+	line-height:21px;
+	padding:8px;
+}
 /* Greyed out while the configuration is fetched automatically. Not just faded:
    pointer-events keeps the field from being usable at all, otherwise a file
    could be picked that nothing would ever read. */
@@ -630,6 +814,7 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 <div class="datahidden" id="lang_hint_no_statistics"><TMPL_VAR SETTINGS.HINT_NO_STATISTICS></div>
 <div class="datahidden" id="lang_hint_statistics_undescribed"><TMPL_VAR SETTINGS.HINT_STATISTICS_UNDESCRIBED></div>
 <div class="datahidden" id="lang_hint_import_borrowed"><TMPL_VAR SETTINGS.HINT_IMPORT_BORROWED></div>
+<div class="datahidden" id="lang_hint_summary"><TMPL_VAR SETTINGS.HINT_SUMMARY></div>
 <div class="datahidden" id="lang_error_live_data_title"><TMPL_VAR SETTINGS.ERROR_LIVE_DATA_TITLE></div>
 <div class="datahidden" id="lang_label_information"><TMPL_VAR SETTINGS.LABEL_INFORMATION></div>
 <div class="datahidden" id="lang_error_live_query"><TMPL_VAR SETTINGS.ERROR_LIVE_QUERY></div>
@@ -906,7 +1091,7 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 
 <!-- Filter Loxone Visu enabled -->
 
-<div style="display:flex;align-items:flex-end;">
+<div style="display:flex;align-items:flex-end;flex-wrap:wrap;">
 	<div style="padding:5px;">
 	<fieldset data-role="controlgroup" data-type="horizontal" data-mini="true" class="s4l-filtergroup">
 		<legend><TMPL_VAR SETTINGS.LABEL_LOXONE_VISU></legend>
@@ -1001,12 +1186,35 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 
 
 
+
+	<!-- Everything back to "all". Icon only, wording in the tooltip: "Alle Filter
+	     zurücksetzen" is far too long for a button in this row, and the circular
+	     arrow is the same one the status reset in the table already uses.
+
+	     The search field is deliberately left untouched - it is the one filter a
+	     user types on purpose, and it sits in its own row below anyway.
+
+	     In the same controlgroup its neighbours use, but without their legend:
+	     the controlgroup carries a bottom margin of its own, and in a bare div
+	     the button sat seven pixels below every dropdown. A legend would push it
+	     back down again - it is the caption of a filter group, and this is not
+	     one. -->
+	<div class="s4l-resetfilterwrap">
+	<fieldset data-role="controlgroup" data-type="horizontal" data-mini="true">
+		<a href="#" id="btnResetFilters" class="ui-btn ui-mini ui-corner-all s4l-resetbtn"
+		   title="<TMPL_VAR COMMON.BUTTON_RESET_FILTERS>"
+		   aria-label="<TMPL_VAR COMMON.BUTTON_RESET_FILTERS>"></a>
+	</fieldset>
+	</div>
+
 </div>
 
 <!-- Search line -->
 <div>
 	<input type="search" name="filter_search" id="filter_search" value="" data-mini="true" data-clear-btn="true">
 </div>
+
+<div id="loxone_summary" class="small grayed s4l-summary">&nbsp;</div>
 
 
 <!-- Table -->

@@ -26,6 +26,11 @@ let getImportSchedulerReport_running = false;
 
 let imports = [];
 
+// What the summary line under the search field reports. Filled while the table
+// body is built, because that is the one place that knows which rows survive
+// the filters.
+let summaryCounts = { total:0, s4l:0, green:0, yellow:0, red:0 };
+
 $(function() {
 	
 	// debugger;
@@ -84,6 +89,35 @@ $(function() {
 		updateReportTables();
 	});
 	
+	// Every dropdown and radio filter back to "all" in one go.
+	//
+	// The search field is left alone on purpose: it is the one filter the user
+	// typed themselves, and it lives in its own row below the block. Emptying it
+	// as well would throw away work that was not asked to be thrown away.
+	$(document).on( 'click', '#btnResetFilters', function(event) {
+		event.preventDefault();
+
+		$('input.filter_radio[value="all"]').prop('checked', true);
+		try { $('input.filter_radio').checkboxradio('refresh'); } catch(e) {}
+
+		$('select.filter_select').each( function() {
+			try { $(this).val('all').selectmenu('refresh'); } catch(e) { $(this).val('all'); }
+			// Where the yellow marker sits differs between the change handler
+			// (parent) and restoreFilters (closest .ui-btn) - clear both.
+			$(this).parent().removeClass('filter-highlight');
+			$(this).closest('.ui-btn').removeClass('filter-highlight');
+		});
+
+		for( const key of Object.keys(filters) ) {
+			if( key == "filter_search" ) continue;
+			filters[key] = "all";
+		}
+
+		saveFilters();
+		updateTable();
+		updateReportTables();
+	});
+
 	// Create S4L Stat change bindings (Detail View)
 	jQuery(document).on('change focusout keyup','.s4lchange',function (event, ui) {
 		console.log( ".s4lchange binding entered");
@@ -236,22 +270,22 @@ $(function() {
 	});
 	$("#filter_search").on( "change", function(event, ui){
 		if( $(event.target).val() == "" ) {
-			// $('#filter_search').css({'backgroundColor':'white'});
-			$('#filter_search').removeClass('filter-highlight');
-			$('#filter_search').attr("data-clear-btn", false);
-			window.clearTimeout(filterSearchDelay); 
+			window.clearTimeout(filterSearchDelay);
 			filterSearchString = $(event.target).val();
 			filters["filter_search"] = filterSearchString;
 			saveFilters();
 			updateTable();
 			updateReportTables();
-		} else {
-			// $('#filter_search').css({'backgroundColor':'#FFFF99'});
-			$('#filter_search').addClass('filter-highlight');
-			$('#filter_search').attr("data-clear-btn", true);
 		}
-
+		syncSearchDecorations();
 	});
+
+	// The field can be filled without anyone typing: restoreFilters puts the
+	// last search back, and the browser restores it by itself when the page is
+	// reloaded. Both leave the decorations behind, so they are set once here as
+	// well - on load, because jQuery Mobile builds the clear button while it
+	// enhances the page and there is nothing to address before that.
+	$(window).on( "load", syncSearchDecorations );
 
 	// Bind Loxone Details button
 	jQuery(document).on('click', '.btnLoxoneDetails', function(event, ui){
@@ -621,6 +655,23 @@ function updateTable() {
 	
 	$("#loxonecontrolstablediv").html( controlstable );
 	$("#loxonecontrolstablediv").removeClass("datahidden");
+
+	// One line saying what is on the table, like the InfluxDB page has.
+	//
+	// It counts what is SHOWN, not what exists: with a filter in place the
+	// numbers are about the selection, which is the point - a half empty table
+	// otherwise leaves the reader guessing whether that is all there is.
+	//
+	// The three colours only apply to blocks that carry a Stats4Lox statistic.
+	// A block without one has no status at all - statusColour(null) answers
+	// "green", which would quietly turn every unused block into a good one.
+	$('#loxone_summary').text(
+		$('#lang_hint_summary').text()
+			.replace( '__TOTAL__',  summaryCounts.total )
+			.replace( '__S4L__',    summaryCounts.s4l )
+			.replace( '__GREEN__',  summaryCounts.green )
+			.replace( '__YELLOW__', summaryCounts.yellow )
+			.replace( '__RED__',    summaryCounts.red ) );
 	
 	
 	
@@ -964,6 +1015,8 @@ function createTableBody() {
 
 	var filterSearchStr_lc = filterSearchString.toLowerCase();
 
+	summaryCounts = { total:0, s4l:0, green:0, yellow:0, red:0 };
+
 	// One list for both kinds, so a statistic without a block appears where its
 	// name belongs instead of being appended at the end.
 	var rows = sortRows( controls.concat( orphanControls() ) );
@@ -1044,6 +1097,12 @@ function createTableBody() {
 		// Create row section
 		//
 		
+		summaryCounts.total++;
+		if( typeof statmatch !== "undefined" ) {
+			summaryCounts.s4l++;
+			summaryCounts[ statusColour( statusOf(statmatch) ) ]++;
+		}
+
 		controlstable += `<tr class="controlstable_tr${element._orphan ? ' orphanrow' : ''}" data-uid="${element.UID}" data-msno="${element.msno}">`;
 		
 		// Miniserver
@@ -1592,6 +1651,27 @@ function popupLoxoneDetails_LiveViewError( data ) {
 }
 
 // Saves all filter properties
+// Yellow background and clear button follow the content of the search field.
+//
+// The yellow part was there before; the clear button is the reason this became a
+// function. jQuery Mobile shows and hides it by toggling ui-input-clear-hidden,
+// and it only does that from its own key handlers. A value that arrives any
+// other way - restored from localStorage, put back by the browser after a
+// reload, set from code - leaves the button hidden although the field is full.
+//
+// Setting data-clear-btn, which this code did before, changes nothing after the
+// widget has been built: jQuery Mobile reads that attribute once, while
+// enhancing.
+function syncSearchDecorations() {
+
+	var field = $('#filter_search');
+	if( !field.length ) return;
+	var filled = field.val() !== "";
+
+	field.toggleClass( 'filter-highlight', filled );
+	field.parent().find('.ui-input-clear').toggleClass( 'ui-input-clear-hidden', !filled );
+}
+
 function saveFilters() {
 	
 	localStorage.setItem("s4l_loxone_filters", JSON.stringify(filters));
@@ -1626,15 +1706,7 @@ function restoreFilters() {
 			else if( key == "filter_search" ) {
 				$(`#${key}`).val( value );
 				filterSearchString = value;
-				if (filterSearchString != "") {
-					// $('#filter_search').css({'backgroundColor':'#FFFF99'});
-					$('#filter_search').addClass('filter-highlight');
-					$('#filter_search').data("clear-btn", true);
-				} else {
-					// $('#filter_search').css({'backgroundColor':'white'});
-					$('#filter_search').removeClass('filter-highlight');
-					$('#filter_search').data("clear-btn", false);
-				}
+				syncSearchDecorations();
 
 			}
 		}

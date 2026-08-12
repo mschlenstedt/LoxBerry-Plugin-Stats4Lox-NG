@@ -9,6 +9,23 @@
 let measurements = [];          // one entry per measurement
 let byName = {};                // name -> entry, for the updates that follow
 let filters = { status: "all", source: "all", search: "" };
+
+// Yellow background and clear button follow the content of the search field.
+//
+// jQuery Mobile shows and hides its clear button by toggling
+// ui-input-clear-hidden, and it only does that from its own key handlers. A
+// value that arrives any other way - restored by the browser after a reload,
+// set from code - leaves the button hidden although the field is full. The
+// Loxone page has the same function for the same reason.
+function syncSearchDecorations() {
+
+	var field = $('#filter_search');
+	if( !field.length ) return;
+	var filled = field.val() !== "";
+
+	field.toggleClass( 'filter-highlight', filled );
+	field.parent().find('.ui-input-clear').toggleClass( 'ui-input-clear-hidden', !filled );
+}
 let tableSort = { key: "name", dir: 1 };
 let dropTarget = null;
 
@@ -36,13 +53,50 @@ $(function() {
 	// field does not fire input, only change. With input alone the field went
 	// empty while the filter and the yellow background stayed - the Loxone page
 	// has a second handler for exactly this.
+	// The decorations follow every keystroke, the table does not.
+	//
+	// updateTable filters, sorts and rebuilds every row - 160 measurements on
+	// the test installation, with a localeCompare per comparison. Running that
+	// on every character made the tab stop responding while typing. The Loxone
+	// page has waited half a second for the same reason since it was written;
+	// this one never did.
+	//
+	// The yellow background and the clear button stay immediate: they are two
+	// class toggles, and a search field that reacts late feels broken.
+	let searchDelay;
 	function searchChanged() {
 		filters.search = $("#filter_search").val().toLowerCase();
-		if( filters.search != "" ) $('#filter_search').addClass('filter-highlight');
-		else                       $('#filter_search').removeClass('filter-highlight');
-		updateTable();
+		syncSearchDecorations();
+		window.clearTimeout( searchDelay );
+		searchDelay = window.setTimeout( updateTable, 500 );
 	}
 	$("#filter_search").on( "input change", searchChanged );
+
+	// The field can be filled without anyone typing: the browser puts the last
+	// search back when the page is reloaded. That leaves both decorations
+	// behind, so they are set once on load - after jQuery Mobile has built the
+	// clear button, which is the thing being addressed.
+	$(window).on( "load", function() { searchChanged(); } );
+
+	// Every dropdown and radio filter back to "all" in one go - see the Loxone
+	// page, which has the same button. The search field keeps its content: it is
+	// the one filter the user typed themselves.
+	jQuery(document).on('click', '#btnResetFilters', function(event){
+		event.preventDefault();
+
+		$('input.filter_radio[value="all"]').prop('checked', true);
+		try { $('input.filter_radio').checkboxradio('refresh'); } catch(e) {}
+
+		$('select.filter_select').each( function() {
+			try { $(this).val('all').selectmenu('refresh'); } catch(e) { $(this).val('all'); }
+			$(this).parent().removeClass('filter-highlight');
+			$(this).closest('.ui-btn').removeClass('filter-highlight');
+		});
+
+		filters.status = "all";
+		filters.source = "all";
+		updateTable();
+	});
 
 	jQuery(document).on('click', '.influxtable th.s4l-sortable', function(){
 		var key = $(this).data("sortkey");
