@@ -9,7 +9,7 @@ use lib "$Bin/../../../../bin/plugins/REPLACELBPPLUGINDIR/libs/";
 use Globals;
 
 init_navbar_i18n();
-LoxBerry::Web::lbheader("Stats4Lox", undef, undef);
+LoxBerry::Web::lbheader( Globals::page_title("Stats4Lox"), $Globals::wikiurl, undef );
 
 my $template = HTML::Template->new(
     filename => "$lbptemplatedir/home.html",

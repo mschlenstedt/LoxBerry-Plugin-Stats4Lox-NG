@@ -15,7 +15,7 @@ $htmlhead .= js_tag( $Bin, 'mqttcollector.js' );
 $main::navbar{20}{active} = 1;
 
 init_navbar_i18n();
-LoxBerry::Web::lbheader("MQTT Collector - LoxBerry Stats4Lox", undef, undef);
+LoxBerry::Web::lbheader( Globals::page_title("MQTT Collector - LoxBerry Stats4Lox"), $Globals::wikiurl, undef );
 
 my $template = HTML::Template->new(
     filename => "$lbptemplatedir/mqttcollector.html",

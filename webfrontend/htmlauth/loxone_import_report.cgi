@@ -15,7 +15,7 @@ $htmlhead .= js_tag( $Bin, 'loxone_import_report.js' );
 $main::navbar{10}{active} = 1;
 
 init_navbar_i18n();
-LoxBerry::Web::lbheader("Import Report - LoxBerry Stats4Lox", undef, undef);
+LoxBerry::Web::lbheader( Globals::page_title("Import Report - LoxBerry Stats4Lox"), $Globals::wikiurl, undef );
 
 my $template = HTML::Template->new(
     filename => "$lbptemplatedir/loxone_import_report.html",

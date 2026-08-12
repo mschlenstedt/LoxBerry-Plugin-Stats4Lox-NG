@@ -19,10 +19,10 @@ my %L = LoxBerry::System::readlanguage($template, "language.ini");
 # This page loads Globals with require rather than use, so the exported name
 # is not imported into main - the call needs its package name.
 Globals::init_navbar_i18n();
-# The help link pointed at https://loxwiki.eu, which Loxone has retired. This
-# was the only page passing a help url at all - every other page passes undef,
-# so no dead link is shown anywhere now (issue #144).
-LoxBerry::Web::lbheader("Stats4Lox", undef, undef);
+# The help link used to point at https://loxwiki.eu, which Loxone has retired,
+# and was removed rather than replaced (issue #144). The plugin has a wiki page
+# of its own now, and every page of it links there - see $Globals::wikiurl.
+LoxBerry::Web::lbheader( Globals::page_title("Stats4Lox"), $Globals::wikiurl, undef );
 
 $template->param('LOGLIST_HTML', LoxBerry::Web::loglist_html());
 

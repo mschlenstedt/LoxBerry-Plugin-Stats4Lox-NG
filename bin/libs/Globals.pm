@@ -92,6 +92,28 @@ sub js_tag
 # Internal variable, if merge_config was already called
 my $config_is_parsed;
 
+# The heading of a page, with the installed version behind it.
+#
+# A sub and not a variable: the version comes from the plugin database, and
+# Globals.pm is also loaded by the grabbers on every cycle - they have no use
+# for it and should not pay a file read for it. Called only where a page is
+# built, which happens once per request.
+sub page_title
+{
+	my ($title) = @_;
+	$title = "Stats4Lox" if( !$title );
+	my $version = LoxBerry::System::pluginversion();
+	return $version ? "$title V$version" : $title;
+}
+
+# The documentation, behind the question mark in the page header.
+#
+# Written down once and used by every page: eleven copies of a URL are eleven
+# places to forget when it moves - which is what happened to the last one. The
+# old link went to loxwiki.eu, Loxone retired that, and the dead link was
+# removed from the single page that had it (issue #144) rather than replaced.
+our $wikiurl = "https://wiki.loxberry.de/plugins/statistics_4_loxone/start";
+
 # Main configuration files (not changeable in stats4lox.json)
 our $statsconfig = "$LoxBerry::System::lbpconfigdir/stats.json";
 our $stats4loxconfig = "$LoxBerry::System::lbpconfigdir/stats4lox.json";

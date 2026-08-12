@@ -14,7 +14,7 @@ our $htmlhead = "";
 $htmlhead .= js_tag( $Bin, 'influx.js' );
 
 init_navbar_i18n();
-LoxBerry::Web::lbheader("Stats4Lox", undef, undef);
+LoxBerry::Web::lbheader( Globals::page_title("Stats4Lox"), $Globals::wikiurl, undef );
 
 my $template = HTML::Template->new(
     filename => "$lbptemplatedir/influx.html",

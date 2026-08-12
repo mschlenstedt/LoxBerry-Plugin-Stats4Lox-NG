@@ -16,7 +16,7 @@ $htmlhead .= js_tag( $Bin, 'datasources_sub_navbar.js' );
 $main::navbar{20}{active} = 1;
 
 init_navbar_i18n();
-LoxBerry::Web::lbheader("Stats4Lox", undef, undef);
+LoxBerry::Web::lbheader( Globals::page_title("Stats4Lox"), $Globals::wikiurl, undef );
 
 my $template = HTML::Template->new(
     filename => "$lbptemplatedir/loxberry.html",

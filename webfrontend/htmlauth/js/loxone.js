@@ -268,14 +268,22 @@ $(function() {
 		// console.log("Text filter", filterSearchString);
 		filterSearchDelay = window.setTimeout(function() { updateTable(); updateReportTables(); }, 500);
 	});
+	// change fires where input does not: the clear button jQuery Mobile puts in
+	// the field.
+	//
+	// The table is rebuilt on a timer here as well, not straight away. It used
+	// to be immediate, and the field then took a second to look empty - measured
+	// on this installation, updateTable is 675ms and updateReportTables another
+	// 180, and nothing repaints while they run. The click looked like it had not
+	// arrived. The decorations are set at once, so the field answers immediately
+	// and the table follows.
 	$("#filter_search").on( "change", function(event, ui){
 		if( $(event.target).val() == "" ) {
 			window.clearTimeout(filterSearchDelay);
 			filterSearchString = $(event.target).val();
 			filters["filter_search"] = filterSearchString;
 			saveFilters();
-			updateTable();
-			updateReportTables();
+			filterSearchDelay = window.setTimeout(function() { updateTable(); updateReportTables(); }, 500);
 		}
 		syncSearchDecorations();
 	});
