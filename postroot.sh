@@ -618,25 +618,32 @@ for s4l_pair in "influxdb:influxdb" "telegraf:telegraf" "grafana-server:grafana"
 	# Telegraf opens its own logfile ($PLOG/telegraf.log, set in telegraf.conf) as
 	# user telegraf on every start, whatever the diagnostic switch says. The
 	# installation gives that file to telegraf and the directory group write, but
-	# LoxBerry undoes both on every boot: createtmpfs.service runs
-	# sbin/createtmpfsfoldersinit.sh, which does a blanket
-	#   chown -R loxberry:loxberry  and  chmod -R 755  on log/plugins
-	# before bind-mounting it. telegraf.log is then owned by loxberry and only
-	# group-readable, and telegraf - group loxberry, not owner - can no longer open
-	# it, so it exits at once:
+	# LoxBerry undoes that on every boot, in one of two ways depending on the
+	# hardware - createtmpfs.service runs sbin/createtmpfsfoldersinit.sh, which
+	# manages log/plugins:
+	#
+	#   - On a Raspberry Pi (the reporter's setup, forum #489786) log/plugins is a
+	#     tmpfs: the reboot WIPES it, telegraf.log is gone and the directory is
+	#     recreated loxberry:loxberry, mode 755.
+	#   - On a VM (test box 192.168.3.142) it is on disk and survives, but the
+	#     script still does a blanket "chown -R loxberry:loxberry" and
+	#     "chmod -R 755" on it - so telegraf.log ends up owned by loxberry and only
+	#     group-readable.
+	#
+	# Either way telegraf - group loxberry, not owner - can no longer open its log
+	# and exits at once:
 	#
 	#   E! [telegraf] Error running agent: setting up logging failed:
 	#      open .../telegraf.log: permission denied
 	#
 	# That is why "the plugin does not work after a reboot", and why a manual
-	# restart did not help either - the boot-time ownership stood until the next
-	# install (forum #489786). Measured on a LoxBerry 3.0.1.3 box: log/plugins is
-	# NOT a ramdisk there (it survives on the SD card), so it really is the chown,
-	# not a wipe. postroot only sets the file up at install time, so the reset
-	# returns on every boot. An ExecStartPre repairs it right before telegraf
-	# itself starts - on boot after the chown has run, and on every manual restart
-	# alike. "+" runs it as root regardless of the unit's User=telegraf, which the
-	# chown and the directory chmod both need.
+	# restart did not help either - the boot-time state stood until the next
+	# install (postroot only sets the file up at install time). An ExecStartPre
+	# repairs it right before telegraf itself starts, covering both cases: mkdir -p
+	# for the wiped directory, chown/chmod for the reset ownership - on boot after
+	# createtmpfsfoldersinit has run, and on every manual restart alike. "+" runs
+	# it as root regardless of the unit's User=telegraf, which the chown and the
+	# directory chmod both need.
 	if [ "$s4l_svc" = "telegraf" ]; then
 		printf "ExecStartPre=+/bin/sh -c 'mkdir -p %s && chmod 0775 %s && touch %s/telegraf.log && chown telegraf:loxberry %s/telegraf.log && chmod 0664 %s/telegraf.log'\n" \
 			"$PLOG" "$PLOG" "$PLOG" "$PLOG" "$PLOG" >> "$s4l_file.s4lnew"
