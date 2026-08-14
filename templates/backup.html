@@ -27,6 +27,12 @@
 	   so the indent has to disappear there - hence the media query. */
 	.s4lrow
 	{
+		/* flex-wrap belongs on the row, not inherited from .lb_flex-container:
+		   LoxBerry 4's main.css sets the base container to wrap, LoxBerry 3's older
+		   one leaves it at nowrap. Without it the help column stays on the field
+		   line, the field (flex:1 1 0) is squeezed to 0 and the widgets inside
+		   collapse (forum #489771). No-op on V4. */
+		flex-wrap	:wrap;
 		align-items	:flex-start;
 		margin-bottom	:16px;
 	}
