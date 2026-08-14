@@ -482,6 +482,18 @@ if( $q->{action} eq "updatestat" ) {
 	# the slow part of this handler, provisioning the dashboard, was measured at
 	# 0.06 s for a block with three outputs.
 	my $cfg = $jsonobjcfg->open(filename => $statsconfig, lockexclusive => 1, locktimeout => 10);
+	# A fresh installation ships stats.json as an empty object {}, and nothing in
+	# the plugin ever turns that into { "loxone": [] } - every reader and writer
+	# only tests for the array and bails when it is missing, none of them creates
+	# it. The very first statistic a user activated was therefore rejected below
+	# with HTTP 500 ("stats.json could not be opened or locked"), and because the
+	# page has no fail handler on this POST the error was invisible: the values
+	# looked saved until the next reload showed them gone (forum #489771).
+	#
+	# Created here so the first save works. Guarded by "$cfg and", so a failed open
+	# stays undef and remains a real error further down - reading $cfg->{loxone}
+	# unguarded would autovivify $cfg into a hash and mask that.
+	$cfg->{loxone} = [] if( $cfg and ref($cfg->{loxone}) ne 'ARRAY' );
 	my @searchresult = ( $cfg and ref($cfg->{loxone}) eq 'ARRAY' )
 		? $jsonobjcfg->find( $cfg->{loxone}, "\$_->{uuid} eq \"".$q->{uuid}."\"" )
 		: ();
