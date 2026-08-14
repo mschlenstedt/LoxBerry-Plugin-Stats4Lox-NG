@@ -9,6 +9,15 @@
 	   indent has to disappear there. */
 	.s4lrow
 	{
+		/* flex-wrap belongs on the row, not inherited from .lb_flex-container:
+		   LoxBerry 4's main.css sets the base container to wrap, but LoxBerry 3's
+		   older main.css leaves it at nowrap. Without wrapping, the help column
+		   (width ~100%) stays on the label/field line, the field (flex:1 1 0) is
+		   squeezed to 0, and every jQM widget inside it collapses - the selects
+		   then clip their own text to a few pixels and the help sits beside the
+		   field instead of under it. Setting it here fixes V3 and is a no-op on V4
+		   (forum #489771). */
+		flex-wrap	:wrap;
 		align-items	:flex-start;
 		margin-bottom	:16px;
 	}
