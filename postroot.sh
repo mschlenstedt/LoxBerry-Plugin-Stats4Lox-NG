@@ -522,26 +522,40 @@ echo "<INFO> Set permissions for user influxdb for all config/data folders: $PDA
 chown -R influxdb:loxberry $PDATA/influxdb
 chown -R influxdb:loxberry $PCONFIG/influxdb
 
-# InfluxDB 1.12 refuses to start when the TLS private key is readable by anyone
-# but its owner:
+# InfluxDB 1.12 refuses to start when its TLS files are readable or writable by
+# anyone they should not be. It checks BOTH files, with DIFFERENT limits:
+#
+#   private key  maximum 0600 (-rw-------)
+#   certificate  maximum 0644 (-rw-r--r--)
 #
 #   run: open server: open service: httpd: error creating TLS manager:
 #   LoadCertificate: file permissions are too open: maximum is 0600 (-rw-------)
 #   but found 0640 (-rw-r-----)
 #
-# 1.8 accepted 0640/0660, so EVERY installation upgraded from 1.8 carries a key
+# 1.8 accepted 0640/0660, so EVERY installation upgraded from 1.8 carries files
 # that the new version rejects - the service then dies a few seconds after
 # start, which systemd only reports as "New main PID does not exist or is a
 # zombie" because our drop-in sends influxd's own output to /dev/null.
 #
-# Therefore enforced on every run and not only when the key is created, so that
+# Which of the two files trips first depends on the age of the installation,
+# because this script itself created them differently over the years: up to 2023
+# with "chmod 640 ...selfsigned.*" (certificate passes, key fails), afterwards
+# with "chmod 660 ...selfsigned.*" (both fail). Repairing only the key was
+# therefore enough on the machine the 1.12 problem was first found on, and not
+# enough for issue #150, where the 0660 certificate became the next stumbling
+# block after the key had been fixed.
+#
+# Enforced on every run and not only when the files are created, so that
 # existing installations are repaired by the upgrade. Only influxd itself reads
 # these two files (https-certificate/https-private-key in influxdb.conf), so
-# restricting the key breaks nothing else.
+# tightening them breaks nothing else.
 if [ -e "$PCONFIG/influxdb/influxdb-selfsigned.key" ]; then
 	chmod 600 "$PCONFIG/influxdb/influxdb-selfsigned.key"
-	echo "<INFO> Restricted InfluxDB private key to 0600 - required since InfluxDB 1.12."
 fi
+if [ -e "$PCONFIG/influxdb/influxdb-selfsigned.crt" ]; then
+	chmod 644 "$PCONFIG/influxdb/influxdb-selfsigned.crt"
+fi
+echo "<INFO> Restricted InfluxDB TLS files (key 0600, certificate 0644) - required since InfluxDB 1.12."
 
 echo "<INFO> Checking InfluxDB configuration for obsolete options..."
 s4l_migrate_influxdb_config "$PCONFIG/influxdb/influxdb.conf"
