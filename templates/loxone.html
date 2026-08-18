@@ -778,6 +778,7 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 <div class="datahidden" id="lang_hint_deactivate_done"><TMPL_VAR SETTINGS.HINT_DEACTIVATE_DONE></div>
 <div class="datahidden" id="lang_hint_delete_done"><TMPL_VAR SETTINGS.HINT_DELETE_DONE></div>
 <div class="datahidden" id="lang_hint_delete_fail"><TMPL_VAR SETTINGS.HINT_DELETE_FAIL></div>
+<div class="datahidden" id="lang_hint_save_fail"><TMPL_VAR SETTINGS.HINT_SAVE_FAIL></div>
 <div class="datahidden" id="lang_hint_reset_done"><TMPL_VAR SETTINGS.HINT_RESET_DONE></div>
 <div class="datahidden" id="lang_hint_block_gone"><TMPL_VAR SETTINGS.HINT_BLOCK_GONE></div>
 <div class="datahidden" id="lang_th_import"><TMPL_VAR SETTINGS.TH_IMPORT></div>
@@ -946,6 +947,17 @@ tr:nth-child(odd).controlstable_tr {background: #FFF}
 				<tr class="LoxoneDetails_tr" id="LoxoneDetails_s4lstatintervalwarnrow" style="display:none">
 					<td class="LoxoneDetails_td" colspan="3">
 						<div class="small" id="LoxoneDetails_s4lstatintervalwarn" style="color:#c0392b"></div>
+					</td>
+				</tr>
+
+				<!-- A save that ajax.cgi refused. Shown here because until now a
+				     rejected save looked exactly like an accepted one - the popup
+				     kept the values on screen and only the next reload showed that
+				     nothing had been written (issue #145). Carries the reason the
+				     backend gave, so the next report names it. -->
+				<tr class="LoxoneDetails_tr" id="LoxoneDetails_s4lsaveerrorrow" style="display:none">
+					<td class="LoxoneDetails_td" colspan="3">
+						<div class="small" id="LoxoneDetails_s4lsaveerror" style="color:#c0392b"></div>
 					</td>
 				</tr>
 

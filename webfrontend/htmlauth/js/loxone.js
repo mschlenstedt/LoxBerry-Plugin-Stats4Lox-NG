@@ -229,6 +229,9 @@ $(function() {
 			
 		})
 		.done(function(data){
+			// A previous attempt may have left its message standing.
+			s4lSaveError( null );
+			
 			// Find internal key of statistic element
 			
 			var statkey = statsconfigLoxone.findIndex(obj => {
@@ -255,6 +258,22 @@ $(function() {
 			updateTable();
 			updateReportTables(data);
 			
+		})
+		// Nothing was bound here until now, and a refused save was indistinguishable
+		// from an accepted one: the popup kept the values on screen, and only the
+		// next reload showed that nothing had been written. updatestat refuses with
+		// HTTP 500 and { "error": ... } for six reasons - stats.json unreadable or
+		// unlockable, outputs without matching keys and labels, a missing
+		// name/uuid/msno/active - and a dashboard provisioning that dies ends the
+		// request with no answer at all. Only one of them was ever addressed (forum
+		// #489771, the empty stats.json of a fresh install); the silence around the
+		// rest made the same symptom look like a new bug the next time (issue #145).
+		.fail(function(jqXHR){
+			var msg;
+			try { msg = JSON.parse( jqXHR.responseText ).error; } catch(e) { msg = undefined; }
+			if( !msg ) { msg = "HTTP " + jqXHR.status; }
+			console.log( "updatestat failed", msg );
+			s4lSaveError( msg );
 		});
 	});
 	
@@ -1326,6 +1345,8 @@ function resetStatStatus( uid, msno ) {
 function popupLoxoneDetails( uid, msno ) {
 	$("#popupLoxoneDetails").popup("option","positionTo","window"); 
 	$("#popupLoxoneDetails").popup("open");
+	// A message left over from the block this popup showed before.
+	s4lSaveError( null );
 	if(hints_hide?.hint_importbutton != true) {
 		$("#hint_importbutton").show();
 	}
@@ -1896,6 +1917,25 @@ function s4lIntervalOk() {
 		row.hide();
 	}
 	return !bad;
+}
+
+// The reason a save was refused, or nothing at all.
+//
+// Built like the interval warning above: the row is shown and hidden, not only
+// the text, so no empty band sits in the table while everything is in order.
+// The reason from ajax.cgi is appended untranslated - it names the cause, and
+// it is what a bug report needs. Put in as text and never as html: it comes
+// from a response.
+function s4lSaveError( msg ) {
+	var box = $("#LoxoneDetails_s4lsaveerror");
+	var row = $("#LoxoneDetails_s4lsaveerrorrow");
+	if( !msg ) {
+		box.text("");
+		row.hide();
+		return;
+	}
+	box.text( $("#lang_hint_save_fail").text() + " " + msg );
+	row.show();
 }
 
 function validateMeasurementname( measurementname, msno, uid ) {
