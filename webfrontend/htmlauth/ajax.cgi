@@ -934,9 +934,25 @@ sub s4l_servicelog_follow_loglevel
 }
 
 
+# Remembers in stats4lox.json whether the user wants a service running, like
+# mqttlive_active. The healthcheck reads it: a service that is off with its flag
+# on False is INFO, without it an ERROR. Written BEFORE stopping, so a healthcheck
+# that runs in between never sees a stopped service without the flag.
+sub s4l_service_flag
+{
+	my ($key, $value) = @_;
+	my $jsonobj = LoxBerry::JSON->new();
+	my $cfg = $jsonobj->open( filename => $stats4loxconfig, lockexclusive => 1, locktimeout => 10 );
+	return if( !$cfg );
+	$cfg->{stats4lox}->{$key} = $value;
+	$jsonobj->write();
+	return;
+}
+
 ## starttelegraf
 if( $q->{action} eq "starttelegraf" ) {
 	s4l_servicelog_follow_loglevel();
+	s4l_service_flag( 'telegraf_active', 'True' );
 	system ("sudo systemctl enable telegraf >/dev/null 2>&1");
 	system ("sudo systemctl restart telegraf >/dev/null 2>&1");
 	$response = $?;
@@ -944,6 +960,7 @@ if( $q->{action} eq "starttelegraf" ) {
 
 ## stoptelegraf
 if( $q->{action} eq "stoptelegraf" ) {
+	s4l_service_flag( 'telegraf_active', 'False' );
 	system ("sudo systemctl disable telegraf >/dev/null 2>&1");
 	system ("sudo systemctl stop telegraf >/dev/null 2>&1");
 	$response = $?;
@@ -952,6 +969,7 @@ if( $q->{action} eq "stoptelegraf" ) {
 ## startinfluxdb
 if( $q->{action} eq "startinfluxdb" ) {
 	s4l_servicelog_follow_loglevel();
+	s4l_service_flag( 'influxdb_active', 'True' );
 	system ("sudo systemctl enable influxdb >/dev/null 2>&1");
 	system ("sudo systemctl restart influxdb >/dev/null 2>&1");
 	$response = $?;
@@ -959,6 +977,7 @@ if( $q->{action} eq "startinfluxdb" ) {
 
 ## stopinfluxdb
 if( $q->{action} eq "stopinfluxdb" ) {
+	s4l_service_flag( 'influxdb_active', 'False' );
 	system ("sudo systemctl disable influxdb >/dev/null 2>&1");
 	system ("sudo systemctl stop influxdb >/dev/null 2>&1");
 	$response = $?;
@@ -967,6 +986,7 @@ if( $q->{action} eq "stopinfluxdb" ) {
 ## startgrafana-server
 if( $q->{action} eq "startgrafana-server" ) {
 	s4l_servicelog_follow_loglevel();
+	s4l_service_flag( 'grafana_active', 'True' );
 	system ("sudo systemctl enable grafana-server >/dev/null 2>&1");
 	system ("sudo systemctl restart grafana-server >/dev/null 2>&1");
 	$response = $?;
@@ -974,6 +994,7 @@ if( $q->{action} eq "startgrafana-server" ) {
 
 ## stopgrafana-server
 if( $q->{action} eq "stopgrafana-server" ) {
+	s4l_service_flag( 'grafana_active', 'False' );
 	system ("sudo systemctl disable grafana-server >/dev/null 2>&1");
 	system ("sudo systemctl stop grafana-server >/dev/null 2>&1");
 	$response = $?;

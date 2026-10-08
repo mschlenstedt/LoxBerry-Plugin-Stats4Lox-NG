@@ -126,42 +126,76 @@ sub sec2human
 # Services
 #############################################################################
 # pgrep on the binary, the same way the plugin's own service display does it -
-# systemctl would be one fork per service and says less: influxd can be active
-# according to systemd while the process is stuck.
+# systemctl is-active says less: influxd can be active according to systemd while
+# the process is stuck.
+#
+# pgrep is started WITHOUT a shell, on purpose. With a redirect in backticks Perl
+# hands the line to sh -c, and that shell's own command line contains the pattern:
+# pgrep -f excludes itself but not its parent, so every service counted as running
+# with the PID of a shell that was gone a moment later - measured with all three
+# stopped.
+sub pid_of
+{
+	my ($pattern) = @_;
+	open( my $fh, '-|', 'pgrep', '-f', $pattern ) or return;
+	my $pid = <$fh>;
+	close $fh;
+	return if( !$pid );
+	chomp $pid;
+	return $pid;
+}
+
+# The Stop and Start buttons on the plugin's start page set a flag in
+# stats4lox.json, the same way mqttlive_active has always worked. A service whose
+# flag says False was switched off on purpose: like check_mqtt in the core, that is
+# INFO, not an error, and neither is anything that only works while that service
+# runs. No flag at all - an installation older than the flags - means the service
+# is meant to run, so one that is not running is still an error.
+my %unitoff;
+{
+	my %flag = (
+		'influxdb'       => 'influxdb_active',
+		'telegraf'       => 'telegraf_active',
+		'grafana-server' => 'grafana_active',
+	);
+	foreach my $u ( keys %flag ) {
+		my $v = $Globals::stats4lox->{ $flag{$u} };
+		$unitoff{$u} = 1 if( defined $v and is_disabled( $v ) );
+	}
+}
 
 {
-	my (@down, @up);
+	my (@down, @up, @off);
 	my %procs = (
-		'InfluxDB' => '/usr/bin/influxd',
-		'Telegraf' => '/usr/bin/telegraf',
-		'Grafana'  => '/usr/share/grafana/bin/grafana',
+		'InfluxDB' => [ '/usr/bin/influxd',               'influxdb' ],
+		'Telegraf' => [ '/usr/bin/telegraf',              'telegraf' ],
+		'Grafana'  => [ '/usr/share/grafana/bin/grafana', 'grafana-server' ],
 	);
 	foreach my $name ( sort keys %procs ) {
-		my $pid = `pgrep -f $procs{$name} 2>/dev/null`;
-		chomp $pid;
-		$pid =~ s/\s+.*//s;
-		if( $pid ) { push @up, "$name (PID $pid)" } else { push @down, $name }
+		my ($bin, $unit) = @{ $procs{$name} };
+		my $pid = pid_of( $bin );
+		if( $pid )               { push @up, "$name (PID $pid)" }
+		elsif( $unitoff{$unit} ) { push @off, $name }
+		else                     { push @down, $name }
 	}
 
 	# mqttlive is the plugin's own and can be switched off on purpose
-	my $mqttoff = 0;
 	if( is_disabled( $Globals::stats4lox->{mqttlive_active} ) ) {
-		$mqttoff = 1;
+		push @off, 'MQTT Live';
 	}
 	else {
-		my $pid = `pgrep -f mqttlive.php 2>/dev/null`;
-		chomp $pid;
-		$pid =~ s/\s+.*//s;
+		my $pid = pid_of( 'mqttlive.php' );
 		if( $pid ) { push @up, "MQTT Live (PID $pid)" } else { push @down, 'MQTT Live' }
 	}
 
 	detail( "Services" );
 	detail( "  running: ", join( ", ", @up ) ) if( @up );
 	detail( "  NOT running: ", join( ", ", @down ) ) if( @down );
-	detail( "  MQTT Live is switched off in the settings" ) if( $mqttoff );
+	detail( "  switched off: ", join( ", ", @off ) ) if( @off );
 
-	if( @down ) { area( 'Services', 3, join( ", ", @down ) . " not running" ) }
-	else        { area( 'Services', 5, $mqttoff ? "MQTT Live off" : undef ) }
+	if( @down )   { area( 'Services', 3, join( ", ", @down ) . " not running" ) }
+	elsif( !@up ) { area( 'Services', 6, "all switched off" ) }
+	else          { area( 'Services', 5, @off ? join( ", ", @off ) . " off" : undef ) }
 }
 
 #############################################################################
@@ -194,7 +228,11 @@ my $influx_ok = 0;
 	detail( "Database" );
 	detail( "  URL: $url" );
 
-	if( $code !~ /^20/ ) {
+	if( $code !~ /^20/ and $unitoff{influxdb} ) {
+		detail( "  InfluxDB is switched off - not checked" );
+		area( 'Database', 6, "switched off" );
+	}
+	elsif( $code !~ /^20/ ) {
 		detail( "  /ping answered HTTP $code" );
 		area( 'Database', 3, "no answer, HTTP $code" );
 	}
@@ -411,7 +449,16 @@ my $statsjson;
 		push @short, "$active active" if( $status == 5 );
 	}
 
-	area( 'Grabber', $status, join( ", ", @short ) );
+	# Telegraf is what calls the grabber. Switched off, it does not run, and what
+	# stats.json says about failures is the state of the last run - in the log,
+	# but nothing to raise an alarm over.
+	if( $unitoff{telegraf} ) {
+		detail( "  Telegraf is switched off, so the grabber is not called - the above is not rated" );
+		area( 'Grabber', 6, "off, Telegraf switched off" );
+	}
+	else {
+		area( 'Grabber', $status, join( ", ", @short ) );
+	}
 }
 
 #############################################################################

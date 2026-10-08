@@ -675,8 +675,31 @@ for s4l_pair in "influxdb:influxdb" "telegraf:telegraf" "grafana-server:grafana"
 done
 systemctl daemon-reload
 
+# The Start/Stop buttons on the plugin's start page keep a flag per service in
+# stats4lox.json (influxdb_active, telegraf_active, grafana_active). A service the
+# user stopped there stays stopped across an upgrade. No flag at all means an
+# installation from before the flags: those services are meant to run, and the
+# flag is written as True at the end. The config is already restored here.
+s4l_flag_off() {
+	local v
+	v=$(jq -r ".stats4lox.$1 // \"True\"" "$PCONFIG/stats4lox.json" 2>/dev/null)
+	case "${v,,}" in
+		false|no|off|0|disabled) return 0 ;;
+		*)                       return 1 ;;
+	esac
+}
+S4L_OFF_INFLUXDB=0; s4l_flag_off influxdb_active && S4L_OFF_INFLUXDB=1
+S4L_OFF_TELEGRAF=0; s4l_flag_off telegraf_active && S4L_OFF_TELEGRAF=1
+S4L_OFF_GRAFANA=0;  s4l_flag_off grafana_active  && S4L_OFF_GRAFANA=1
+
 # Activate InfluxDB service and start
+#
+# Even when the user switched it off: the migrations further down need a running
+# database. It is stopped and disabled again at the very end.
 echo "<INFO> Starting InfluxDB..."
+if [ $S4L_OFF_INFLUXDB -eq 1 ]; then
+	echo "<INFO> InfluxDB is switched off in the plugin - it runs for the installation only and is stopped again at the end."
+fi
 systemctl unmask influxdb.service
 systemctl enable --now influxdb
 systemctl daemon-reload
@@ -874,15 +897,23 @@ chown telegraf:loxberry "$PLOG/telegraf.log" > /dev/null 2>&1
 chmod 664 "$PLOG/telegraf.log" > /dev/null 2>&1
 
 # Telegraf mit neuer Config starten
-echo "<INFO> Starting Telegraf..."
 systemctl unmask telegraf.service
-systemctl enable --now telegraf
-systemctl daemon-reload
-systemctl start telegraf
-sleep 3
+if [ $S4L_OFF_TELEGRAF -eq 1 ]; then
+	echo "<INFO> Telegraf is switched off in the plugin - not started."
+	systemctl stop telegraf > /dev/null 2>&1
+	systemctl disable telegraf > /dev/null 2>&1
+else
+	echo "<INFO> Starting Telegraf..."
+	systemctl enable --now telegraf
+	systemctl daemon-reload
+	systemctl start telegraf
+	sleep 3
+fi
 
 # Check status
-if ! systemctl is-active --quiet telegraf; then
+if [ $S4L_OFF_TELEGRAF -eq 1 ]; then
+	:
+elif ! systemctl is-active --quiet telegraf; then
 	s4l_service_failed telegraf
 	echo "<FAIL> A common cause is an option in a telegraf.d/*.conf drop-in that"
 	echo "<FAIL> the installed Telegraf version does not know any more."
@@ -985,15 +1016,23 @@ if [ -f "$S4L_GRAFANA_INI" ] \
 fi
 
 # Activate Grafana
-echo "<INFO> Starting Grafana..."
-systemctl enable --now grafana-server
-systemctl daemon-reload
-systemctl start grafana-server
-sleep 5
+if [ $S4L_OFF_GRAFANA -eq 1 ]; then
+	echo "<INFO> Grafana is switched off in the plugin - not started."
+	systemctl stop grafana-server > /dev/null 2>&1
+	systemctl disable grafana-server > /dev/null 2>&1
+else
+	echo "<INFO> Starting Grafana..."
+	systemctl enable --now grafana-server
+	systemctl daemon-reload
+	systemctl start grafana-server
+	sleep 5
+fi
 
 # Check status. This check was missing completely before, so a Grafana that
 # refused to start was reported as a successful installation.
-if ! systemctl is-active --quiet grafana-server; then
+if [ $S4L_OFF_GRAFANA -eq 1 ]; then
+	:
+elif ! systemctl is-active --quiet grafana-server; then
 	s4l_service_failed grafana-server
 	echo "<FAIL> A common cause is an option in grafana.ini that the installed"
 	echo "<FAIL> Grafana version does not know any more, or an invalid file in"
@@ -1001,6 +1040,20 @@ if ! systemctl is-active --quiet grafana-server; then
 	exit 2
 else
 	echo "<OK> Grafana service is running."
+fi
+
+# Writes the flags the Start/Stop buttons keep, where they are missing - an
+# upgrade from a version before them, or a fresh installation. Those services
+# were just started, so the flags say True. A flag that is already there is the
+# user's choice and stays as it is. Without them the healthcheck could not tell
+# a stopped service from a switched-off one.
+if jq '.stats4lox.influxdb_active //= "True" | .stats4lox.telegraf_active //= "True" | .stats4lox.grafana_active //= "True"' \
+	"$PCONFIG/stats4lox.json" > "$PCONFIG/stats4lox.json.new" 2>/dev/null && [ -s "$PCONFIG/stats4lox.json.new" ]; then
+	mv "$PCONFIG/stats4lox.json.new" "$PCONFIG/stats4lox.json"
+	chown loxberry:loxberry "$PCONFIG/stats4lox.json"
+else
+	rm -f "$PCONFIG/stats4lox.json.new"
+	echo "<WARNING> Could not update stats4lox.json - the healthcheck may report a running service as an error when it stops."
 fi
 
 # Start/Stop MQTT Live Service
@@ -1018,6 +1071,13 @@ if [ $UPGRADE -eq "1" ]; then
 	$PBIN/s4linflux -execute "SHOW USERS"
 	echo "<INFO> Existing databases (gives an error if we have wrong credentials):"
 	$PBIN/s4linflux -execute "SHOW DATABASES"
+fi
+
+# InfluxDB ran for the installation only - back to what the user chose
+if [ $S4L_OFF_INFLUXDB -eq 1 ]; then
+	echo "<INFO> InfluxDB is switched off in the plugin - stopping it again."
+	systemctl stop influxdb > /dev/null 2>&1
+	systemctl disable influxdb > /dev/null 2>&1
 fi
 
 exit 0
