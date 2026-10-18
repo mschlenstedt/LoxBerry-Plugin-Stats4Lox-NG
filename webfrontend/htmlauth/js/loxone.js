@@ -604,12 +604,21 @@ function consolidateLoxPlan( data ) {
 	// localeCompare because these are names a user reads, and a plain sort() would
 	// put umlauts behind Z.
 	pages_used = [ ...new Set(
-		Object.values( pages || {} ).concat( controls.map( c => c.Page ) ).filter( p => p )
+		Object.values( pages || {} ).concat( controls.flatMap( c => controlPages( c ) ) ).filter( p => p )
 	) ];
 	pages_used.sort( ( a, b ) => a.localeCompare( b ) );
 
 	generateFilter();
-	
+
+}
+
+// All pages a block appears on. An input or output reaches a page only through
+// a reference placed there, possibly on several pages - the parser lists them in
+// Pages. Page alone is what an ms<n>.json from before that knows, and what the
+// orphaned statistics carry.
+function controlPages( control ) {
+	if( Array.isArray( control.Pages ) ) return control.Pages;
+	return control.Page ? [ control.Page ] : [];
 }
 
 function generateFilter() {
@@ -1069,13 +1078,15 @@ function createTableBody() {
 		
 		// Page filter (issue #20)
 		// __nopage__ catches everything that sits on no page: the inputs and
-		// outputs from the peripheral tree, and the orphaned statistics that only
-		// exist in stats.json and therefore have no page either.
+		// outputs that are not referenced on any page, and the orphaned
+		// statistics that only exist in stats.json and therefore have no page
+		// either.
 		if( typeof filters["filter_page"] !== "undefined" && filters["filter_page"] != "all" ) {
+			var elementPages = controlPages( element );
 			if( filters["filter_page"] == "__nopage__" ) {
-				if( element.Page ) continue;
+				if( elementPages.length ) continue;
 			}
-			else if( filters["filter_page"] != element.Page ) continue;
+			else if( !elementPages.includes( filters["filter_page"] ) ) continue;
 		}
 
 		// Element filter
@@ -1405,7 +1416,9 @@ function popupLoxoneDetails( uid, msno ) {
 	$("#LoxoneDetails_miniserver").text(miniservers[control.msno].Name+' ('+control.msno+')');
 	
 	$("#LoxoneDetails_pagelabel").text(loxone_elements['PAGE'].localname);
-	$("#LoxoneDetails_page").html( control.Page ? control.Page : "&nbsp;" );
+	var detailPages = controlPages( control );
+	if( detailPages.length ) $("#LoxoneDetails_page").text( detailPages.join( ", " ) );
+	else $("#LoxoneDetails_page").html( "&nbsp;" );
 
 	// Status blocks get a warning about their state texts (issue #20). The
 	// Miniserver only reports the text of the active state, so the state - and

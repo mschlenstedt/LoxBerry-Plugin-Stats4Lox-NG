@@ -265,7 +265,10 @@ sub loxplanjson_incomplete
 	my $complete = 0;
 	eval {
 		my $j = decode_json( LoxBerry::System::read_file($file) );
-		$complete = ( ref($j->{pages}) eq 'HASH' ) ? 1 : 0;
+		# Pages per block came later (inputs and outputs reach a page only
+		# through a reference) - a file without it needs one rebuild as well.
+		my ($first) = values %{ $j->{controls} || {} };
+		$complete = ( ref($j->{pages}) eq 'HASH' and ( !$first or exists $first->{Pages} ) ) ? 1 : 0;
 	};
 	return $complete ? 0 : 1;
 }
