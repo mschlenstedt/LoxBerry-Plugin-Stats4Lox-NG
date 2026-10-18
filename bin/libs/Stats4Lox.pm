@@ -650,7 +650,7 @@ sub linfo_metric_values
 # Returns a number or undef. undef means "this machine does not report it" - the
 # field is then left out instead of being written as 0, which would be a
 # measurement nobody made. That is not an edge case here: Temps is empty on an
-# x86 machine, and /opt/loxberry/log/ramlog only exists on a Pi.
+# x86 machine, and the ramlog below the LoxBerry log folder only exists on a Pi.
 sub linfo_pick
 {
 	my ($m, $doc) = @_;

@@ -453,10 +453,10 @@ our @LOXBERRY_METRICS = (
 	{ key => 'disk_root_used',         pick => 'mount', mount => '/', field => 'used',         group => 'DISK', default => 0 },
 	{ key => 'disk_root_used_percent', pick => 'mount', mount => '/', field => 'used_percent', group => 'DISK', default => 1 },
 	# The two ramdisks a LoxBerry has, and which one carries the logs depends on
-	# the machine: /var/log on the x86 installation, /opt/loxberry/log/ramlog on
-	# the Pi. Both are offered; the one that does not exist writes nothing.
+	# the machine: /var/log on the x86 installation, log/ramlog below the LoxBerry
+	# home on the Pi. Both are offered; the one that does not exist writes nothing.
 	{ key => 'disk_varlog_used_percent', pick => 'mount', mount => '/var/log',                 field => 'used_percent', group => 'DISK', default => 0 },
-	{ key => 'disk_ramlog_used_percent', pick => 'mount', mount => '/opt/loxberry/log/ramlog', field => 'used_percent', group => 'DISK', default => 0 },
+	{ key => 'disk_ramlog_used_percent', pick => 'mount', mount => "$LoxBerry::System::lbhomedir/log/ramlog", field => 'used_percent', group => 'DISK', default => 0 },
 	{ key => 'disk_shm_used_percent',    pick => 'mount', mount => '/dev/shm',                 field => 'used_percent', group => 'DISK', default => 0 },
 
 	# Summed over every interface except the loopback. Which one exists is up to

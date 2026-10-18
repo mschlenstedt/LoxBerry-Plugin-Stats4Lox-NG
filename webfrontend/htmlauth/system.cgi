@@ -53,7 +53,10 @@ my $jsonobj = LoxBerry::JSON->new();
 my $cfg = $jsonobj->open(filename => $cfgfile);
 
 # Form preparation
-$template->param( 'INFLUX_STORAGE_PATH',  LoxBerry::Storage::get_storage_html( formid => 'influxstoragepath', custom_folder => 1, readwriteonly => 1, show_browse => 1, data_mini => 1, type_all => 1, currentpath => $cfg->{'influx'}->{'db_storage'} ) );
+# Where InfluxDB keeps its data as long as nobody moved it - the form falls back
+# to it when the config has no path yet.
+$template->param( 'INFLUX_STORAGE_DEFAULT', "$lbpdatadir/influxdb" );
+$template->param( 'INFLUX_STORAGE_PATH', LoxBerry::Storage::get_storage_html( formid => 'influxstoragepath', custom_folder => 1, readwriteonly => 1, show_browse => 1, data_mini => 1, type_all => 1, currentpath => $cfg->{'influx'}->{'db_storage'} ) );
 
 # The flipswitch has to come out of the page already in the right position -
 # jQuery Mobile builds it from the checkbox when the page is created, so setting

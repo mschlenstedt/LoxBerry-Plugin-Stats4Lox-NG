@@ -1963,7 +1963,7 @@ function getconfig() {
 		if(data.influx.db_storage) {
 			$('#influxstoragepath').val(data.influx.db_storage);
 		} else {
-			$("#influxstoragepath").val('/opt/loxberry/data/plugins/stats4lox/influxdb');
+			$("#influxstoragepath").val('<TMPL_VAR INFLUX_STORAGE_DEFAULT ESCAPE=JS>');
 		}
 	})
 	.always(function( data ) {
